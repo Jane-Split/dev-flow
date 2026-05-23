@@ -139,7 +139,8 @@ test:
 async function registerSkill(projectRoot: string, aiTools: string[]): Promise<void> {
   logger.info(`注册技能到 AI 工具...`);
   try {
-    const skillTemplatesDir = resolveProjectRoot();
+    // 获取 dev-flow 包自身的目录（而不是用户项目目录）
+    const devFlowPackageDir = path.resolve(new URL(import.meta.url).pathname, '../../..');
     const installedTools: string[] = [];
 
     // 总是安装到所有支持的工具（创建目录并复制文件）
@@ -147,25 +148,25 @@ async function registerSkill(projectRoot: string, aiTools: string[]): Promise<vo
       {
         name: 'cursor',
         dir: path.join(projectRoot, '.cursor', 'commands'),
-        src: path.join(skillTemplatesDir, 'skill-templates', 'cursor', 'dev-flow.md'),
+        src: path.join(devFlowPackageDir, 'skill-templates', 'cursor', 'dev-flow.md'),
         dest: path.join(projectRoot, '.cursor', 'commands', 'dev-flow.md'),
       },
       {
         name: 'trae',
         dir: path.join(projectRoot, '.trae', 'skills'),
-        src: path.join(skillTemplatesDir, 'skill-templates', 'trae', 'SKILL.md'),
+        src: path.join(devFlowPackageDir, 'skill-templates', 'trae', 'SKILL.md'),
         dest: path.join(projectRoot, '.trae', 'skills', 'dev-flow.md'),
       },
       {
         name: 'claude',
         dir: path.join(projectRoot, '.claude', 'commands'),
-        src: path.join(skillTemplatesDir, 'skill-templates', 'claude', 'dev-flow.md'),
+        src: path.join(devFlowPackageDir, 'skill-templates', 'claude', 'dev-flow.md'),
         dest: path.join(projectRoot, '.claude', 'commands', 'dev-flow.md'),
       },
       {
         name: 'qoder',
         dir: path.join(projectRoot, '.qoder', 'commands'),
-        src: path.join(skillTemplatesDir, 'skill-templates', 'qoder', 'dev-flow.md'),
+        src: path.join(devFlowPackageDir, 'skill-templates', 'qoder', 'dev-flow.md'),
         dest: path.join(projectRoot, '.qoder', 'commands', 'dev-flow.md'),
       },
     ];
@@ -175,10 +176,16 @@ async function registerSkill(projectRoot: string, aiTools: string[]): Promise<vo
       if (await fileExists(tool.src)) {
         await copyFile(tool.src, tool.dest);
         installedTools.push(tool.name);
+      } else {
+        logger.warn(`源文件不存在: ${tool.src}`);
       }
     }
 
-    logger.success(`已安装技能到: ${installedTools.join(', ')}`);
+    if (installedTools.length > 0) {
+      logger.success(`已安装技能到: ${installedTools.join(', ')}`);
+    } else {
+      logger.warn('未能安装任何技能文件');
+    }
     logger.info('提示: 如果使用的AI工具未列出，手动复制上述文件到对应目录即可');
   } catch (error) {
     logger.error('技能注册失败');
