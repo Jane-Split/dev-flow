@@ -5,16 +5,20 @@ export interface OrchestratorContext {
     sessionId: string;
 }
 export interface ExecutionOptions {
-    stage?: 'research' | 'analyze' | 'design' | 'plan' | 'develop' | 'test' | 'fix';
+    stage?: 'research' | 'architecture' | 'analyze' | 'design' | 'plan' | 'develop' | 'test' | 'fix' | 'hotfix';
     requirement?: string;
     refresh?: boolean;
+    resume?: boolean;
     onStageComplete?: (stage: string, result: any) => Promise<boolean>;
 }
 export declare class Orchestrator {
     private context;
     private results;
+    private sessionManager;
+    private reporter;
     constructor(context: OrchestratorContext);
     execute(options: ExecutionOptions): Promise<void>;
+    private resumeSession;
     private executeStage;
     private executeFullFlow;
     private confirmStage;

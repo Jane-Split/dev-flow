@@ -2,6 +2,7 @@ import { FrontendExpert } from './frontend-expert.js';
 import { BackendExpert } from './backend-expert.js';
 import { DBExpert } from './db-expert.js';
 import { TestExpert } from './test-expert.js';
+import { AlgorithmExpert } from './algorithm-expert.js';
 export class ExpertRegistry {
     experts = [];
     context;
@@ -14,6 +15,7 @@ export class ExpertRegistry {
         this.experts.push(new BackendExpert(this.context));
         this.experts.push(new DBExpert(this.context));
         this.experts.push(new TestExpert(this.context));
+        this.experts.push(new AlgorithmExpert(this.context));
     }
     register(expert) {
         this.experts.push(expert);
