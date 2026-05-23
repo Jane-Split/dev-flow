@@ -1,0 +1,1 @@
+{"version":3,"file":"style-scanner.d.ts","sourceRoot":"","sources":["../../src/scanners/style-scanner.ts"],"names":[],"mappings":"AAEA,OAAO,KAAK,EAAE,WAAW,EAA4B,MAAM,oBAAoB,CAAC;AAUhF,qBAAa,YAAY;IACvB,OAAO,CAAC,WAAW,CAAS;gBAEhB,WAAW,EAAE,MAAM;IAIzB,IAAI,IAAI,OAAO,CAAC,WAAW,CAAC;YAYpB,cAAc;YAqCd,YAAY;IA8B1B,OAAO,CAAC,WAAW;YAcL,aAAa;IAwB3B,OAAO,CAAC,cAAc;CAkBvB"}
