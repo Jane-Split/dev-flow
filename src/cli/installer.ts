@@ -164,9 +164,9 @@ async function registerSkill(projectRoot: string, aiTools: string[]): Promise<vo
       },
       {
         name: 'trae',
-        dir: path.join(projectRoot, '.trae', 'skills'),
+        dir: path.join(projectRoot, '.trae', 'skills', 'dev-flow'),
         src: path.join(devFlowPackageDir, 'skill-templates', 'trae', 'SKILL.md'),
-        dest: path.join(projectRoot, '.trae', 'skills', 'dev-flow.md'),
+        dest: path.join(projectRoot, '.trae', 'skills', 'dev-flow', 'SKILL.md'),
       },
       {
         name: 'claude',
