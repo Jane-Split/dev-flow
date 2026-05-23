@@ -1,7 +1,7 @@
 # dev-flow
 
 [![npm version](https://img.shields.io/npm/v/dev-flow.svg)](https://www.npmjs.com/package/dev-flow)
-[![license](https://img.shields.io/npm/l/dev-flow.svg)](https://github.com/your-username/dev-flow/blob/main/LICENSE)
+[![license](https://img.shields.io/npm/l/dev-flow.svg)](https://github.com/Jane-Split/dev-flow/blob/main/LICENSE)
 [![node](https://img.shields.io/node/v/dev-flow.svg)](https://nodejs.org)
 
 AI 开发全流程自动化 Agent 技能系统，支持 Cursor、Trae、Qoder、Claude Code 等 AI 编程工具。
@@ -36,22 +36,22 @@ npx dev-flow install
 
 ```bash
 # npx 直接运行
-npx your-username/dev-flow
+npx Jane-Split/dev-flow
 
 # 安装到项目
-npm install your-username/dev-flow --save-dev
+npm install Jane-Split/dev-flow --save-dev
 
 # 指定版本/分支
-npm install your-username/dev-flow#v0.1.0 --save-dev
+npm install Jane-Split/dev-flow#v0.1.0 --save-dev
 
 # 通过 SSH（私有仓库）
-npm install git+ssh://git@github.com:your-username/dev-flow.git --save-dev
+npm install git+ssh://git@github.com:Jane-Split/dev-flow.git --save-dev
 ```
 
 ### 方式三：从源码安装
 
 ```bash
-git clone https://github.com/your-username/dev-flow.git
+git clone https://github.com/Jane-Split/dev-flow.git
 cd dev-flow
 npm install
 npm run build
@@ -222,10 +222,10 @@ npm publish --tag next
 
 ```bash
 # 1. 在 package.json 中修改 name
-# "name": "@your-username/dev-flow"
+# "name": "@Jane-Split/dev-flow"
 
 # 2. 创建 .npmrc 文件
-echo "@your-username:registry=https://npm.pkg.github.com" > .npmrc
+echo "@Jane-Split:registry=https://npm.pkg.github.com" > .npmrc
 
 # 3. 发布
 npm publish
@@ -242,11 +242,11 @@ npm install dev-flow --save-dev
 npx dev-flow
 
 # GitHub Packages
-npm install @your-username/dev-flow --save-dev
+npm install @Jane-Split/dev-flow --save-dev
 
 # 直接从 GitHub 仓库安装（无需发布到 npm）
-npm install your-username/dev-flow --save-dev
-npx your-username/dev-flow
+npm install Jane-Split/dev-flow --save-dev
+npx Jane-Split/dev-flow
 ```
 
 ### 版本管理
