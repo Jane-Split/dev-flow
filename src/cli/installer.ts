@@ -1,6 +1,7 @@
 // src/cli/installer.ts
 import path from 'node:path';
 import fs from 'node:fs/promises';
+import { fileURLToPath } from 'node:url';
 import { logger } from '../utils/logger.js';
 import { ensureDir, fileExists, readText, writeText, copyFile, resolveProjectRoot } from '../utils/fs-utils.js';
 
@@ -91,8 +92,11 @@ async function createDirectories(projectRoot: string): Promise<void> {
 async function copyConfig(projectRoot: string): Promise<void> {
   logger.info('生成配置文件...');
   try {
-    // 读取模板并写入配置
-    const templatePath = path.join(resolveProjectRoot(), 'templates', 'config.yaml');
+    // 读取模板并写入配置（使用 dev-flow 包自身的目录）
+    const __filename = fileURLToPath(import.meta.url);
+    const __dirname = path.dirname(__filename);
+    const devFlowPackageDir = path.resolve(__dirname, '../../..');
+    const templatePath = path.join(devFlowPackageDir, 'templates', 'config.yaml');
     const destPath = path.join(projectRoot, CONFIG_FILE);
 
     if (await fileExists(templatePath)) {
@@ -140,7 +144,10 @@ async function registerSkill(projectRoot: string, aiTools: string[]): Promise<vo
   logger.info(`注册技能到 AI 工具...`);
   try {
     // 获取 dev-flow 包自身的目录（而不是用户项目目录）
-    const devFlowPackageDir = path.resolve(new URL(import.meta.url).pathname, '../../..');
+    // 使用 fileURLToPath 正确处理 Windows 路径
+    const __filename = fileURLToPath(import.meta.url);
+    const __dirname = path.dirname(__filename);
+    const devFlowPackageDir = path.resolve(__dirname, '../../..');
     const installedTools: string[] = [];
 
     // 总是安装到所有支持的工具（创建目录并复制文件）
