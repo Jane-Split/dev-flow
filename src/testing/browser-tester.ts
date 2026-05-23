@@ -1,0 +1,182 @@
+// src/testing/browser-tester.ts
+// Playwright 是可选依赖，这里使用类型断言避免类型错误
+
+export interface BrowserTestConfig {
+  url: string;
+  actions: BrowserAction[];
+  assertions: BrowserAssertion[];
+}
+
+export interface BrowserAction {
+  type: 'click' | 'type' | 'select' | 'wait' | 'navigate';
+  selector?: string;
+  value?: string;
+  timeout?: number;
+}
+
+export interface BrowserAssertion {
+  type: 'visible' | 'text' | 'url' | 'title';
+  selector?: string;
+  expected?: string;
+}
+
+export interface BrowserTestResult {
+  passed: boolean;
+  screenshot?: string;
+  error?: string;
+  duration: number;
+}
+
+// 定义 Playwright 类型的简化版本
+type Page = {
+  goto: (url: string) => Promise<void>;
+  click: (selector: string) => Promise<void>;
+  fill: (selector: string, value: string) => Promise<void>;
+  selectOption: (selector: string, value: string) => Promise<void>;
+  waitForTimeout: (timeout: number) => Promise<void>;
+  isVisible: (selector: string) => Promise<boolean>;
+  textContent: (selector: string) => Promise<string | null>;
+  url: () => string;
+  title: () => Promise<string>;
+  screenshot: (options: { encoding: 'base64' }) => Promise<string>;
+};
+
+type Browser = {
+  newPage: () => Promise<Page>;
+  close: () => Promise<void>;
+};
+
+export class BrowserTester {
+  private projectRoot: string;
+
+  constructor(projectRoot: string) {
+    this.projectRoot = projectRoot;
+  }
+
+  async runTest(config: BrowserTestConfig): Promise<BrowserTestResult> {
+    const startTime = Date.now();
+
+    try {
+      // 动态导入playwright（可选依赖）
+      let playwrightModule: any;
+      try {
+        // 使用 require 风格的动态导入避免类型检查
+        playwrightModule = await eval("import('playwright')");
+      } catch {
+        return {
+          passed: false,
+          error: 'Playwright未安装，请运行: npm install playwright',
+          duration: Date.now() - startTime,
+        };
+      }
+      const chromium = playwrightModule.chromium;
+      
+      if (!chromium) {
+        return {
+          passed: false,
+          error: 'Playwright未安装，请运行: npm install playwright',
+          duration: Date.now() - startTime,
+        };
+      }
+      
+      const browser: Browser = await chromium.launch({ headless: true });
+      const page = await browser.newPage();
+
+      try {
+        // 导航到页面
+        await page.goto(config.url);
+
+        // 执行操作
+        for (const action of config.actions) {
+          await this.executeAction(page, action);
+        }
+
+        // 验证断言
+        for (const assertion of config.assertions) {
+          const passed = await this.verifyAssertion(page, assertion);
+          if (!passed) {
+            throw new Error(`断言失败: ${assertion.type}`);
+          }
+        }
+
+        // 截图
+        const screenshot = await page.screenshot({ encoding: 'base64' });
+
+        await browser.close();
+
+        return {
+          passed: true,
+          screenshot: `data:image/png;base64,${screenshot}`,
+          duration: Date.now() - startTime,
+        };
+      } catch (error) {
+        const screenshot = await page.screenshot({ encoding: 'base64' });
+        await browser.close();
+
+        return {
+          passed: false,
+          screenshot: `data:image/png;base64,${screenshot}`,
+          error: String(error),
+          duration: Date.now() - startTime,
+        };
+      }
+    } catch (error) {
+      return {
+        passed: false,
+        error: `Playwright未安装或启动失败: ${error}`,
+        duration: Date.now() - startTime,
+      };
+    }
+  }
+
+  private async executeAction(page: Page, action: BrowserAction): Promise<void> {
+    switch (action.type) {
+      case 'click':
+        if (action.selector) {
+          await page.click(action.selector);
+        }
+        break;
+      case 'type':
+        if (action.selector && action.value) {
+          await page.fill(action.selector, action.value);
+        }
+        break;
+      case 'select':
+        if (action.selector && action.value) {
+          await page.selectOption(action.selector, action.value);
+        }
+        break;
+      case 'wait':
+        await page.waitForTimeout(action.timeout || 1000);
+        break;
+      case 'navigate':
+        if (action.value) {
+          await page.goto(action.value);
+        }
+        break;
+    }
+  }
+
+  private async verifyAssertion(page: Page, assertion: BrowserAssertion): Promise<boolean> {
+    switch (assertion.type) {
+      case 'visible':
+        if (assertion.selector) {
+          return page.isVisible(assertion.selector);
+        }
+        return false;
+      case 'text':
+        if (assertion.selector && assertion.expected) {
+          const text = await page.textContent(assertion.selector);
+          return text?.includes(assertion.expected) || false;
+        }
+        return false;
+      case 'url':
+        return page.url().includes(assertion.expected || '');
+      case 'title':
+        const title = await page.title();
+        return title.includes(assertion.expected || '');
+      default:
+        return false;
+    }
+  }
+}

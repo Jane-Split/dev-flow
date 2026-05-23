@@ -1,0 +1,26 @@
+# templates/config.yaml
+name: dev-flow
+version: 0.1.0
+
+# 项目配置
+project:
+  techStack: auto-detect
+  conventions: auto-detect
+
+# Agent配置
+agents:
+  maxParallel: 3
+  timeout: 300000
+  retryCount: 2
+
+# 记忆配置
+memory:
+  autoLearn: true
+  vectorSearch: true
+  maxContextTokens: 100000
+
+# 测试配置
+test:
+  browser: playwright
+  unitTest: vitest
+  coverage: true

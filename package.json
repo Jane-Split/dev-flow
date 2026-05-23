@@ -1,0 +1,59 @@
+{
+  "name": "dev-flow",
+  "version": "0.1.0",
+  "description": "AI开发全流程自动化Agent技能系统",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "bin": {
+    "dev-flow": "./bin/dev-flow.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "eslint src/",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "ai",
+    "coding",
+    "agent",
+    "dev-flow",
+    "cursor",
+    "trae",
+    "qoder",
+    "claude"
+  ],
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "files": [
+    "dist",
+    "bin",
+    "templates",
+    "skill-templates",
+    "SKILL.md",
+    "README.md"
+  ],
+  "dependencies": {
+    "better-sqlite3": "^9.4.0",
+    "chalk": "^5.3.0",
+    "chokidar": "^3.5.0",
+    "commander": "^12.0.0",
+    "glob": "^10.3.0",
+    "inquirer": "^9.2.0",
+    "ora": "^8.0.0",
+    "yaml": "^2.3.0"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.8",
+    "@types/inquirer": "^9.0.9",
+    "@types/node": "^20.11.0",
+    "eslint": "^8.57.0",
+    "typescript": "^5.4.0",
+    "vitest": "^1.4.0"
+  }
+}
