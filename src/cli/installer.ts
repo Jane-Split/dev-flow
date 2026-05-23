@@ -140,57 +140,46 @@ async function registerSkill(projectRoot: string, aiTools: string[]): Promise<vo
   logger.info(`注册技能到 AI 工具...`);
   try {
     const skillTemplatesDir = resolveProjectRoot();
+    const installedTools: string[] = [];
 
-    for (const tool of aiTools) {
-      switch (tool) {
-        case 'cursor': {
-          const cursorDir = path.join(projectRoot, '.cursor', 'commands');
-          await ensureDir(cursorDir);
-          const srcPath = path.join(skillTemplatesDir, 'skill-templates', 'cursor', 'dev-flow.md');
-          const destPath = path.join(cursorDir, 'dev-flow.md');
-          if (await fileExists(srcPath)) {
-            await copyFile(srcPath, destPath);
-          }
-          break;
-        }
-        case 'trae': {
-          const traeDir = path.join(projectRoot, '.trae', 'skills', 'dev-flow');
-          await ensureDir(traeDir);
-          const srcPath = path.join(skillTemplatesDir, 'skill-templates', 'trae', 'SKILL.md');
-          const destPath = path.join(traeDir, 'SKILL.md');
-          if (await fileExists(srcPath)) {
-            await copyFile(srcPath, destPath);
-          }
-          break;
-        }
-        case 'claude': {
-          const claudeDir = path.join(projectRoot, '.claude', 'commands');
-          await ensureDir(claudeDir);
-          const srcPath = path.join(skillTemplatesDir, 'skill-templates', 'claude', 'dev-flow.md');
-          const destPath = path.join(claudeDir, 'dev-flow.md');
-          if (await fileExists(srcPath)) {
-            await copyFile(srcPath, destPath);
-          }
-          break;
-        }
-        case 'qoder': {
-          const qoderDir = path.join(projectRoot, '.qoder', 'commands');
-          await ensureDir(qoderDir);
-          const srcPath = path.join(skillTemplatesDir, 'skill-templates', 'qoder', 'dev-flow.md');
-          const destPath = path.join(qoderDir, 'dev-flow.md');
-          if (await fileExists(srcPath)) {
-            await copyFile(srcPath, destPath);
-          }
-          break;
-        }
+    // 总是安装到所有支持的工具（创建目录并复制文件）
+    const tools = [
+      {
+        name: 'cursor',
+        dir: path.join(projectRoot, '.cursor', 'commands'),
+        src: path.join(skillTemplatesDir, 'skill-templates', 'cursor', 'dev-flow.md'),
+        dest: path.join(projectRoot, '.cursor', 'commands', 'dev-flow.md'),
+      },
+      {
+        name: 'trae',
+        dir: path.join(projectRoot, '.trae', 'skills'),
+        src: path.join(skillTemplatesDir, 'skill-templates', 'trae', 'SKILL.md'),
+        dest: path.join(projectRoot, '.trae', 'skills', 'dev-flow.md'),
+      },
+      {
+        name: 'claude',
+        dir: path.join(projectRoot, '.claude', 'commands'),
+        src: path.join(skillTemplatesDir, 'skill-templates', 'claude', 'dev-flow.md'),
+        dest: path.join(projectRoot, '.claude', 'commands', 'dev-flow.md'),
+      },
+      {
+        name: 'qoder',
+        dir: path.join(projectRoot, '.qoder', 'commands'),
+        src: path.join(skillTemplatesDir, 'skill-templates', 'qoder', 'dev-flow.md'),
+        dest: path.join(projectRoot, '.qoder', 'commands', 'dev-flow.md'),
+      },
+    ];
+
+    for (const tool of tools) {
+      await ensureDir(tool.dir);
+      if (await fileExists(tool.src)) {
+        await copyFile(tool.src, tool.dest);
+        installedTools.push(tool.name);
       }
     }
 
-    if (aiTools.includes('unknown')) {
-      logger.warn('未检测到AI编程工具，跳过技能注册');
-    } else {
-      logger.success(`已注册到: ${aiTools.filter(t => t !== 'unknown').join(', ')}`);
-    }
+    logger.success(`已安装技能到: ${installedTools.join(', ')}`);
+    logger.info('提示: 如果使用的AI工具未列出，手动复制上述文件到对应目录即可');
   } catch (error) {
     logger.error('技能注册失败');
     throw error;
