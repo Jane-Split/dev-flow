@@ -1,6 +1,5 @@
 # dev-flow
 
-[![npm version](https://img.shields.io/npm/v/dev-flow.svg)](https://www.npmjs.com/package/dev-flow)
 [![license](https://img.shields.io/npm/l/dev-flow.svg)](https://github.com/Jane-Split/dev-flow/blob/main/LICENSE)
 [![node](https://img.shields.io/node/v/dev-flow.svg)](https://nodejs.org)
 
@@ -18,37 +17,23 @@ AI 开发全流程自动化 Agent 技能系统，支持 Cursor、Trae、Qoder、
 - 🧪 **测试体系** - 自动生成并执行单元测试、API 测试、E2E 测试
 - 📚 **学习能力** - 从用户反馈中学习，越用越智能
 - 🔧 **多工具支持** - Cursor、Trae、Qoder、Claude Code
+- 🖥️ **跨平台** - 纯 JavaScript 实现，无需 C++ 编译环境
 
 ## 安装
 
-### 方式一：npm 安装（推荐）
+### 方式一：通过 GitHub 安装（推荐）
 
 ```bash
-# 全局安装
-npm install -g dev-flow
+# 1. 安装到项目
+npm install Jane-Split/dev-flow --save-dev
 
-# 项目级安装
-npm install --save-dev dev-flow
+# 2. 执行安装（生成 skill 文件和配置）
 npx dev-flow install
 ```
 
-### 方式二：通过 GitHub 安装
+> **注意**：必须执行 `npx dev-flow install`，它会自动在项目中生成 `.trae/skills/`、`.cursor/commands/` 等 skill 文件。
 
-```bash
-# npx 直接运行
-npx Jane-Split/dev-flow
-
-# 安装到项目
-npm install Jane-Split/dev-flow --save-dev
-
-# 指定版本/分支
-npm install Jane-Split/dev-flow#v0.1.0 --save-dev
-
-# 通过 SSH（私有仓库）
-npm install git+ssh://git@github.com:Jane-Split/dev-flow.git --save-dev
-```
-
-### 方式三：从源码安装
+### 方式二：从源码安装
 
 ```bash
 git clone https://github.com/Jane-Split/dev-flow.git
@@ -58,20 +43,27 @@ npm run build
 npm link
 ```
 
+### 方式三：通过 SSH 安装（私有仓库）
+
+```bash
+npm install git+ssh://git@github.com:Jane-Split/dev-flow.git --save-dev
+npx dev-flow install
+```
+
 ## 快速开始
 
 ```bash
-# 1. 安装
-npm install -g dev-flow
-
-# 2. 在项目中初始化
+# 1. 进入你的项目
 cd your-project
-dev-flow install
 
-# 3. 在 AI 工具中使用
+# 2. 安装 dev-flow
+npm install Jane-Split/dev-flow --save-dev
+
+# 3. 执行安装脚本
+npx dev-flow install
 ```
 
-在 Cursor / Trae / Qoder / Claude Code 的输入框中输入：
+安装完成后，在 Cursor / Trae / Qoder / Claude Code 的输入框中输入：
 
 ```
 /dev-flow 实现用户登录功能，包含表单验证和记住密码
@@ -103,28 +95,29 @@ AI 将按 7 个阶段逐步执行，每个阶段完成后等待你确认。
 ### CLI 命令
 
 ```bash
-dev-flow install              # 安装到当前项目
-dev-flow run "需求描述"       # 执行全流程
-dev-flow run -s research      # 执行指定阶段
-dev-flow --help               # 查看帮助
+npx dev-flow install             # 安装 skill 文件到当前项目
+npx dev-flow run "需求描述"      # 执行全流程
+npx dev-flow run -s research     # 执行指定阶段
+npx dev-flow --help              # 查看帮助
 ```
 
 ## 支持的 AI 工具
 
-| 工具 | 配置文件位置 | 安装命令 |
-|------|-------------|---------|
-| Cursor | `.cursor/commands/dev-flow.md` | `dev-flow install` |
-| Trae | `.trae/skills/dev-flow.md` | `dev-flow install` |
-| Qoder | `.qoder/commands/dev-flow.md` | `dev-flow install` |
-| Claude Code | `.claude/commands/dev-flow.md` | `dev-flow install` |
+执行 `npx dev-flow install` 后，会自动在项目中生成以下 skill 文件：
+
+| 工具 | 生成的文件 | 触发方式 |
+|------|-----------|---------|
+| Trae | `.trae/skills/dev-flow.md` | 输入框输入 `/dev-flow` |
+| Cursor | `.cursor/commands/dev-flow.md` | 输入框输入 `/dev-flow` |
+| Qoder | `.qoder/commands/dev-flow.md` | 输入框输入 `/dev-flow` |
+| Claude Code | `.claude/commands/dev-flow.md` | 输入框输入 `/dev-flow` |
 
 手动安装到指定工具：
 
 ```bash
-node node_modules/dev-flow/scripts/install.js cursor
-node node_modules/dev-flow/scripts/install.js trae
-node node_modules/dev-flow/scripts/install.js qoder
-node node_modules/dev-flow/scripts/install.js claude
+node node_modules/dev-flow/scripts/install.js all      # 安装到所有工具
+node node_modules/dev-flow/scripts/install.js trae     # 仅安装到 Trae
+node node_modules/dev-flow/scripts/install.js cursor   # 仅安装到 Cursor
 ```
 
 ## 工作流程
@@ -142,22 +135,26 @@ Research → Analyze → Design → Plan → Develop → Test → Fix
 6. **Test** - 生成测试、执行测试、生成报告
 7. **Fix** - 定位 Bug、生成修复、回归测试
 
-## 项目结构
-
-安装后创建的文件结构：
+## 安装后生成的文件结构
 
 ```
-.dev-flow/
-├── config.yaml          # 配置文件
-├── memory/              # 项目记忆
-│   ├── conventions/     # 编码规范
-│   ├── components/      # 组件库
-│   ├── apis/            # API 接口
-│   ├── utils/           # 工具函数
-│   ├── styles/          # 样式系统
-│   └── patterns/        # 学习到的模式
-├── db/                  # SQLite 数据库
-└── sessions/            # 会话记录
+your-project/
+├── .trae/skills/dev-flow.md       # Trae skill 文件
+├── .cursor/commands/dev-flow.md   # Cursor skill 文件
+├── .qoder/commands/dev-flow.md    # Qoder skill 文件
+├── .claude/commands/dev-flow.md   # Claude Code skill 文件
+├── .dev-flow/                     # dev-flow 工作目录
+│   ├── config.yaml                # 配置文件
+│   ├── memory/                    # 项目记忆
+│   │   ├── conventions/           # 编码规范
+│   │   ├── components/            # 组件库
+│   │   ├── apis/                  # API 接口
+│   │   ├── utils/                 # 工具函数
+│   │   ├── styles/                # 样式系统
+│   │   └── patterns/              # 学习到的模式
+│   ├── db/                        # SQLite 数据库
+│   └── sessions/                  # 会话记录
+└── node_modules/dev-flow/         # dev-flow 包
 ```
 
 ## 配置
@@ -181,85 +178,13 @@ test:
   coverage: true        # 覆盖率检测
 ```
 
-## 发布到 npm
+## 技术栈
 
-如果你是开发者，想将 dev-flow 发布到 npm 供其他用户安装：
-
-### 前置准备
-
-1. 注册 [npm 账号](https://www.npmjs.com/signup)
-2. 在终端登录 npm：
-
-```bash
-npm login
-```
-
-### 发布步骤
-
-```bash
-# 1. 确保代码已构建
-npm run build
-
-# 2. 检查 package.json 中的发布字段
-# 确认以下字段正确：
-#   "name": "dev-flow"           # 包名（全局唯一）
-#   "version": "0.1.0"           # 版本号
-#   "files": [...]               # 发布的文件列表
-#   "bin": { "dev-flow": "..." } # CLI 命令
-
-# 3. 预览将要发布的文件
-npm pack --dry-run
-
-# 4. 发布（公开包）
-npm publish
-
-# 5. 发布特定标签
-npm publish --tag beta
-npm publish --tag next
-```
-
-### 发布到 GitHub Packages
-
-```bash
-# 1. 在 package.json 中修改 name
-# "name": "@Jane-Split/dev-flow"
-
-# 2. 创建 .npmrc 文件
-echo "@Jane-Split:registry=https://npm.pkg.github.com" > .npmrc
-
-# 3. 发布
-npm publish
-```
-
-### 发布后用户如何安装
-
-发布到 npm 后，用户可以通过以下方式安装：
-
-```bash
-# npm 公开包
-npm install -g dev-flow
-npm install dev-flow --save-dev
-npx dev-flow
-
-# GitHub Packages
-npm install @Jane-Split/dev-flow --save-dev
-
-# 直接从 GitHub 仓库安装（无需发布到 npm）
-npm install Jane-Split/dev-flow --save-dev
-npx Jane-Split/dev-flow
-```
-
-### 版本管理
-
-```bash
-# 更新版本号
-npm version patch   # 0.1.0 → 0.1.1（Bug 修复）
-npm version minor   # 0.1.0 → 0.2.0（新功能）
-npm version major   # 0.1.0 → 1.0.0（破坏性变更）
-
-# 自动构建并发布
-npm version patch && npm publish
-```
+- **运行时**: Node.js >= 18
+- **语言**: TypeScript
+- **数据库**: sql.js (SQLite WebAssembly，无需原生编译)
+- **测试**: Vitest + Playwright
+- **CLI**: Commander.js
 
 ## 开发
 
