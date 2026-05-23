@@ -1,7 +1,7 @@
 # dev-flow 用户使用手册
 
-> AI 开发全流程自动化 Agent 技能系统  
-> 版本: v0.1.0 | 更新日期: 2026-05-23
+> AI 开发全流程自动化 Agent 技能系统
+> 版本: v0.2.0 | 更新日期: 2026-05-23
 
 ---
 
@@ -23,6 +23,7 @@
   - [4.3 Qoder](#43-qoder)
   - [4.4 Claude Code](#44-claude-code)
 - [5. 全流程详解](#5-全流程详解)
+  - [5.0 Stage 0: Architecture 架构决策](#50-stage-0-architecture-架构决策)
   - [5.1 Stage 1: Research 项目调研](#51-stage-1-research-项目调研)
   - [5.2 Stage 2: Analyze 需求分析](#52-stage-2-analyze-需求分析)
   - [5.3 Stage 3: Design 详细设计](#53-stage-3-design-详细设计)
@@ -30,45 +31,66 @@
   - [5.5 Stage 5: Develop 开发执行](#55-stage-5-develop-开发执行)
   - [5.6 Stage 6: Test 测试验证](#56-stage-6-test-测试验证)
   - [5.7 Stage 7: Fix Bug 修复](#57-stage-7-fix-bug-修复)
-- [6. 记忆系统](#6-记忆系统)
-  - [6.1 记忆目录结构](#61-记忆目录结构)
-  - [6.2 记忆的工作原理](#62-记忆的工作原理)
-  - [6.3 记忆管理](#63-记忆管理)
-- [7. 配置说明](#7-配置说明)
-  - [7.1 配置文件](#71-配置文件)
-  - [7.2 配置项详解](#72-配置项详解)
-- [8. CLI 命令参考](#8-cli-命令参考)
-- [9. 学习机制](#9-学习机制)
-- [10. 上下文控制策略](#10-上下文控制策略)
-- [11. 常见问题](#11-常见问题)
-- [12. 最佳实践](#12-最佳实践)
+- [6. Hotfix 紧急修复模式](#6-hotfix-紧急修复模式)
+  - [6.1 使用场景](#61-使用场景)
+  - [6.2 错误类型识别](#62-错误类型识别)
+  - [6.3 修复流程](#63-修复流程)
+  - [6.4 使用示例](#64-使用示例)
+- [7. 断点续传](#7-断点续传)
+  - [7.1 工作原理](#71-工作原理)
+  - [7.2 使用方法](#72-使用方法)
+  - [7.3 会话管理](#73-会话管理)
+- [8. 进度可视化](#8-进度可视化)
+  - [8.1 进度报告内容](#81-进度报告内容)
+  - [8.2 查看进度](#82-查看进度)
+- [9. 算法专家](#9-算法专家)
+  - [9.1 支持的算法](#91-支持的算法)
+  - [9.2 自动匹配规则](#92-自动匹配规则)
+  - [9.3 输出格式](#93-输出格式)
+- [10. 记忆系统](#10-记忆系统)
+  - [10.1 记忆目录结构](#101-记忆目录结构)
+  - [10.2 记忆的工作原理](#102-记忆的工作原理)
+  - [10.3 记忆管理](#103-记忆管理)
+- [11. 配置说明](#11-配置说明)
+- [12. CLI 命令参考](#12-cli-命令参考)
+- [13. 学习机制](#13-学习机制)
+- [14. 上下文控制策略](#14-上下文控制策略)
+- [15. 常见问题](#15-常见问题)
+- [16. 最佳实践](#16-最佳实践)
 
 ---
 
 ## 1. 简介
 
-**dev-flow** 是一个 AI 驱动的开发全流程自动化系统。它以 `/dev-flow` 命令的形式集成到 Cursor、Trae、Qoder、Claude Code 等 AI 编程工具中，覆盖从项目调研到代码交付的完整开发周期。
+**dev-flow** 是一个 AI 驱动的开发全流程自动化系统。它以 `/dev-flow` 命令的形式集成到 Cursor、Trae、Qoder、Claude Code 等 AI 编程工具中，覆盖从架构决策到代码交付的完整开发周期。
 
 ### 核心能力
 
 | 能力 | 说明 |
 |------|------|
+| 架构决策 | 自动评估项目规模，生成技术选型、架构模式、分层设计和部署方案 |
 | 项目调研 | 自动扫描项目结构、技术栈、编码规范、组件库、API 接口 |
 | 需求分析 | 深度理解用户需求，识别歧义和缺失信息，评估影响范围 |
 | 详细设计 | 生成数据层、接口层、组件层、业务逻辑层、样式层的完整技术设计 |
 | 任务拆分 | 智能拆分为可执行任务，分析依赖关系，支持并行执行 |
-| 多 Agent 开发 | 前端/后端/数据库/测试专家 Agent 并行开发，每个任务自检 |
+| 多 Agent 开发 | 前端/后端/数据库/测试/算法专家 Agent 并行开发，每个任务自检 |
 | 测试验证 | 自动生成单元测试、API 测试、E2E 测试并执行 |
 | Bug 修复 | 根据测试报告自动定位和修复 Bug，执行回归测试 |
+| 紧急修复 | Hotfix 模式，快速定位并修复线上错误，独立于主流程 |
+| 断点续传 | 全流程自动保存会话状态，中断后可从断点恢复 |
+| 进度可视化 | 实时生成 Markdown 进度报告，含进度条和阶段详情 |
 | 持续学习 | 从用户反馈中学习代码模式，越用越智能 |
 
 ### 适用场景
 
 - 新功能或模块开发
+- 新项目架构设计和评估
 - 基于现有架构的功能增强
+- 算法相关任务开发（排序、搜索、DP 等）
 - 自动化测试生成与执行
 - Bug 修复与回归测试
-- 项目架构理解和文档生成
+- 紧急线上错误修复
+- 开发流程中断后恢复
 
 ---
 
@@ -107,24 +129,21 @@ npx dev-flow install
 
 ### 2.3 通过 GitHub 安装
 
-如果你的代码托管在 GitHub，其他用户可以直接通过 GitHub URL 安装：
-
 ```bash
 # 方式一：npx 直接运行（无需安装）
-npx github-username/dev-flow
+npx Jane-Split/dev-flow
 
 # 方式二：安装到项目
-npm install github-username/dev-flow --save-dev
+npm install Jane-Split/dev-flow --save-dev
 
 # 方式三：通过 git+ssh 安装（私有仓库）
-npm install git+ssh://git@github.com:github-username/dev-flow.git --save-dev
+npm install git+ssh://git@github.com:Jane-Split/dev-flow.git --save-dev
 
 # 方式四：指定分支或标签
-npm install github-username/dev-flow#v0.1.0 --save-dev
-npm install github-username/dev-flow#main --save-dev
+npm install Jane-Split/dev-flow#main --save-dev
 ```
 
-> **注意**：请将 `github-username` 替换为你的 GitHub 用户名或组织名。
+> **重要**：通过 GitHub 安装后，必须执行 `npx dev-flow install` 生成 skill 文件。
 
 ### 2.4 项目级安装
 
@@ -148,21 +167,22 @@ node node_modules/dev-flow/scripts/install.js claude
 
 ```
 your-project/
-├── .dev-flow/                    # dev-flow 工作目录
-│   ├── config.yaml               # 配置文件
-│   ├── memory/                   # 项目记忆
-│   │   ├── conventions/          # 编码规范
-│   │   ├── components/           # 组件库
-│   │   ├── apis/                 # API 接口
-│   │   ├── utils/                # 工具函数
-│   │   ├── styles/               # 样式系统
-│   │   └── patterns/             # 学习到的模式
-│   ├── db/                       # SQLite 数据库
-│   └── sessions/                 # 会话记录
-├── .cursor/commands/dev-flow.md  # Cursor 技能（如已安装 Cursor）
-├── .trae/skills/dev-flow.md      # Trae 技能（如已安装 Trae）
-├── .qoder/commands/dev-flow.md   # Qoder 技能（如已安装 Qoder）
-└── .claude/commands/dev-flow.md  # Claude Code 技能（如已安装 Claude Code）
+├── .dev-flow/                        # dev-flow 工作目录
+│   ├── config.yaml                   # 配置文件
+│   ├── memory/                       # 项目记忆
+│   │   ├── conventions/              # 编码规范
+│   │   ├── components/               # 组件库
+│   │   ├── apis/                     # API 接口
+│   │   ├── utils/                    # 工具函数
+│   │   ├── styles/                   # 样式系统
+│   │   ├── architecture/             # 架构决策记忆
+│   │   └── patterns/                 # 学习到的模式
+│   ├── db/                           # SQLite 数据库
+│   └── sessions/                     # 会话记录 + 进度报告
+├── .cursor/commands/dev-flow.md      # Cursor 技能
+├── .trae/skills/dev-flow/SKILL.md    # Trae 技能
+├── .qoder/commands/dev-flow.md       # Qoder 技能
+└── .claude/commands/dev-flow.md      # Claude Code 技能
 ```
 
 ### 2.5 验证安装
@@ -189,9 +209,9 @@ dev-flow --help
 **第一步：安装**
 
 ```bash
-npm install -g dev-flow
+npm install Jane-Split/dev-flow --save-dev
 cd your-project
-dev-flow install
+npx dev-flow install
 ```
 
 **第二步：在 AI 工具中使用**
@@ -204,7 +224,7 @@ dev-flow install
 
 **第三步：跟随引导**
 
-AI 会按 7 个阶段逐步执行，每个阶段完成后会等待你确认：
+AI 会按阶段逐步执行，每个阶段完成后会等待你确认：
 
 1. 调研项目 → 确认调研结果
 2. 分析需求 → 确认需求理解
@@ -218,15 +238,18 @@ AI 会按 7 个阶段逐步执行，每个阶段完成后会等待你确认：
 
 | 命令 | 说明 | 示例 |
 |------|------|------|
-| `/dev-flow <需求>` | 执行完整 7 阶段流程 | `/dev-flow 实现用户注册` |
-| `/dev-flow -research` | 仅执行项目调研 | `/dev-flow -research` |
-| `/dev-flow -analyze <需求>` | 仅执行需求分析 | `/dev-flow -analyze 添加搜索` |
-| `/dev-flow -design` | 仅执行详细设计 | `/dev-flow -design` |
-| `/dev-flow -plan` | 仅执行任务拆分 | `/dev-flow -plan` |
-| `/dev-flow -develop` | 仅执行开发 | `/dev-flow -develop` |
-| `/dev-flow -test` | 仅执行测试 | `/dev-flow -test` |
-| `/dev-flow -fix` | 仅执行 Bug 修复 | `/dev-flow -fix` |
-| `/dev-flow -research --refresh` | 刷新项目记忆 | `/dev-flow -research --refresh` |
+| `/dev-flow <需求>` | 执行完整流程 | `/dev-flow 实现用户注册` |
+| `/dev-flow --resume` | 断点续传 | `/dev-flow --resume` |
+| `/dev-flow -architecture <需求>` | 架构决策 | `/dev-flow -architecture 构建电商系统` |
+| `/dev-flow -research` | 项目调研 | `/dev-flow -research` |
+| `/dev-flow -analyze <需求>` | 需求分析 | `/dev-flow -analyze 添加搜索` |
+| `/dev-flow -design` | 详细设计 | `/dev-flow -design` |
+| `/dev-flow -plan` | 任务拆分 | `/dev-flow -plan` |
+| `/dev-flow -develop` | 开发执行 | `/dev-flow -develop` |
+| `/dev-flow -test` | 测试验证 | `/dev-flow -test` |
+| `/dev-flow -fix` | Bug 修复 | `/dev-flow -fix` |
+| `/dev-flow -hotfix <错误>` | 紧急修复 | `/dev-flow -hotfix TypeError: ...` |
+| `/dev-flow -research --refresh` | 刷新记忆 | `/dev-flow -research --refresh` |
 
 ---
 
@@ -234,96 +257,79 @@ AI 会按 7 个阶段逐步执行，每个阶段完成后会等待你确认：
 
 ### 4.1 Cursor
 
-**安装方式**：
-
 ```bash
-# 方式一：自动检测安装
 dev-flow install
-
-# 方式二：手动安装
+# 或
 node node_modules/dev-flow/scripts/install.js cursor
 ```
-
-**使用方式**：
-
-1. 打开 Cursor
-2. 打开命令面板（`Cmd+Shift+P` / `Ctrl+Shift+P`）
-3. 输入 `dev-flow` 或在聊天框中直接输入：
-   ```
-   /dev-flow 实现用户登录功能
-   ```
 
 **配置文件位置**：`.cursor/commands/dev-flow.md`
 
 ### 4.2 Trae
 
-**安装方式**：
-
 ```bash
-# 方式一：自动检测安装
 dev-flow install
-
-# 方式二：手动安装
+# 或
 node node_modules/dev-flow/scripts/install.js trae
 ```
 
-**使用方式**：
+**配置文件位置**：`.trae/skills/dev-flow/SKILL.md`
 
-1. 打开 Trae
-2. 在输入框中输入：
-   ```
-   /dev-flow 实现用户登录功能
-   ```
-
-**配置文件位置**：`.trae/skills/dev-flow.md`
+> **注意**：Trae 要求 skill 文件位于子目录中（`.trae/skills/dev-flow/SKILL.md`），不是 `.trae/skills/dev-flow.md`。
 
 ### 4.3 Qoder
 
-**安装方式**：
-
 ```bash
-# 方式一：自动检测安装
 dev-flow install
-
-# 方式二：手动安装
+# 或
 node node_modules/dev-flow/scripts/install.js qoder
 ```
-
-**使用方式**：
-
-1. 打开 Qoder
-2. 在输入框中输入：
-   ```
-   /dev-flow 实现用户登录功能
-   ```
 
 **配置文件位置**：`.qoder/commands/dev-flow.md`
 
 ### 4.4 Claude Code
 
-**安装方式**：
-
 ```bash
-# 方式一：自动检测安装
 dev-flow install
-
-# 方式二：手动安装
+# 或
 node node_modules/dev-flow/scripts/install.js claude
 ```
-
-**使用方式**：
-
-1. 打开 Claude Code
-2. 在输入框中输入：
-   ```
-   /dev-flow 实现用户登录功能
-   ```
 
 **配置文件位置**：`.claude/commands/dev-flow.md`
 
 ---
 
 ## 5. 全流程详解
+
+### 5.0 Stage 0: Architecture 架构决策
+
+**目的**：评估项目规模并生成完整的架构方案。
+
+**输入**：项目需求描述
+
+**输出**：`.dev-flow/sessions/architecture-{timestamp}.md`
+
+**执行步骤**：
+
+1. 评估项目规模（小型 / 中型 / 大型）
+2. 生成技术选型推荐（框架 / 数据库 / 缓存 / 消息队列 / 认证 / 监控 / 部署）
+3. 选择架构模式（单体应用 / 前后端分离 / 微服务）
+4. 生成分层设计和目录结构
+5. 生成部署方案
+6. 权衡分析
+7. 生成架构决策文档
+
+**规模评估规则**：
+
+| 规模 | 特征 |
+|------|------|
+| 小型 | 个人项目、简单工具、静态页面、API 原型 |
+| 中型 | 团队协作、管理后台、电商平台、社交应用 |
+| 大型 | 高并发、分布式、微服务、多区域部署 |
+
+```
+/dev-flow -architecture 构建一个团队协作的项目管理工具
+```
 
 ### 5.1 Stage 1: Research 项目调研
 
@@ -343,12 +349,6 @@ node node_modules/dev-flow/scripts/install.js claude
 6. 扫描工具函数和 Hooks
 7. 扫描样式系统（主题变量、全局样式）
 8. 将结果写入记忆系统
-
-**何时使用**：
-
-- 首次在项目中使用 dev-flow
-- 项目架构发生重大变化后
-- 使用 `--refresh` 参数强制刷新
 
 ```
 /dev-flow -research
@@ -372,32 +372,6 @@ node node_modules/dev-flow/scripts/install.js claude
 5. 评估影响范围（受影响文件、API 变更、数据模型变更）
 6. 拆分功能点
 7. 生成需求理解文档
-
-**输出示例**：
-
-```markdown
-# 需求分析: 用户登录功能
-
-## 需求概述
-实现用户登录功能，包含邮箱/密码登录、表单验证、记住密码
-
-## 需求类型
-- [x] 新功能
-
-## 关联记忆
-- 组件: Button, Input, Modal
-- API: 无相关接口
-- 规范: TypeScript strict, ESLint recommended
-
-## 影响范围
-- 新增文件: src/pages/Login.tsx, src/api/auth.ts
-- API 变更: POST /api/auth/login, POST /api/auth/logout
-- 数据模型: LoginParams, LoginResult
-
-## 歧义与问题
-1. 是否需要第三方登录（微信/GitHub）？
-2. 登录失败的最大重试次数？
-```
 
 ```
 /dev-flow -analyze 实现用户登录功能，包含表单验证和记住密码
@@ -435,30 +409,12 @@ node node_modules/dev-flow/scripts/install.js claude
 **执行步骤**：
 
 1. 将设计拆分为可执行任务单元
-2. 为每个任务标注类型（component / api / data / style / test）
+2. 为每个任务标注类型（component / api / data / style / test / algorithm）
 3. 分析任务间的依赖关系
 4. 构建依赖图（DAG 有向无环图）
 5. 拓扑排序，划分执行层级
 6. 标注可并行执行的任务组
 7. 估算每个任务的 token 消耗
-
-**输出示例**：
-
-```
-Level 0 (可并行): 
-  - task-1: 创建 LoginParams 数据模型
-  - task-2: 创建 LoginResult 数据模型
-  - task-5: 实现 LoginPage 组件
-  - task-6: 实现 LoginForm 组件
-
-Level 1 (可并行):
-  - task-3: 实现 POST /api/auth/login 接口
-  - task-4: 实现 POST /api/auth/logout 接口
-  - task-7: 创建 LoginPage 样式
-
-Level 2 (串行):
-  - task-8: 集成测试
-```
 
 ```
 /dev-flow -plan
@@ -480,7 +436,7 @@ Level 2 (串行):
    - **BackendExpert**：处理 API 开发、数据模型
    - **DBExpert**：处理数据库操作
    - **TestExpert**：处理测试相关任务
-   - **DynamicExpert**：处理动态/复杂任务
+   - **AlgorithmExpert**：处理算法相关任务（排序/搜索/DP/数据结构）
 3. 同一层级的无依赖任务并行执行
 4. 每个 Agent 完成后自检代码质量
 5. 汇总所有变更
@@ -499,10 +455,7 @@ Level 2 (串行):
 
 **执行步骤**：
 
-1. 根据完成的任务生成测试用例：
-   - **组件测试**：渲染测试、交互测试
-   - **API 测试**：请求/响应测试、错误处理测试
-   - **模型测试**：类型校验测试
+1. 根据完成的任务生成测试用例
 2. 写入测试文件到项目中
 3. 执行测试（使用 Vitest）
 4. 生成测试报告
@@ -534,9 +487,239 @@ Level 2 (串行):
 
 ---
 
-## 6. 记忆系统
+## 6. Hotfix 紧急修复模式
 
-### 6.1 记忆目录结构
+Hotfix 模式独立于 7 阶段主流程，可随时调用，无需先执行其他阶段。
+
+### 6.1 使用场景
+
+- 线上错误需要紧急修复
+- CI/CD 构建失败需要快速定位
+- 运行时异常需要快速分析
+- 不需要完整开发流程的简单修复
+
+### 6.2 错误类型识别
+
+HotfixAgent 支持 6 种错误类型的自动识别：
+
+| 错误类型 | 触发关键词 | 示例 |
+|----------|-----------|------|
+| **syntax** | SyntaxError, Unexpected token | `SyntaxError: Unexpected token ')'` |
+| **type** | Property does not exist, is not assignable | `Property 'foo' does not exist on type 'string'` |
+| **dependency** | Cannot find module, Module not found | `Cannot find module 'express'` |
+| **config** | ENOENT, .env, tsconfig, webpack | `Error: ENOENT: no such file` |
+| **runtime** | Cannot read property, is not a function, null reference | `TypeError: Cannot read property 'name' of undefined` |
+| **logic** | Wrong result, Incorrect, Does not match | `Expected output does not match` |
+
+### 6.3 修复流程
+
+```
+输入错误描述 → 解析错误类型 → 搜索相关文件 → 分析根因 → 生成修复方案 → 生成验证步骤
+```
+
+1. **解析错误信息**：从错误描述和日志中提取错误类型
+2. **搜索相关文件**：三级搜索策略（路径提取 → 关键词匹配 → 内容搜索）
+3. **分析错误根因**：基于错误类型和文件内容分析根本原因
+4. **生成修复方案**：最多 5 个受影响文件的修复建议
+5. **生成验证步骤**：具体的验证操作和预期行为
+
+### 6.4 使用示例
+
+**输入**：
+
+```
+/dev-flow -hotfix TypeError: Cannot read property 'name' of undefined at UserComponent.tsx:42
+```
+
+**输出**：
+
+```
+── Hotfix 快速修复 ──
+
+[1/5] 解析错误信息...
+✔ 错误类型: runtime
+
+[2/5] 搜索相关文件...
+✔ 发现 1 个可能受影响的文件: UserComponent.tsx
+
+[3/5] 分析错误根因...
+✔ 根因: 运行时尝试访问不存在的属性
+
+[4/5] 生成修复方案...
+✔ 修复建议:
+  - UserComponent.tsx: 添加可选链操作符和空值检查
+
+[5/5] 生成验证步骤...
+✔ 验证步骤已生成
+```
+
+---
+
+## 7. 断点续传
+
+### 7.1 工作原理
+
+全流程执行时，系统自动创建会话并保存每个阶段的结果：
+
+```
+.dev-flow/sessions/{sessionId}.json
+```
+
+会话状态包含：
+- 会话 ID 和需求描述
+- 当前执行到的阶段
+- 已完成的阶段列表
+- 每个阶段的执行结果
+- 创建时间和更新时间
+- 会话状态（active / completed / interrupted）
+
+### 7.2 使用方法
+
+**自动保存**：执行全流程时，每个阶段完成后自动保存。
+
+**恢复执行**：
+
+```
+/dev-flow --resume
+```
+
+系统会：
+1. 查找最近的未完成会话
+2. 恢复已保存的阶段结果
+3. 从中断的下一个阶段继续执行
+4. 完成后生成进度报告
+
+### 7.3 会话管理
+
+- **查看可恢复会话**：系统自动查找 `status !== 'completed'` 的会话
+- **会话完成**：全流程执行完毕后，会话状态自动变为 `completed`
+- **已完成会话**：不会出现在可恢复列表中
+
+---
+
+## 8. 进度可视化
+
+### 8.1 进度报告内容
+
+全流程执行时，自动生成 Markdown 格式的进度报告：
+
+```
+.dev-flow/sessions/progress-{sessionId}.md
+```
+
+报告包含：
+
+```markdown
+# dev-flow 执行进度
+
+## 需求
+实现用户登录功能
+
+## 总进度: ████████████░░░░░░░░ 60% (4/7)
+
+## 阶段详情
+| # | 阶段 | 状态 | 耗时 |
+|---|------|------|------|
+| 1 | research | ✅ 完成 | 12s |
+| 2 | analyze | ✅ 完成 | 8s |
+| 3 | design | ✅ 完成 | 15s |
+| 4 | plan | ✅ 完成 | 5s |
+| 5 | develop | 🔄 执行中 | - |
+| 6 | test | ⏳ 等待 | - |
+| 7 | fix | ⏳ 等待 | - |
+
+## 任务详情
+| ID | 任务 | 状态 | 专家 | 产出 |
+|----|------|------|------|------|
+| task-1 | 创建数据模型 | ✅ | BackendExpert | src/models/auth.ts |
+| task-2 | 创建登录组件 | 🔄 | FrontendExpert | - |
+
+## 产出文件
+- src/models/auth.ts
+- src/components/LoginForm.tsx
+- src/api/auth.ts
+
+---
+- 会话 ID: session-xxx
+- 开始时间: 2026-05-23 15:30:00
+- 整体状态: running
+```
+
+### 8.2 查看进度
+
+进度报告在以下时机自动更新：
+- 每个阶段开始执行时
+- 每个阶段完成时
+- 任务状态变更时
+- 全流程完成时
+
+直接打开 `.dev-flow/sessions/progress-{sessionId}.md` 文件即可查看。
+
+---
+
+## 9. 算法专家
+
+### 9.1 支持的算法
+
+AlgorithmExpert 内置 21 个算法模板：
+
+| 类别 | 算法 | 复杂度 |
+|------|------|--------|
+| **排序** | 冒泡排序 | O(n²) / O(1) |
+| | 选择排序 | O(n²) / O(1) |
+| | 插入排序 | O(n²) / O(1) |
+| | 快速排序 | O(n log n) / O(log n) |
+| | 归并排序 | O(n log n) / O(n) |
+| | 堆排序 | O(n log n) / O(1) |
+| **搜索** | 线性搜索 | O(n) / O(1) |
+| | 二分搜索 | O(log n) / O(1) |
+| | BFS 广度优先 | O(V+E) / O(V) |
+| | DFS 深度优先 | O(V+E) / O(V) |
+| **数据结构** | 链表 | - |
+| | 栈 | - |
+| | 队列 | - |
+| | 哈希表 | - |
+| | 二叉树 | - |
+| **动态规划** | 斐波那契 | O(n) / O(1) |
+| | 0-1 背包 | O(nW) / O(W) |
+| | 最长公共子序列 | O(mn) / O(mn) |
+| | 最长递增子序列 | O(n²) / O(n) |
+| **其他** | 递归/阶乘/汉诺塔 | - |
+| | 全排列/N皇后/子集/组合 | - |
+| | 贪心（跳跃游戏/分糖果） | - |
+
+### 9.2 自动匹配规则
+
+AlgorithmExpert 通过以下方式自动匹配算法任务：
+
+1. **任务类型**：`task.type === 'algorithm'`
+2. **关键词匹配**：任务名称或描述中包含算法关键词
+   - 排序关键词：排序、sort、冒泡、快速、归并、堆
+   - 搜索关键词：搜索、查找、search、BFS、DFS、二分
+   - 数据结构关键词：链表、栈、队列、哈希、树、list、stack、queue
+   - DP 关键词：动态规划、DP、背包、斐波那契、LCS、LIS
+3. **显式指定**：`task.expert === 'algorithm'`
+
+### 9.3 输出格式
+
+每个算法任务生成两个文件：
+
+**实现文件**（`src/algorithms/{name}.ts`）：
+- 完整的 TypeScript 实现
+- JSDoc 注释
+- 导出函数/类
+
+**测试文件**（`src/algorithms/__tests__/{name}.test.ts`）：
+- 完整的 Vitest 测试用例
+- 正常情况测试
+- 边界情况测试
+- 性能测试（可选）
+
+---
+
+## 10. 记忆系统
+
+### 10.1 记忆目录结构
 
 ```
 .dev-flow/memory/
@@ -557,18 +740,20 @@ Level 2 (串行):
 ├── styles/               # 样式系统
 │   ├── theme.md          # 主题变量
 │   └── ...               # 其他样式
+├── architecture/         # 架构决策记忆
+│   └── architecture.json
 └── patterns/             # 学习到的模式
     └── learned.json      # 模式记录
 ```
 
-### 6.2 记忆的工作原理
+### 10.2 记忆的工作原理
 
 1. **自动采集**：Research 阶段自动扫描项目，提取信息写入记忆
 2. **上下文注入**：每个阶段执行前，AI 自动读取相关记忆作为上下文
 3. **向量索引**：使用 SQLite + 向量索引实现语义搜索，快速检索相关记忆
 4. **持续更新**：每次执行后，新发现的组件/API/规范会更新到记忆中
 
-### 6.3 记忆管理
+### 10.3 记忆管理
 
 ```bash
 # 刷新全部记忆
@@ -583,17 +768,13 @@ rm -rf .dev-flow/memory/*
 
 ---
 
-## 7. 配置说明
-
-### 7.1 配置文件
+## 11. 配置说明
 
 配置文件位于 `.dev-flow/config.yaml`，安装时自动生成。
 
-### 7.2 配置项详解
-
 ```yaml
 name: dev-flow
-version: 0.1.0
+version: 0.2.0
 
 # 项目配置
 project:
@@ -621,7 +802,7 @@ test:
 
 ---
 
-## 8. CLI 命令参考
+## 12. CLI 命令参考
 
 ```bash
 # 查看帮助
@@ -640,6 +821,7 @@ dev-flow install -g
 dev-flow run "实现用户登录功能"
 
 # 执行指定阶段
+dev-flow run -s architecture "构建电商系统"
 dev-flow run -s research
 dev-flow run -s analyze "实现用户登录功能"
 dev-flow run -s design
@@ -648,8 +830,14 @@ dev-flow run -s develop
 dev-flow run -s test
 dev-flow run -s fix
 
+# 紧急修复
+dev-flow run -s hotfix "TypeError: Cannot read property 'id' of undefined"
+
 # 刷新模式
 dev-flow run -s research --refresh
+
+# 断点续传
+dev-flow run --resume
 
 # 交互式模式（逐步引导）
 dev-flow run
@@ -657,7 +845,7 @@ dev-flow run
 
 ---
 
-## 9. 学习机制
+## 13. 学习机制
 
 dev-flow 具备持续学习能力，会从你的使用过程中不断改进：
 
@@ -676,18 +864,9 @@ dev-flow 具备持续学习能力，会从你的使用过程中不断改进：
 | 架构偏好 | 项目特定的架构选择 | 文件组织方式、目录命名规则 |
 | 问题模式 | 常见的问题和解决方案 | 特定库的兼容性处理 |
 
-### 配置
-
-```yaml
-memory:
-  autoLearn: true    # 开启/关闭自动学习
-```
-
 ---
 
-## 10. 上下文控制策略
-
-为避免超出 AI 工具的上下文窗口限制，dev-flow 采用以下策略：
+## 14. 上下文控制策略
 
 | 策略 | 限制 | 说明 |
 |------|------|------|
@@ -698,14 +877,15 @@ memory:
 
 ---
 
-## 11. 常见问题
+## 15. 常见问题
 
 ### Q: 安装后 AI 工具中输入 `/dev-flow` 没有反应？
 
 **A**: 请确认以下步骤：
-1. 已执行 `dev-flow install` 或手动安装脚本
-2. 对应工具的配置文件已生成（如 `.cursor/commands/dev-flow.md`）
+1. 已执行 `npx dev-flow install`
+2. 对应工具的配置文件已生成
 3. 已重启 AI 编程工具
+4. Trae 用户：确认文件位于 `.trae/skills/dev-flow/SKILL.md`（子目录格式）
 
 ### Q: Research 阶段扫描不到组件/API？
 
@@ -714,22 +894,29 @@ memory:
 2. 组件和 API 文件使用了标准的文件命名和导出方式
 3. 尝试使用 `--refresh` 参数重新扫描
 
-### Q: 如何在已有项目中使用？
+### Q: Hotfix 模式和 Fix 阶段有什么区别？
 
-**A**: 直接在项目根目录执行 `dev-flow install`，然后使用 `/dev-flow` 命令即可。dev-flow 会自动适配已有项目结构。
+**A**:
+- **Hotfix**：独立模式，可随时调用，不需要先执行其他阶段，适合紧急线上修复
+- **Fix**：主流程的最后阶段，依赖 Test 阶段的测试报告，适合开发流程中的 Bug 修复
 
-### Q: 支持哪些编程语言？
+### Q: 断点续传的会话保存在哪里？
 
-**A**: 目前主要支持 TypeScript/JavaScript 项目（React、Vue、Node.js 等）。对其他语言的支持正在规划中。
+**A**: 保存在 `.dev-flow/sessions/{sessionId}.json`。每个会话包含所有已完成阶段的结果，恢复时自动跳过已完成阶段。
+
+### Q: 如何查看执行进度？
+
+**A**: 全流程执行时自动生成进度报告 `.dev-flow/sessions/progress-{sessionId}.md`，可直接打开查看。
+
+### Q: 算法专家支持哪些语言？
+
+**A**: 目前生成 TypeScript 实现。其他语言的支持正在规划中。
 
 ### Q: 如何卸载？
 
 **A**:
 ```bash
-# 卸载全局安装
 npm uninstall -g dev-flow
-
-# 删除项目中的配置
 rm -rf .dev-flow
 rm -f .cursor/commands/dev-flow.md
 rm -rf .trae/skills/dev-flow
@@ -737,21 +924,20 @@ rm -f .claude/commands/dev-flow.md
 rm -f .qoder/commands/dev-flow.md
 ```
 
-### Q: 生成的代码可以直接使用吗？
-
-**A**: dev-flow 生成的代码遵循项目已有的编码规范和架构模式，但仍建议人工审查后再合并到主分支。
-
 ---
 
-## 12. 最佳实践
+## 16. 最佳实践
 
-1. **首次使用先调研**：在新项目中首次使用时，先执行 `/dev-flow -research` 建立项目记忆
-2. **需求描述要清晰**：越详细的需求描述，越能产生准确的分析和设计
-3. **逐阶段确认**：不要跳过确认步骤，及时发现和纠正偏差
-4. **定期刷新记忆**：项目架构变化后，使用 `--refresh` 更新记忆
-5. **保持编码规范**：dev-flow 会学习你的编码规范，保持项目风格一致
-6. **善用单阶段模式**：不需要全流程时，可以单独使用某个阶段
-7. **审查生成代码**：AI 生成的代码建议人工审查后再提交
+1. **新项目先做架构决策**：使用 `/dev-flow -architecture` 评估规模和技术选型
+2. **首次使用先调研**：在新项目中首次使用时，先执行 `/dev-flow -research` 建立项目记忆
+3. **需求描述要清晰**：越详细的需求描述，越能产生准确的分析和设计
+4. **逐阶段确认**：不要跳过确认步骤，及时发现和纠正偏差
+5. **善用 Hotfix**：线上紧急错误直接用 `/dev-flow -hotfix`，无需走完整流程
+6. **善用断点续传**：长流程中断后用 `/dev-flow --resume` 继续，不丢失进度
+7. **定期刷新记忆**：项目架构变化后，使用 `--refresh` 更新记忆
+8. **保持编码规范**：dev-flow 会学习你的编码规范，保持项目风格一致
+9. **善用单阶段模式**：不需要全流程时，可以单独使用某个阶段
+10. **审查生成代码**：AI 生成的代码建议人工审查后再提交
 
 ---
 
