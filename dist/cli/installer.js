@@ -78,9 +78,11 @@ async function copyConfig(projectRoot) {
     logger.info('生成配置文件...');
     try {
         // 读取模板并写入配置（使用 dev-flow 包自身的目录）
+        // 当前文件: node_modules/dev-flow/dist/cli/installer.js
+        // 需要到达: node_modules/dev-flow/
         const __filename = fileURLToPath(import.meta.url);
         const __dirname = path.dirname(__filename);
-        const devFlowPackageDir = path.resolve(__dirname, '../../..');
+        const devFlowPackageDir = path.resolve(__dirname, '../..');
         const templatePath = path.join(devFlowPackageDir, 'templates', 'config.yaml');
         const destPath = path.join(projectRoot, CONFIG_FILE);
         if (await fileExists(templatePath)) {
@@ -128,9 +130,11 @@ async function registerSkill(projectRoot, aiTools) {
     try {
         // 获取 dev-flow 包自身的目录（而不是用户项目目录）
         // 使用 fileURLToPath 正确处理 Windows 路径
+        // 当前文件: node_modules/dev-flow/dist/cli/installer.js
+        // 需要到达: node_modules/dev-flow/
         const __filename = fileURLToPath(import.meta.url);
         const __dirname = path.dirname(__filename);
-        const devFlowPackageDir = path.resolve(__dirname, '../../..');
+        const devFlowPackageDir = path.resolve(__dirname, '../..');
         const installedTools = [];
         // 总是安装到所有支持的工具（创建目录并复制文件）
         const tools = [
