@@ -1,27 +1,55 @@
 // src/memory/db-store.ts
 import * as path from 'node:path';
-import Database from 'better-sqlite3';
+import * as fs from 'node:fs';
+import initSqlJs, { type Database } from 'sql.js';
 import type { VectorEntry, SearchResult } from './types.js';
 
 const DB_PATH = '.dev-flow/db/memory.db';
 
 export class DbStore {
-  private db: Database.Database;
+  private db!: Database;
   private dbPath: string;
 
   constructor(projectRoot: string) {
     this.dbPath = path.join(projectRoot, DB_PATH);
-    this.db = new Database(this.dbPath);
-    this.initialize();
+    this.openOrCreate().then((db) => {
+      this.db = db;
+      this.initialize();
+    });
+  }
+
+  private async openOrCreate(): Promise<Database> {
+    const SQL = await initSqlJs();
+    const dir = path.dirname(this.dbPath);
+
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+
+    if (fs.existsSync(this.dbPath)) {
+      const fileBuffer = fs.readFileSync(this.dbPath);
+      return new SQL.Database(fileBuffer);
+    }
+
+    return new SQL.Database();
+  }
+
+  private save(): void {
+    if (!this.db) return;
+    const data = this.db.export();
+    const dir = path.dirname(this.dbPath);
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+    fs.writeFileSync(this.dbPath, Buffer.from(data));
   }
 
   private initialize(): void {
-    // 创建向量表（简化版，实际可使用sqlite-vss扩展）
-    this.db.exec(`
+    this.db.run(`
       CREATE TABLE IF NOT EXISTS vectors (
         id TEXT PRIMARY KEY,
         content TEXT NOT NULL,
-        embedding BLOB,
+        embedding TEXT,
         type TEXT,
         path TEXT,
         name TEXT,
@@ -29,8 +57,7 @@ export class DbStore {
       );
     `);
 
-    // 创建反馈记录表
-    this.db.exec(`
+    this.db.run(`
       CREATE TABLE IF NOT EXISTS feedback (
         id TEXT PRIMARY KEY,
         timestamp TEXT NOT NULL,
@@ -43,8 +70,7 @@ export class DbStore {
       );
     `);
 
-    // 创建会话记录表
-    this.db.exec(`
+    this.db.run(`
       CREATE TABLE IF NOT EXISTS sessions (
         id TEXT PRIMARY KEY,
         created_at TEXT NOT NULL,
@@ -53,70 +79,80 @@ export class DbStore {
       );
     `);
 
-    // 创建索引
-    this.db.exec(`
+    this.db.run(`
       CREATE INDEX IF NOT EXISTS idx_vectors_type ON vectors(type);
       CREATE INDEX IF NOT EXISTS idx_vectors_name ON vectors(name);
     `);
+
+    this.save();
   }
 
   // 向量操作
   insertVector(entry: VectorEntry): void {
-    const stmt = this.db.prepare(`
-      INSERT OR REPLACE INTO vectors (id, content, embedding, type, path, name)
-      VALUES (?, ?, ?, ?, ?, ?)
-    `);
-
-    const embeddingBuffer = Buffer.from(new Float32Array(entry.embedding).buffer);
-
-    stmt.run(
-      entry.id,
-      entry.content,
-      embeddingBuffer,
-      entry.metadata.type,
-      entry.metadata.path || null,
-      entry.metadata.name || null
+    if (!this.db) return;
+    this.db.run(
+      `INSERT OR REPLACE INTO vectors (id, content, embedding, type, path, name)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [
+        entry.id,
+        entry.content,
+        JSON.stringify(entry.embedding),
+        entry.metadata.type,
+        entry.metadata.path || null,
+        entry.metadata.name || null,
+      ]
     );
+    this.save();
   }
 
   getVector(id: string): VectorEntry | null {
+    if (!this.db) return null;
     const stmt = this.db.prepare('SELECT * FROM vectors WHERE id = ?');
-    const row = stmt.get(id) as any;
+    stmt.bind([id]);
 
-    if (!row) return null;
+    if (stmt.step()) {
+      const row = stmt.getAsObject();
+      stmt.free();
 
-    const embedding = Array.from(new Float32Array(row.embedding.buffer));
+      return {
+        id: row.id as string,
+        content: row.content as string,
+        embedding: JSON.parse((row.embedding as string) || '[]'),
+        metadata: {
+          type: row.type as string,
+          path: (row.path as string) || undefined,
+          name: (row.name as string) || undefined,
+        },
+      };
+    }
 
-    return {
-      id: row.id,
-      content: row.content,
-      embedding,
-      metadata: {
-        type: row.type,
-        path: row.path || undefined,
-        name: row.name || undefined,
-      },
-    };
+    stmt.free();
+    return null;
   }
 
   searchVectors(queryEmbedding: number[], limit = 10): SearchResult[] {
-    // 简化版：使用余弦相似度
+    if (!this.db) return [];
     const stmt = this.db.prepare('SELECT * FROM vectors');
-    const rows = stmt.all() as any[];
+    const rows: Record<string, unknown>[] = [];
+
+    while (stmt.step()) {
+      rows.push(stmt.getAsObject());
+    }
+    stmt.free();
 
     const results: SearchResult[] = rows.map((row) => {
-      const embedding = Array.from(new Float32Array(row.embedding.buffer));
+      const embedding = JSON.parse((row.embedding as string) || '[]');
       const score = this.cosineSimilarity(queryEmbedding, embedding);
 
       return {
         entry: {
-          id: row.id,
-          content: row.content,
+          id: row.id as string,
+          content: row.content as string,
           embedding,
           metadata: {
-            type: row.type,
-            path: row.path || undefined,
-            name: row.name || undefined,
+            type: row.type as string,
+            path: (row.path as string) || undefined,
+            name: (row.name as string) || undefined,
           },
         },
         score,
@@ -129,7 +165,7 @@ export class DbStore {
   }
 
   private cosineSimilarity(a: number[], b: number[]): number {
-    if (a.length !== b.length) return 0;
+    if (a.length !== b.length || a.length === 0) return 0;
 
     let dotProduct = 0;
     let normA = 0;
@@ -141,12 +177,14 @@ export class DbStore {
       normB += b[i] * b[i];
     }
 
-    return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
+    const denom = Math.sqrt(normA) * Math.sqrt(normB);
+    return denom === 0 ? 0 : dotProduct / denom;
   }
 
   deleteVector(id: string): void {
-    const stmt = this.db.prepare('DELETE FROM vectors WHERE id = ?');
-    stmt.run(id);
+    if (!this.db) return;
+    this.db.run('DELETE FROM vectors WHERE id = ?', [id]);
+    this.save();
   }
 
   // 反馈操作
@@ -160,44 +198,57 @@ export class DbStore {
     userCorrection?: string;
     learned?: string;
   }): void {
-    const stmt = this.db.prepare(`
-      INSERT INTO feedback (id, timestamp, stage, task, user_action, original_output, user_correction, learned)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    `);
-
-    stmt.run(
-      feedback.id,
-      feedback.timestamp,
-      feedback.stage,
-      feedback.task,
-      feedback.userAction,
-      feedback.originalOutput || null,
-      feedback.userCorrection || null,
-      feedback.learned || null
+    if (!this.db) return;
+    this.db.run(
+      `INSERT INTO feedback (id, timestamp, stage, task, user_action, original_output, user_correction, learned)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        feedback.id,
+        feedback.timestamp,
+        feedback.stage,
+        feedback.task,
+        feedback.userAction,
+        feedback.originalOutput || null,
+        feedback.userCorrection || null,
+        feedback.learned || null,
+      ]
     );
+    this.save();
   }
 
   getFeedback(limit = 100): any[] {
+    if (!this.db) return [];
     const stmt = this.db.prepare('SELECT * FROM feedback ORDER BY timestamp DESC LIMIT ?');
-    return stmt.all(limit);
+    stmt.bind([limit]);
+    const rows: any[] = [];
+    while (stmt.step()) {
+      rows.push(stmt.getAsObject());
+    }
+    stmt.free();
+    return rows;
   }
 
   // 会话操作
   createSession(id: string, metadata?: Record<string, unknown>): void {
-    const stmt = this.db.prepare(`
-      INSERT INTO sessions (id, created_at, status, metadata)
-      VALUES (?, ?, 'active', ?)
-    `);
-
-    stmt.run(id, new Date().toISOString(), metadata ? JSON.stringify(metadata) : null);
+    if (!this.db) return;
+    this.db.run(
+      `INSERT INTO sessions (id, created_at, status, metadata)
+       VALUES (?, ?, 'active', ?)`,
+      [id, new Date().toISOString(), metadata ? JSON.stringify(metadata) : null]
+    );
+    this.save();
   }
 
   updateSessionStatus(id: string, status: string): void {
-    const stmt = this.db.prepare('UPDATE sessions SET status = ? WHERE id = ?');
-    stmt.run(status, id);
+    if (!this.db) return;
+    this.db.run('UPDATE sessions SET status = ? WHERE id = ?', [status, id]);
+    this.save();
   }
 
   close(): void {
-    this.db.close();
+    this.save();
+    if (this.db) {
+      this.db.close();
+    }
   }
 }
