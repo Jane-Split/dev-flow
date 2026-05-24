@@ -52,7 +52,7 @@
 **微服务根目录特征**（满足任一即判定为微服务）：
 - 根目录下存在多个子目录，每个子目录都有独立的 `pom.xml`
 - 根目录存在父级 `pom.xml`（`<packaging>pom</packaging>`），包含 `<modules>` 定义
-- 存在 `common-*`、`gateway`、`auth`、`*-service` 等典型微服务命名
+- 存在多个服务目录（命名不限，通过内容分析识别角色）
 
 **检测到微服务架构后，自动进入「多服务模式」：**
 - 扫描所有子服务目录，识别每个服务的角色（网关/认证/业务/公共）
@@ -97,24 +97,27 @@
 **如果是微服务架构（多服务模式）：**
 - 读取根目录的父级 `pom.xml`，解析 `<modules>` 获取所有子服务列表
 - 对每个子服务：
-  - 读取子服务的 `pom.xml`，识别服务角色：
-    - **公共模块**：`artifactId` 含 `common`（如 common-bean、common-util）
-    - **网关服务**：`artifactId` 含 `gateway`
-    - **认证服务**：`artifactId` 含 `auth`
-    - **业务服务**：其余服务（如 user、order、basedata、quality、workflow）
+  - 读取子服务的 `pom.xml`，**通过内容分析识别服务角色**（不依赖命名）：
+    - **公共模块**：被其他服务依赖、无启动类（`@SpringBootApplication`）、无 `application.yml`
+    - **网关服务**：有 Spring Cloud Gateway 依赖或路由配置
+    - **认证服务**：有安全相关配置（OAuth2、JWT、Security）
+    - **业务服务**：有启动类、有业务代码
+    - **如果无法推断**：仅记录模块名，不做假设
   - 扫描子服务的多模块结构：
     - 读取子服务的 `pom.xml`，解析 `<modules>` 获取子模块列表
-    - **不硬编码模块名**，自动发现所有子模块（如 client、core、entity、manage、api 等）
-    - 识别每个子模块的职责（通过目录名和 pom.xml 中的依赖推断）：
-      - `*-client`：Feign Client 接口定义模块
-      - `*-entity` 或 `*-model` 或 `*-domain`：实体类/数据模型模块
-      - `*-core` 或 `*-service`：核心业务逻辑模块
-      - `*-manage` 或 `*-admin` 或 `*-controller`：管理/控制层模块
-      - `*-api`：API 接口定义模块
-      - `*-util` 或 `*-common`：工具类模块
+    - **完全自动发现所有子模块，不预设任何命名模式**
+    - **通过内容分析识别每个子模块的职责**（不依赖命名）：
+      - 扫描模块内的 Java 文件，根据注解推断：
+        - 含 `@FeignClient` → Feign Client 模块
+        - 含 `@Entity` / `@TableName` / `@Table` → Entity 模块
+        - 含 `@Service` / `@Component` 且无 `@Controller` → Service 模块
+        - 含 `@Controller` / `@RestController` → Controller 模块
+        - 含 `@Mapper` / `@Repository` → Mapper/Repository 模块
+        - 含 `@Configuration` / `@ConfigurationProperties` → Config 模块
+      - **如果无法推断**：仅记录模块名，在后续开发时根据实际需求定位
   - 识别子服务间的依赖关系：
     - 读取子服务 `pom.xml` 中的 `<dependencies>`，识别引用了哪些其他子服务
-    - 特别关注 `*-client` 模块的依赖（跨服务调用的入口）
+    - 全局搜索 `@FeignClient` 注解，识别跨服务调用入口
 
 **如果是单服务架构（单服务模式）：**
 - 按原有流程执行
@@ -125,7 +128,8 @@
 
 对每个业务服务和公共模块执行以下扫描：
 
-- **公共模块扫描（common-*）：**
+- **公共模块扫描**（通过内容分析识别，不依赖命名）：
+  - 识别方式：被其他服务依赖、无启动类、无配置文件
   - 扫描通用 Entity/DTO/VO（所有服务共享的数据模型）
   - 扫描通用工具类（所有服务共享的工具方法）
   - 扫描通用枚举（所有服务共享的枚举定义）
@@ -134,8 +138,8 @@
   - **目的：后续开发时优先复用公共模块中的类，避免重复定义**
 
 - **Feign Client 扫描（跨服务调用）：**
-  - 在所有 `*-client` 模块中搜索 `@FeignClient` 注解
-  - 记录：Feign Client 接口名、调用的目标服务、提供的方法签名
+  - **全局搜索 `@FeignClient` 注解**（不依赖模块命名）
+  - 记录：Feign Client 接口名、所在模块、调用的目标服务、提供的方法签名
   - **目的：后续开发时知道如何跨服务调用**
 
 - **各业务服务扫描：**
@@ -144,15 +148,15 @@
     - Nacos/注册中心配置
     - 数据库配置（每个服务可能连接不同的数据库）
     - Redis 配置
-  - 识别每个服务的分层架构（在各子模块中）：
-    - Entity/Model 模块：实体类（JPA/MyBatis-Plus 注解）
-    - DTO 模块：数据传输对象
-    - Mapper/Repository 模块：数据访问层
-    - Service 模块：业务逻辑层（接口 + 实现）
-    - Controller 模块：REST API 控制器
-    - Config 模块：配置类
-    - Enums 模块：枚举类
-    - Exception 模块：异常处理
+  - **识别每个服务的分层架构**（通过扫描各子模块内的注解，不依赖命名）：
+    - Entity/Model 模块：含 `@Entity` / `@TableName` / `@Table` 注解的类
+    - DTO 模块：含 `@Data` 且无持久化注解的传输对象
+    - Mapper/Repository 模块：含 `@Mapper` / `@Repository` 注解的接口
+    - Service 模块：含 `@Service` 注解的类（接口 + 实现）
+    - Controller 模块：含 `@Controller` / `@RestController` 注解的类
+    - Config 模块：含 `@Configuration` 注解的类
+    - Enums 模块：继承 `Enum` 或使用 `@EnumValue` 的类
+    - Exception 模块：继承 `Exception` / `RuntimeException` 的类
 
 **如果是 Java 单服务项目：**
 - 按原有流程执行（扫描 `src/main/java/` 下的包结构）
@@ -166,7 +170,7 @@
 
 按服务分组记录：
 
-- **公共模块（common-*）：**
+- **公共模块**（通过内容分析识别，不依赖命名）：
   - 通用 Entity 列表（所有服务共享）
   - 通用 DTO 列表（所有服务共享）
   - 通用工具类列表
@@ -191,7 +195,7 @@
 **Step 4: 识别编码规范（按项目类型）**
 
 **如果是 Java 微服务（多服务模式）：**
-- 从公共模块（common-*）中推断编码规范（公共模块通常代表项目级规范）
+- 从公共模块中推断编码规范（公共模块通常代表项目级规范）
 - 验证各服务是否遵循相同的编码规范
 - 识别：
   - 命名风格（类名、方法名、常量）
@@ -226,6 +230,8 @@
 ```markdown
 # 服务注册表
 
+> 注：以下为示例，实际项目结构由扫描结果决定，不预设任何命名模式
+
 ## 服务列表
 | 服务名 | 目录 | 端口 | 角色 | 子模块 |
 |--------|------|------|------|--------|
@@ -238,10 +244,10 @@
 | workflow | workflow | 8085 | 工作流服务 | client, core, entity, manage |
 
 ## 跨服务调用关系
-| 调用方 | Feign Client | 目标服务 | 方法 |
-|--------|-------------|----------|------|
-| quality | WorkflowClient | workflow | startProcess(), getProcessStatus() |
-| auth | UserClient | user | getUserById(), getUserByUsername() |
+| 调用方 | Feign Client | 所在模块 | 目标服务 | 方法 |
+|--------|-------------|----------|----------|------|
+| quality | WorkflowClient | quality-client | workflow | startProcess(), getProcessStatus() |
+| auth | UserClient | auth-client | user | getUserById(), getUserByUsername() |
 ```
 
 **如果是 Java 单服务项目 / 前端项目：**
@@ -269,7 +275,7 @@
 | 服务数量 | X 个 |
 | 公共模块 | X 个 |
 | 跨服务调用 | X 个 Feign Client |
-| 编码规范 | 从 common-* 模块推断 |
+| 编码规范 | 从公共模块推断 |
 
 **Java 单服务项目：**
 | 维度 | 结果 |
@@ -562,7 +568,7 @@
   - 逻辑删除字段（`@TableLogic`）
   - 自动填充字段（`@TableField(fill = FieldFill.INSERT)`）
 - **DTO 放置策略**：
-  - 跨服务传输的 DTO → 放在公共模块（common-*）或被调用方的 client 模块
+  - 跨服务传输的 DTO → 放在公共模块或被调用方的 Feign Client 所在模块
   - 服务内部使用的 DTO → 放在服务专属模块
   - Request/Response DTO → 放在服务专属模块
 - **Enum 设计**：状态枚举、类型枚举、错误码枚举
@@ -610,13 +616,13 @@
 
 **如果是 Java 微服务（多服务模式）：**
 - **跨服务模块放置设计**：
-  - 对每个受影响的服务，明确代码放置在哪个子模块中：
-    - Entity → 放在实体模块（如 `*-entity` / `*-model` / `*-domain`）
+  - 对每个受影响的服务，根据 Research 阶段扫描结果，明确代码放置在哪个子模块中：
+    - Entity → 放在含 `@Entity` / `@TableName` 注解的模块
     - DTO → 跨服务共享的放公共模块，服务内部的放服务专属模块
-    - Mapper → 放在核心模块（如 `*-core` / `*-service`）
-    - Service → 放在核心模块
-    - Controller → 放在控制层模块（如 `*-manage` / `*-admin` / `*-controller`）
-    - Feign Client → 放在调用方服务的 client 模块
+    - Mapper → 放在含 `@Mapper` 注解的模块
+    - Service → 放在含 `@Service` 注解的模块
+    - Controller → 放在含 `@Controller` / `@RestController` 注解的模块
+    - Feign Client → 放在含 `@FeignClient` 注解的模块，或根据项目约定新建
   - **公共模块新增设计**：
     - 列出需要在公共模块中新增的类（Entity/DTO/Enum/Util）
     - 说明新增原因（哪些服务需要共享）
@@ -1468,7 +1474,7 @@ service-b/.dev-flow/memory/                # 服务 B 专属记忆
 
 **dependency-graph.md 说明**：记录服务间的依赖关系和 Feign 调用关系，包括调用方服务、被调用方服务、Feign Client 接口名、方法签名。
 
-**common-modules.md 说明**：记录所有公共模块（common-*）中可复用的类，包括通用 Entity、DTO、Enum、Util、Exception 等，供各服务开发时优先复用。
+**common-modules.md 说明**：记录所有公共模块中可复用的类，包括通用 Entity、DTO、Enum、Util、Exception 等，供各服务开发时优先复用。公共模块通过内容分析识别（被其他服务依赖、无启动类、无配置文件），不依赖命名模式。
 
 **Java 单服务项目：**
 ```
