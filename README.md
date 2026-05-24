@@ -111,7 +111,7 @@ AI 将按阶段逐步执行，每个阶段完成后等待你确认。
 Research → Analyze → Design → Develop → Test → Fix
   调研   →  分析  →  设计  →  开发  → 测试 → 修复
 
-Hotfix（独立模式，随时可用）
+Hotfix（独立模式，随时可用，直接输出无需等待确认）
 ```
 
 | 阶段 | AI 做什么 | 产出 |
