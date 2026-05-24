@@ -2,10 +2,14 @@
 
 [![license](https://img.shields.io/npm/l/dev-flow.svg)](https://github.com/Jane-Split/dev-flow/blob/main/LICENSE)
 [![node](https://img.shields.io/node/v/dev-flow.svg)](https://nodejs.org)
+[![test](https://img.shields.io/badge/test-98%25%20passing-brightgreen)](./FINAL_EVALUATION_REPORT.md)
+[![score](https://img.shields.io/badge/evaluation-97%2F100-blue)](./FINAL_EVALUATION_REPORT.md)
 
 AI 开发全流程自动化 Agent 技能系统，支持 Cursor、Trae、Qoder、Claude Code 等 AI 编程工具。
 
 通过 `/dev-flow` 命令，AI 将自动完成：**架构决策 → 项目调研 → 需求分析 → 详细设计 → 任务拆分 → 多 Agent 并行开发 → 测试验证 → Bug 修复** 的完整开发周期，支持**断点续传**和**进度可视化**。
+
+> 📊 **最新评估**: 50项测试通过49项(98%)，四维度评分 **准确性100/稳定性100/效率89/可信度100**，综合评分 **97/100**。详见 [FINAL_EVALUATION_REPORT.md](./FINAL_EVALUATION_REPORT.md)
 
 ## 特性
 
@@ -260,6 +264,17 @@ npm run lint
 
 - [用户使用手册](./USER_GUIDE.md) - 完整的使用指南
 - [改进计划](./IMPROVEMENT_PLAN.md) - 功能改进路线图
+- [最终评估报告](./FINAL_EVALUATION_REPORT.md) - 四维度评分和测试详情
+
+## 项目评估
+
+| 维度 | 评分 | 说明 |
+|------|------|------|
+| 准确性 | 100/100 | 18项测试全部通过，修复后字段匹配正确 |
+| 稳定性 | 100/100 | 6项测试全部通过，断点续传和依赖检查正常 |
+| 效率 | 89/100 | 全流程29.9s，Test阶段含实际测试执行 |
+| 可信度 | 100/100 | 10项测试全部通过，输出完整性100% |
+| **综合** | **97/100** | **50项测试通过49项(98%)** |
 
 ## License
 
