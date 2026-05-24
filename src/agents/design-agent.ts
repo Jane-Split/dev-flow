@@ -13,6 +13,10 @@ export interface DesignResult {
   logicDesign: any;
   styleDesign: any;
   documentPath: string;
+  // 便捷字段，用于下游快速访问
+  dataModels?: any[];
+  apiEndpoints?: any[];
+  components?: any[];
 }
 
 export class DesignAgent extends BaseAgent {
@@ -92,6 +96,10 @@ export class DesignAgent extends BaseAgent {
           logicDesign,
           styleDesign,
           documentPath,
+          // 便捷字段，用于下游快速访问
+          dataModels: dataDesign?.models || [],
+          apiEndpoints: apiDesign?.endpoints || [],
+          components: componentDesign?.components || [],
         },
         artifacts: [documentPath],
       };

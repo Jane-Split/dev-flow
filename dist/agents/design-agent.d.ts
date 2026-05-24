@@ -7,6 +7,9 @@ export interface DesignResult {
     logicDesign: any;
     styleDesign: any;
     documentPath: string;
+    dataModels?: any[];
+    apiEndpoints?: any[];
+    components?: any[];
 }
 export declare class DesignAgent extends BaseAgent {
     constructor(context: AgentContext);

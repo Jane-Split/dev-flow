@@ -27,6 +27,10 @@ export class AlgorithmExpert extends BaseExpert {
         if (task.expert === 'AlgorithmExpert') {
             return true;
         }
+        // 通过任务类型判断
+        if (task.type === 'algorithm') {
+            return true;
+        }
         // 通过描述中的关键词判断
         const algorithmKeywords = /算法|排序|搜索|图论|动态规划|DP|递归|回溯|贪心|二分|哈希|链表|树|栈|队列|bubble sort|quick sort|merge sort|heap sort|binary search|BFS|DFS|fibonacci|knapsack|backtracking|greedy|linked list|binary tree|hash table/i;
         return algorithmKeywords.test(task.description) || algorithmKeywords.test(task.name);

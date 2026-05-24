@@ -42,6 +42,9 @@ export class TestAgent extends BaseAgent {
                 data: {
                     testReport: report,
                     bugs,
+                    // 便捷字段，用于下游快速访问
+                    testCases: report.results || [],
+                    reportPath: report.documentPath,
                 },
                 artifacts: [report.documentPath],
             };

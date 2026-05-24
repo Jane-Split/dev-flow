@@ -9,6 +9,8 @@ export interface Bug {
 export interface TestAgentResult {
     bugs: Bug[];
     testReport: any;
+    testCases?: any[];
+    reportPath?: string;
 }
 export interface FixResult {
     fixedBugs: string[];

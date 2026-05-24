@@ -42,7 +42,7 @@ export interface Component {
     }>;
 }
 export declare const CONTEXT_LIMIT = 8000;
-export type TaskType = 'data' | 'api' | 'component' | 'logic' | 'style' | 'test';
+export type TaskType = 'data' | 'api' | 'component' | 'logic' | 'style' | 'test' | 'algorithm';
 export type Complexity = 'high' | 'medium' | 'low';
 export type TaskStatus = 'pending' | 'in_progress' | 'completed' | 'failed';
 /**

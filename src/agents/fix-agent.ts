@@ -16,6 +16,9 @@ export interface Bug {
 export interface TestAgentResult {
   bugs: Bug[];
   testReport: any;
+  // 便捷字段
+  testCases?: any[];
+  reportPath?: string;
 }
 
 export interface FixResult {
