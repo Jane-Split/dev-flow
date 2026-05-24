@@ -1,3 +1,4 @@
+
 # dev-flow - AI开发全流程编排
 
 ## 定位
@@ -44,6 +45,30 @@
 
 **检测优先级**：Java > 前端 > Node.js > Python > Go > Rust
 
+### 微服务架构检测
+
+**当检测到 Java 项目时，进一步判断是否为微服务架构：**
+
+**微服务根目录特征**（满足任一即判定为微服务）：
+- 根目录下存在多个子目录，每个子目录都有独立的 `pom.xml`
+- 根目录存在父级 `pom.xml`（`<packaging>pom</packaging>`），包含 `<modules>` 定义
+- 存在 `common-*`、`gateway`、`auth`、`*-service` 等典型微服务命名
+
+**检测到微服务架构后，自动进入「多服务模式」：**
+- 扫描所有子服务目录，识别每个服务的角色（网关/认证/业务/公共）
+- 扫描每个服务的多模块结构（不硬编码模块名，自动发现）
+- 扫描跨服务依赖关系（Feign Client、公共依赖）
+- 建立服务间依赖图谱
+
+**单服务模式 vs 多服务模式：**
+
+| 维度 | 单服务模式 | 多服务模式 |
+|------|-----------|-----------|
+| 触发条件 | 当前目录有 `src/main/java` | 根目录有父级 `pom.xml` + 多个子服务 |
+| 扫描范围 | 当前项目 | 所有子服务 |
+| 记忆位置 | `.dev-flow/memory/` | `.dev-flow/memory/`（共享）+ 各服务 `.dev-flow/memory/` |
+| 代码生成 | 当前项目 | 根据需求分析定位到具体服务的具体模块 |
+
 ### 禁止事项
 - ❌ 生成 `// TODO: 实现业务逻辑` 等占位符
 - ❌ 生成 `{/* 描述 */}` 等空 JSX（前端项目）
@@ -65,104 +90,188 @@
 **Step 1: 扫描项目结构并检测项目类型**
 - 读取项目根目录的文件列表
 - **检测项目类型**（根据全局规则中的项目类型检测表）
+- **检测是否为微服务架构**（根据全局规则中的微服务架构检测）
 
-**如果是 Java 项目（检测到 `pom.xml` 或 `build.gradle`）：**
-- 读取 `pom.xml` 或 `build.gradle`，解析：
-  - Java 版本（`<java.version>` 或 `sourceCompatibility`）
-  - Spring Boot 版本（`<parent>` 或 `springBoot` 插件）
-  - 主要依赖（Spring Web, MyBatis-Plus, JPA, Redis, OpenFeign 等）
-  - 构建工具（Maven/Gradle）
-- 读取 `src/main/resources/application.yml` 或 `application.properties`
-  - 服务器端口、数据库配置、Redis 配置、日志配置
-- 检查是否存在 `checkstyle.xml`、`spotbugs-exclude.xml` 等代码质量工具配置
+**Step 1.5: 判断运行模式**
 
-**如果是前端项目（检测到 `package.json` + JSX/Vue 文件）：**
-- 读取 `package.json`，识别框架（React/Vue/Angular）、UI 库、状态管理、CSS 方案
-- 识别构建工具（Vite/Webpack/Parcel）
+**如果是微服务架构（多服务模式）：**
+- 读取根目录的父级 `pom.xml`，解析 `<modules>` 获取所有子服务列表
+- 对每个子服务：
+  - 读取子服务的 `pom.xml`，识别服务角色：
+    - **公共模块**：`artifactId` 含 `common`（如 common-bean、common-util）
+    - **网关服务**：`artifactId` 含 `gateway`
+    - **认证服务**：`artifactId` 含 `auth`
+    - **业务服务**：其余服务（如 user、order、basedata、quality、workflow）
+  - 扫描子服务的多模块结构：
+    - 读取子服务的 `pom.xml`，解析 `<modules>` 获取子模块列表
+    - **不硬编码模块名**，自动发现所有子模块（如 client、core、entity、manage、api 等）
+    - 识别每个子模块的职责（通过目录名和 pom.xml 中的依赖推断）：
+      - `*-client`：Feign Client 接口定义模块
+      - `*-entity` 或 `*-model` 或 `*-domain`：实体类/数据模型模块
+      - `*-core` 或 `*-service`：核心业务逻辑模块
+      - `*-manage` 或 `*-admin` 或 `*-controller`：管理/控制层模块
+      - `*-api`：API 接口定义模块
+      - `*-util` 或 `*-common`：工具类模块
+  - 识别子服务间的依赖关系：
+    - 读取子服务 `pom.xml` 中的 `<dependencies>`，识别引用了哪些其他子服务
+    - 特别关注 `*-client` 模块的依赖（跨服务调用的入口）
 
-**Step 2: 扫描源码目录（按项目类型）**
+**如果是单服务架构（单服务模式）：**
+- 按原有流程执行
 
-**Java 项目扫描路径：**
-- 读取 `src/main/java/` 下的包结构（如 `com/example/order/`）
-- 识别启动类（含 `@SpringBootApplication` 的类）
-- 识别分层架构：
-  - `entity/` - 实体类（JPA/MyBatis-Plus 注解）
-  - `dto/` - 数据传输对象
-  - `mapper/` 或 `repository/` - 数据访问层
-  - `service/` - 业务逻辑层（接口 + 实现）
-  - `controller/` - REST API 控制器
-  - `config/` - 配置类
-  - `enums/` - 枚举类
-  - `exception/` - 异常处理
-  - `util/` - 工具类
-- 识别 MyBatis XML 映射文件（`src/main/resources/mapper/`）
+**Step 2: 扫描源码目录（按项目类型和模式）**
 
-**前端项目扫描路径：**
-- 读取 `src/` 目录结构
-- 识别入口文件（`main.tsx`/`App.tsx` 等）
-- 识别路由定义（API 路由、页面路由）
-- 识别分层架构（components/services/models/utils 等）
+**如果是 Java 微服务（多服务模式）：**
 
-**Step 3: 扫描已有模块和 API（按项目类型）**
+对每个业务服务和公共模块执行以下扫描：
 
-**Java 项目：**
-- **Entity 列表**：类名、表名（`@TableName`）、主键、字段、关系
-- **DTO 列表**：请求 DTO、响应 DTO、校验注解（`@NotNull`/`@Size` 等）
-- **Mapper 列表**：接口名、继承的 BaseMapper、自定义 SQL 方法
-- **Service 列表**：接口名、实现类、主要方法签名
-- **Controller 列表**：类名、基础路径（`@RequestMapping`）、端点方法（方法/路径/参数/响应）
-- **Enum 列表**：枚举名、枚举值及含义
-- **Config 列表**：配置类名、配置的组件（Redis、数据库、拦截器等）
-- **工具类列表**：类名、主要静态方法
+- **公共模块扫描（common-*）：**
+  - 扫描通用 Entity/DTO/VO（所有服务共享的数据模型）
+  - 扫描通用工具类（所有服务共享的工具方法）
+  - 扫描通用枚举（所有服务共享的枚举定义）
+  - 扫描通用异常类（所有服务共享的异常定义）
+  - 扫描通用配置类（所有服务共享的配置）
+  - **目的：后续开发时优先复用公共模块中的类，避免重复定义**
 
-**前端项目：**
-- 列出所有组件文件及其导出
-- 列出所有 API 端点及其请求/响应格式
-- 列出所有工具函数和 Hooks
-- 列出所有数据模型/类型定义
+- **Feign Client 扫描（跨服务调用）：**
+  - 在所有 `*-client` 模块中搜索 `@FeignClient` 注解
+  - 记录：Feign Client 接口名、调用的目标服务、提供的方法签名
+  - **目的：后续开发时知道如何跨服务调用**
+
+- **各业务服务扫描：**
+  - 读取每个服务的 `application.yml` / `bootstrap.yml`
+    - 服务端口、服务名称（`spring.application.name`）
+    - Nacos/注册中心配置
+    - 数据库配置（每个服务可能连接不同的数据库）
+    - Redis 配置
+  - 识别每个服务的分层架构（在各子模块中）：
+    - Entity/Model 模块：实体类（JPA/MyBatis-Plus 注解）
+    - DTO 模块：数据传输对象
+    - Mapper/Repository 模块：数据访问层
+    - Service 模块：业务逻辑层（接口 + 实现）
+    - Controller 模块：REST API 控制器
+    - Config 模块：配置类
+    - Enums 模块：枚举类
+    - Exception 模块：异常处理
+
+**如果是 Java 单服务项目：**
+- 按原有流程执行（扫描 `src/main/java/` 下的包结构）
+
+**如果是前端项目：**
+- 按原有流程执行
+
+**Step 3: 扫描已有模块和 API**
+
+**如果是 Java 微服务（多服务模式）：**
+
+按服务分组记录：
+
+- **公共模块（common-*）：**
+  - 通用 Entity 列表（所有服务共享）
+  - 通用 DTO 列表（所有服务共享）
+  - 通用工具类列表
+  - 通用枚举列表
+  - 通用异常类列表
+
+- **各业务服务：**
+  - Entity 列表：类名、表名、字段
+  - DTO 列表：请求/响应 DTO
+  - Mapper 列表：接口名、继承关系
+  - Service 列表：接口名、实现类、方法签名
+  - Controller 列表：基础路径、端点方法
+  - Enum 列表：枚举名、枚举值
+
+- **跨服务调用关系（Feign Client）：**
+  - 调用方服务 → 被调用方服务
+  - Feign Client 接口 → 方法签名
+
+**如果是 Java 单服务项目 / 前端项目：**
+- 按原有流程执行
 
 **Step 4: 识别编码规范（按项目类型）**
 
-**Java 项目：**
-- 读取 `checkstyle.xml`（如果存在）
-- 从代码中推断命名风格：
-  - 类名：PascalCase（如 `OrderService`）
-  - 方法名/变量名：camelCase（如 `createOrder`）
-  - 常量：UPPER_SNAKE_CASE（如 `MAX_PAGE_SIZE`）
-- 识别导入风格（是否使用 `*` 通配符、静态导入）
-- 识别注释风格（Javadoc 格式、类/方法注释规范）
-- 识别 Lombok 使用策略（`@Data`/`@Getter`/`@Setter`/`@Builder`）
-- 识别异常处理风格（自定义异常、全局异常处理器）
+**如果是 Java 微服务（多服务模式）：**
+- 从公共模块（common-*）中推断编码规范（公共模块通常代表项目级规范）
+- 验证各服务是否遵循相同的编码规范
+- 识别：
+  - 命名风格（类名、方法名、常量）
+  - Lombok 使用策略
+  - MyBatis-Plus / JPA 使用策略
+  - 异常处理风格
+  - 统一响应包装类（ApiResponse / Result 等）
+  - 分页封装类
+  - DTO 转换方式（MapStruct / BeanUtils / 手动）
 
-**前端项目：**
-- 读取 `.eslintrc`、`.prettierrc`、`tsconfig.json` 等配置
-- 从代码中推断命名风格
-- 识别导入排序风格、注释风格、文件组织方式
+**如果是 Java 单服务项目 / 前端项目：**
+- 按原有流程执行
 
 **Step 5: 写入项目记忆**
-将以上所有信息以 Markdown 格式写入 `.dev-flow/memory/` 目录：
+
+**如果是 Java 微服务（多服务模式）：**
 
 ```
-.dev-flow/memory/
-├── project-overview.md    # 项目概览（技术栈、架构、目录结构）
-├── conventions.md         # 编码规范（命名、导入、注释）
-├── modules.md             # 已有模块列表（Java: Service/Mapper/Controller/Entity/DTO/Enum）
-├── apis.md                # 已有 API 列表（路径、方法、参数、响应）
-├── models.md              # 数据模型列表（Entity、DTO、数据库表）
-├── utils.md               # 工具类/函数列表
-├── architecture.md        # 架构决策（技术选型、设计模式）
-└── config.md              # 配置信息（数据库、Redis、中间件）
+.dev-flow/memory/                          # 根目录共享记忆
+├── project-overview.md                    # 微服务架构总览（所有服务、技术栈、端口）
+├── conventions.md                         # 项目级编码规范（从公共模块推断）
+├── service-registry.md                    # 服务注册表（服务名、端口、角色、模块列表）
+├── dependency-graph.md                    # 服务间依赖图谱（谁依赖谁、Feign 调用关系）
+├── common-modules.md                      # 公共模块清单（通用 Entity/DTO/Util/Enum）
+├── patterns.md                            # 常见代码模式
+├── mistakes.md                            # 常见错误及修复
+├── preferences.md                         # 用户偏好
+└── decisions.md                           # 架构决策记录
 ```
+
+**service-registry.md 示例：**
+```markdown
+# 服务注册表
+
+## 服务列表
+| 服务名 | 目录 | 端口 | 角色 | 子模块 |
+|--------|------|------|------|--------|
+| common-bean | common-bean | - | 公共模块 | entity, dto, util, enums, exception |
+| gateway | gateway | 8080 | 网关 | core |
+| auth | auth | 8081 | 认证服务 | client, core, entity, manage |
+| user | user | 8082 | 用户服务 | client, core, entity, manage |
+| basedata | basedata | 8083 | 基础数据服务 | client, core, entity, manage |
+| quality | quality | 8084 | 质量服务 | client, core, entity, manage |
+| workflow | workflow | 8085 | 工作流服务 | client, core, entity, manage |
+
+## 跨服务调用关系
+| 调用方 | Feign Client | 目标服务 | 方法 |
+|--------|-------------|----------|------|
+| quality | WorkflowClient | workflow | startProcess(), getProcessStatus() |
+| auth | UserClient | user | getUserById(), getUserByUsername() |
+```
+
+**如果是 Java 单服务项目 / 前端项目：**
+- 按原有流程执行
 
 **Step 6: 自检**
-- 验证所有 7 个记忆文件是否已成功写入
-- 验证每个文件包含有意义的内容（非空模板）
-- 验证模块列表、API 列表与实际扫描结果一致
+- 验证所有记忆文件是否已成功写入
+- 验证每个文件包含有意义的内容
+- **多服务模式额外验证**：
+  - 所有子服务是否都被扫描到
+  - 公共模块是否被正确识别
+  - Feign Client 调用关系是否完整
+  - 服务间依赖图谱是否正确
 
 **输出格式**：
-向用户展示调研摘要表格：
 
-**Java 项目：**
+**Java 微服务（多服务模式）：**
+| 维度 | 结果 |
+|------|------|
+| 项目类型 | Java 微服务（多服务模式） |
+| 语言/版本 | Java 17 |
+| 框架 | Spring Boot 3.2.5 + Spring Cloud |
+| 注册中心 | Nacos / Eureka / Consul |
+| 网关 | Spring Cloud Gateway |
+| 服务数量 | X 个 |
+| 公共模块 | X 个 |
+| 跨服务调用 | X 个 Feign Client |
+| 编码规范 | 从 common-* 模块推断 |
+
+**Java 单服务项目：**
 | 维度 | 结果 |
 |------|------|
 | 项目类型 | Java 后端微服务 |
@@ -203,12 +312,30 @@
 - 识别需求类型：新功能 / 功能增强 / Bug 修复 / 重构 / 性能优化
 - 识别优先级：P0(紧急) / P1(高) / P2(中) / P3(低)
 - 提取核心功能点列表
+- **如果是 Java 微服务（多服务模式）：**
+  - 读取 `.dev-flow/memory/service-registry.md`，识别需求可能涉及的服务
+  - 读取 `.dev-flow/memory/dependency-graph.md`，分析跨服务依赖影响
+  - 评估跨服务影响范围：哪些服务会被直接影响，哪些会被间接影响（通过 Feign 调用链）
 
 **Step 2: 上下文关联**
 - 读取 `.dev-flow/memory/` 中的项目记忆
 - **根据项目类型，识别与需求相关的已有代码：**
 
-**如果是 Java 项目：**
+**如果是 Java 微服务（多服务模式）：**
+- 读取 `.dev-flow/memory/service-registry.md` - 识别受影响的服务及其模块结构
+- 读取 `.dev-flow/memory/dependency-graph.md` - 理解跨服务依赖关系和 Feign 调用链
+- 读取 `.dev-flow/memory/common-modules.md` - 识别可复用的公共类（Entity/DTO/Enum/Util）
+- 对每个受影响的服务：
+  - 读取该服务的 `.dev-flow/memory/modules.md`（如有）或从 service-registry.md 获取模块信息
+  - 识别相关的 Service、Mapper、Controller、Entity、DTO、Enum
+  - 识别该服务中哪些具体模块需要变更
+- 评估跨服务变更需求：
+  - 是否需要新建 Feign Client 接口？（A 服务需要调用 B 服务的新方法）
+  - 是否需要在公共模块中新增类？（多个服务共享的 Entity/DTO/Enum）
+  - 是否需要修改现有 Feign Client？（增加新的跨服务调用方法）
+  - 是否需要新增服务间的事件/消息通信？
+
+**如果是 Java 单服务项目：**
 - 读取 `modules.md` - 识别相关的 Service、Mapper、Controller、Entity、DTO、Enum
 - 读取 `apis.md` - 识别需要新增或修改的 REST API 端点
 - 读取 `models.md` - 识别相关的数据模型（Entity、DTO、数据库表）
@@ -235,7 +362,78 @@
 **Step 4: 生成需求文档**
 输出格式：
 
-**Java 项目：**
+**如果是 Java 微服务（多服务模式）：**
+```markdown
+## 需求分析：[需求标题]
+
+### 基本信息
+- 类型：新功能
+- 优先级：P1
+- 影响服务：[服务A]、[服务B]、[公共模块]
+
+### 跨服务影响分析
+| 服务 | 影响类型 | 说明 |
+|------|----------|------|
+| [服务A] | 直接影响 | 核心业务逻辑变更 |
+| [服务B] | 间接影响 | 需要新增 Feign Client 方法 |
+| common-bean | 公共模块 | 需要新增共享 DTO |
+
+### 功能点
+1. [功能点1] - 描述
+2. [功能点2] - 描述
+3. [功能点3] - 描述
+
+### 约束条件
+- [约束1]
+- [约束2]
+
+### 歧义/待确认
+- [歧义1] → 建议：[建议方案]
+
+### 相关已有代码
+#### 公共模块
+- [Entity/DTO/Enum 类名] - [说明可复用性]
+
+#### 服务：[服务A]
+##### Entity/数据模型
+- [Entity 类名] - [说明关联关系]
+
+##### Service 层
+- [Service 接口名] - [说明需要新增或修改的方法]
+
+##### Mapper 层
+- [Mapper 接口名] - [说明是否需要新增查询方法]
+
+##### Controller 层
+- [Controller 类名] - [说明需要新增的端点]
+
+##### DTO
+- [DTO 类名] - [说明是否需要新增或复用]
+
+##### Enum
+- [Enum 类名] - [说明是否需要新增状态/类型枚举]
+
+#### 服务：[服务B]
+（同上结构）
+
+### 跨服务调用变更
+| 变更类型 | 调用方 | 被调用方 | Feign Client | 方法 | 说明 |
+|----------|--------|----------|-------------|------|------|
+| 新增 | 服务A | 服务B | XxxClient | xxxMethod() | 新增跨服务查询 |
+
+### 预计新增/修改文件
+| 服务 | 模块 | 类型 | 文件路径 | 操作 | 说明 |
+|------|------|------|----------|------|------|
+| common-bean | dto | DTO | `xxx/XxxDTO.java` | 新增 | 跨服务共享 DTO |
+| 服务A | core | Entity | `xxx/Xxx.java` | 新增 | 对应 xxx 表 |
+| 服务A | core | DTO | `xxx/XxxRequest.java` | 新增 | 请求参数 |
+| 服务A | core | Mapper | `xxx/XxxMapper.java` | 新增 | 数据访问 |
+| 服务A | core | Service | `xxx/XxxService.java` | 新增/修改 | 业务逻辑 |
+| 服务A | manage | Controller | `xxx/XxxController.java` | 新增/修改 | REST API |
+| 服务B | client | Feign | `xxx/XxxClient.java` | 新增/修改 | Feign 接口 |
+```
+
+**如果是 Java 单服务项目：**
 ```markdown
 ## 需求分析：[需求标题]
 
@@ -318,6 +516,11 @@
 - 验证影响范围是否完整覆盖所有受影响模块（Java 项目需覆盖 Entity/Mapper/Service/Controller/DTO/Enum）
 - 验证歧义项是否都已提出澄清建议
 - 验证预计文件列表是否符合项目分层架构规范
+- **多服务模式额外验证**：
+  - 是否所有受影响的服务都被识别到
+  - 跨服务调用链是否完整（A → B → C 的间接依赖是否考虑）
+  - 公共模块的变更是否会影响其他未识别的服务
+  - Feign Client 变更是否与依赖图谱一致
 
 **Step 6: 写入项目记忆**
 - 将需求分析结果追加到 `.dev-flow/sessions/` 当前会话文件中
@@ -338,11 +541,36 @@
 - 读取 `.dev-flow/memory/project-overview.md` - 了解项目技术栈和架构
 - 读取 `.dev-flow/memory/architecture.md` - 了解架构决策和约束
 - 读取 `.dev-flow/memory/conventions.md` - 了解编码规范
+- **如果是 Java 微服务（多服务模式），额外读取：**
+  - `.dev-flow/memory/service-registry.md` - 了解所有服务的角色、端口、模块结构
+  - `.dev-flow/memory/dependency-graph.md` - 了解服务间依赖关系和 Feign 调用链
+  - `.dev-flow/memory/common-modules.md` - 了解可复用的公共类
 - 确保设计方案符合项目整体架构
 
 **Step 1: 数据层设计（按项目类型）**
 
-**如果是 Java 项目：**
+**如果是 Java 微服务（多服务模式）：**
+- **实体归属设计**：
+  - 确定每个 Entity 属于哪个服务（数据归属原则：谁拥有数据的读写权限，谁负责存储）
+  - 确定哪些 Entity 放在公共模块（多个服务共享的数据模型）
+  - 确定哪些 Entity 放在服务专属模块（仅该服务使用）
+- **Entity 设计**（同单服务模式）：
+  - 类名、表名（`@TableName`）、主键策略
+  - 字段名、类型、数据库列名（`@TableField`）
+  - 字段校验注解（`@NotNull`、`@Size`、`@Email` 等）
+  - 关联关系（`@OneToOne`、`@OneToMany`、`@ManyToMany`）
+  - 逻辑删除字段（`@TableLogic`）
+  - 自动填充字段（`@TableField(fill = FieldFill.INSERT)`）
+- **DTO 放置策略**：
+  - 跨服务传输的 DTO → 放在公共模块（common-*）或被调用方的 client 模块
+  - 服务内部使用的 DTO → 放在服务专属模块
+  - Request/Response DTO → 放在服务专属模块
+- **Enum 设计**：状态枚举、类型枚举、错误码枚举
+  - 多服务共享的枚举 → 放在公共模块
+  - 服务专属枚举 → 放在服务专属模块
+- **数据库设计**：表结构、索引、外键约束（注意：微服务中不同服务使用不同数据库，避免跨库外键）
+
+**如果是 Java 单服务项目：**
 - **Entity 设计**：
   - 类名、表名（`@TableName`）、主键策略
   - 字段名、类型、数据库列名（`@TableField`）
@@ -362,6 +590,17 @@
 - 设计模型间关系
 
 **Step 2: 接口层设计**
+
+**如果是 Java 微服务（多服务模式），额外设计 Feign Client 接口：**
+- **Feign Client 接口设计**：
+  - 接口名、`@FeignClient(name = "目标服务名")` 注解
+  - 方法签名（路径、请求参数、返回值）
+  - 放置位置：调用方服务的 client 模块
+  - 跨服务传输的 DTO 定义（放在 client 模块或公共模块）
+  - 超时配置、熔断降级策略（如有）
+  - 错误码映射（目标服务的错误码如何映射到调用方的错误处理）
+
+**通用接口层设计（所有 Java 项目）：**
 - 设计 RESTful API 端点（方法、路径、请求体、响应体）
 - 定义错误码和错误响应格式
 - 设计认证和权限要求（`@PreAuthorize`、`@RolesAllowed`）
@@ -369,7 +608,28 @@
 
 **Step 3: 分层架构设计（按项目类型）**
 
-**如果是 Java 项目：**
+**如果是 Java 微服务（多服务模式）：**
+- **跨服务模块放置设计**：
+  - 对每个受影响的服务，明确代码放置在哪个子模块中：
+    - Entity → 放在实体模块（如 `*-entity` / `*-model` / `*-domain`）
+    - DTO → 跨服务共享的放公共模块，服务内部的放服务专属模块
+    - Mapper → 放在核心模块（如 `*-core` / `*-service`）
+    - Service → 放在核心模块
+    - Controller → 放在控制层模块（如 `*-manage` / `*-admin` / `*-controller`）
+    - Feign Client → 放在调用方服务的 client 模块
+  - **公共模块新增设计**：
+    - 列出需要在公共模块中新增的类（Entity/DTO/Enum/Util）
+    - 说明新增原因（哪些服务需要共享）
+  - **Feign Client 生成计划**：
+    - 列出需要新建或修改的 Feign Client 接口
+    - 明确调用方服务、被调用方服务、方法签名
+- **各服务内部分层设计**（同单服务模式）：
+  - **Mapper 层设计**：继承 `BaseMapper` 还是自定义 SQL、XML 映射文件、复杂查询 SQL
+  - **Service 层设计**：接口定义、实现类逻辑、事务边界、依赖注入
+  - **Controller 层设计**：基础路径、端点方法、参数绑定、统一响应包装
+  - **异常处理设计**：自定义异常类、全局异常处理器
+
+**如果是 Java 单服务项目：**
 - **Mapper 层设计**：
   - 继承 `BaseMapper` 还是自定义 SQL
   - 是否需要 XML 映射文件
@@ -399,6 +659,23 @@
 - 定义事务边界和并发控制
 - 定义缓存策略（Redis key 设计、过期时间）
 - 定义消息队列使用（如果有异步处理）
+- **如果是 Java 微服务（多服务模式），额外设计：**
+  - **分布式事务考虑**：
+    - 是否需要跨服务事务？如果需要，选择方案：
+      - Seata（AT/TCC/Saga 模式）
+      - 本地消息表 + 最终一致性
+      - 事件驱动（Spring Cloud Stream / RocketMQ 事务消息）
+      - 最大努力通知（对一致性要求不高的场景）
+    - 如果不需要强一致性，说明各服务的最终一致性策略
+  - **服务调用链设计**：
+    - 请求从哪个服务进入，经过哪些服务，最终由哪个服务处理
+    - 每个服务在调用链中的职责
+    - 同步调用 vs 异步调用的选择
+  - **跨服务错误处理**：
+    - Feign 调用失败时的降级策略（fallback）
+    - 超时处理策略
+    - 重试策略（哪些操作可以重试，哪些不能）
+    - 跨服务错误码传播机制
 
 **Step 5: 自检**
 - 检查每个功能点是否都有对应的 Entity、DTO、Service 方法覆盖
@@ -406,6 +683,13 @@
 - 检查 Service 方法是否都有对应的 Mapper 查询支持
 - 检查异常场景是否都有对应的错误码和处理方案
 - 检查数据库设计是否符合范式要求
+- **多服务模式额外验证**：
+  - 检查跨服务调用是否有对应的 Feign Client 设计
+  - 检查分布式事务方案是否合理（是否过度设计或设计不足）
+  - 检查公共模块新增类是否会影响其他服务
+  - 检查服务调用链是否有循环依赖
+  - 检查跨服务 DTO 是否完整定义（调用方和被调用方一致）
+  - 检查 Feign Client 接口是否与目标服务的 Controller 端点匹配
 
 **Step 6: 写入项目记忆**
 - 将设计文档保存到 `.dev-flow/sessions/` 当前会话文件中
@@ -414,7 +698,100 @@
 
 **输出格式**：
 
-**Java 项目：**
+**如果是 Java 微服务（多服务模式）：**
+```markdown
+## 设计文档：[需求标题]
+
+### 跨服务设计总览
+| 维度 | 说明 |
+|------|------|
+| 涉及服务 | [服务A]、[服务B]、[公共模块] |
+| 服务调用链 | [请求入口服务] → [中间服务] → [数据服务] |
+| 分布式事务方案 | [Seata AT / 最终一致性 / 无需跨服务事务] |
+| 新增 Feign Client | [XxxClient]、[YyyClient] |
+| 公共模块变更 | 新增 [XxxDTO]、[XxxEnum] |
+
+### 服务：[服务A] 设计
+#### 数据库设计
+| 表名 | 说明 | 主要字段 |
+|------|------|----------|
+| xxx | xxx 表 | id, name, ... |
+
+#### Entity 设计
+```java
+@Data
+@TableName("xxx")
+public class Xxx {
+    @TableId(type = IdType.AUTO)
+    private Long id;
+    
+    @TableField("name")
+    @NotNull(message = "名称不能为空")
+    private String name;
+}
+```
+
+#### DTO 设计
+**XxxRequest**
+```java
+@Data
+public class XxxRequest {
+    @NotNull(message = "名称不能为空")
+    @Size(max = 50, message = "名称最多50字符")
+    private String name;
+}
+```
+
+#### API 设计
+| 方法 | 路径 | 说明 | 请求体 | 响应体 |
+|------|------|------|--------|--------|
+| POST | /api/xxx | 创建 | XxxRequest | ApiResponse<Xxx> |
+| GET | /api/xxx/{id} | 查询 | - | ApiResponse<Xxx> |
+
+#### Service 设计
+**接口方法**
+```java
+ApiResponse<Xxx> create(XxxRequest request);
+ApiResponse<Xxx> getById(Long id);
+```
+
+**实现逻辑**
+1. 参数校验
+2. 业务逻辑处理
+3. 数据库操作
+4. 返回结果
+
+#### 异常设计
+| 场景 | 异常类 | 错误码 | HTTP 状态 |
+|------|--------|--------|-----------|
+| 参数错误 | BusinessException | 400001 | 400 |
+| 资源不存在 | ResourceNotFoundException | 404001 | 404 |
+
+### 服务：[服务B] 设计
+（同上结构）
+
+### Feign Client 设计
+| Feign Client | 调用方 | 目标服务 | 方法 | 说明 |
+|-------------|--------|----------|------|------|
+| XxxClient | 服务A | 服务B | getXxxById() | 查询 xxx 数据 |
+
+**XxxClient 接口定义**
+```java
+@FeignClient(name = "服务B", fallbackFactory = XxxClientFallbackFactory.class)
+public interface XxxClient {
+    @GetMapping("/api/xxx/{id}")
+    ApiResponse<XxxDTO> getXxxById(@PathVariable("id") Long id);
+}
+```
+
+### 公共模块变更
+| 模块 | 类型 | 类名 | 说明 |
+|------|------|------|------|
+| common-bean | DTO | XxxDTO | 跨服务传输 DTO |
+| common-bean | Enum | XxxType | 共享枚举 |
+```
+
+**如果是 Java 单服务项目：**
 ```markdown
 ## 设计文档：[需求标题]
 
@@ -479,9 +856,9 @@ ApiResponse<Xxx> getById(Long id);
 ## 设计文档：[需求标题]
 
 ### 数据模型
-```typescript
+\`\`\`typescript
 interface User { ... }
-```
+\`\`\`
 
 ### API 设计
 | 方法 | 路径 | 说明 | 请求体 | 响应体 |
@@ -519,10 +896,36 @@ interface User { ... }
 - 读取 `.dev-flow/memory/utils.md` - 复用已有工具函数
 - 读取 `.dev-flow/memory/patterns.md` - 复用已有代码模式
 - 读取 `.dev-flow/memory/mistakes.md` - 避免历史错误
+- **如果是 Java 微服务（多服务模式），额外读取：**
+  - `.dev-flow/memory/service-registry.md` - 了解各服务的模块结构
+  - `.dev-flow/memory/dependency-graph.md` - 了解服务间依赖顺序
+  - `.dev-flow/memory/common-modules.md` - 了解可复用的公共类
 
 **Step 2: 按依赖顺序开发（按项目类型）**
 
-**如果是 Java 项目，按以下顺序开发：**
+**如果是 Java 微服务（多服务模式），按以下顺序开发：**
+
+1. **公共模块变更**（如有）- 优先开发公共模块，因为其他服务依赖它
+   - 公共 Entity / DTO / Enum / Util
+   - 明确标注：`[公共模块 common-xxx]`
+2. **Feign Client 接口**（如有新增跨服务调用）
+   - 在调用方服务的 client 模块中定义 Feign Client 接口
+   - 明确标注：`[服务A - client 模块]`
+3. **按服务依赖顺序，逐服务开发**（根据 dependency-graph.md 确定顺序）：
+   - 先开发被依赖的服务（被调用的服务），再开发调用方服务
+   - 每个服务内部按以下层级顺序开发：
+     1. **Enum** - 状态枚举、类型枚举（被其他层依赖）
+     2. **Entity** - 实体类（被 Mapper 和 DTO 依赖）
+     3. **DTO** - 请求/响应 DTO（被 Controller 和 Service 依赖）
+     4. **Mapper** - 数据访问层（被 Service 依赖）
+     5. **Service Interface** - 服务接口定义
+     6. **Service Implementation** - 服务实现（依赖 Mapper，可能依赖 Feign Client）
+     7. **Controller** - 控制器层（依赖 Service）
+     8. **Exception** - 自定义异常（如需新增）
+     9. **Config** - 配置类（如需新增）
+   - **每个文件明确标注所属服务和模块**：`[服务名 - 模块名] 文件路径`
+
+**如果是 Java 单服务项目，按以下顺序开发：**
 1. **Enum** - 状态枚举、类型枚举（被其他层依赖）
 2. **Entity** - 实体类（被 Mapper 和 DTO 依赖）
 3. **DTO** - 请求/响应 DTO（被 Controller 和 Service 依赖）
@@ -543,6 +946,28 @@ interface User { ... }
 7. 路由配置
 
 **Step 3: 代码生成规范（Java 项目）**
+
+**如果是 Java 微服务（多服务模式），额外遵循以下跨服务代码生成规范：**
+
+**Feign Client 规范**：
+- 接口使用 `@FeignClient(name = "目标服务名")` 注解
+- 方法签名与目标服务 Controller 端点保持一致
+- 放置在调用方服务的 client 模块中
+- 返回值使用统一包装 `ApiResponse<T>` 或直接返回 DTO（根据项目约定）
+- 建议配置 `fallbackFactory` 实现降级处理
+- 方法参数使用 `@RequestParam`、`@PathVariable`、`@RequestBody`，与目标 Controller 一致
+
+**公共模块引用规范**：
+- 引用公共模块中的类时，使用公共模块的完整包名
+- 不在服务模块中重复定义公共模块已有的类
+- 如果公共模块的类不满足需求，优先扩展而非新建
+
+**跨服务 DTO 转换规范**：
+- 服务内部使用服务专属 DTO，跨服务传输使用公共 DTO 或 client 模块 DTO
+- 使用 MapStruct 或手动转换进行 DTO 间转换
+- 转换逻辑放在 Service 实现层，不暴露到 Controller
+
+**单服务代码生成规范（所有 Java 项目通用）：**
 
 **Entity 规范**：
 - 使用 Lombok 注解（`@Data`、`@Builder`）
@@ -593,11 +1018,31 @@ interface User { ... }
 - 是否有安全漏洞（SQL 注入、XSS、敏感信息泄露）
 - 是否正确使用事务（查询方法不加 `@Transactional`）
 - 是否正确处理异常（自定义异常 vs 运行时异常）
+- **多服务模式额外检查**：
+  - Feign Client 接口是否与目标服务 Controller 端点匹配（路径、参数、返回值）
+  - 公共模块的类是否被正确引用（包名、类名）
+  - 跨服务 DTO 转换是否完整（字段映射无遗漏）
+  - 服务间依赖顺序是否正确（被依赖的服务先开发）
+  - 是否有循环依赖（A 调 B，B 调 A）
 
 **输出格式**：
 每个文件生成后，按以下格式展示：
 
-**Java 项目：**
+**如果是 Java 微服务（多服务模式）：**
+| 服务 | 模块 | 文件路径 | 操作 | 说明 |
+|------|------|----------|------|------|
+| common-bean | dto | `xxx/XxxDTO.java` | 新建 | 跨服务共享 DTO |
+| common-bean | enums | `xxx/XxxType.java` | 新建 | 共享枚举 |
+| 服务A | client | `xxx/XxxClient.java` | 新建 | Feign Client 接口 |
+| 服务A | entity | `xxx/Xxx.java` | 新建 | 实体类 |
+| 服务A | core | `dto/XxxRequest.java` | 新建 | 请求 DTO |
+| 服务A | core | `mapper/XxxMapper.java` | 新建 | 数据访问层 |
+| 服务A | core | `service/XxxService.java` | 新建 | 服务接口 |
+| 服务A | core | `service/impl/XxxServiceImpl.java` | 新建 | 服务实现 |
+| 服务A | manage | `controller/XxxController.java` | 新建 | REST API |
+| 服务B | core | `service/XxxService.java` | 修改 | 新增被调用方法 |
+
+**如果是 Java 单服务项目：**
 | 文件路径 | 操作 | 说明 |
 |----------|------|------|
 | `entity/Order.java` | 新建 | 订单实体类，包含 MyBatis-Plus 注解 |
@@ -697,6 +1142,25 @@ interface User { ... }
 - 测试类路径：`src/test/java/.../integration/XxxIntegrationTest.java`
 - 测试完整请求链路（Controller → Service → Mapper）
 
+**如果是 Java 微服务（多服务模式），额外生成以下测试：**
+
+**Feign Client 测试（使用 `@MockBean` 或 WireMock）：**
+- 测试类路径：`src/test/java/.../client/XxxClientTest.java`
+- 使用 `@MockBean` 模拟 Feign Client 或使用 WireMock 模拟目标服务
+- 测试场景：
+  - 正常调用返回（200 OK）
+  - 目标服务不可用（503 Service Unavailable）
+  - 超时场景
+  - Fallback 降级逻辑触发
+  - 错误码正确传播
+
+**跨服务集成测试说明：**
+- 微服务环境下，跨服务集成测试通常需要启动多个服务或使用 Mock
+- 建议策略：
+  - 单元测试 + Feign Client Mock 测试覆盖大部分场景
+  - 如需真实跨服务集成测试，使用 Docker Compose 或 Testcontainers
+  - 跨服务事务场景需重点测试（数据一致性、补偿机制）
+
 **如果是前端项目，生成以下测试：**
 - 组件测试：渲染测试、交互测试、边界情况测试
 - API 测试：正常流程、参数验证、错误处理、权限检查
@@ -761,6 +1225,21 @@ interface User { ... }
   - **SQL 异常**：SQL 语法错误、约束违反
   - **并发异常**：线程安全问题
 
+**如果是 Java 微服务（多服务模式），额外分析跨服务调用失败：**
+- **Feign 调用异常（FeignException）**：
+  - 目标服务不可用（连接超时、读取超时）
+  - 目标服务返回错误码（400/500），需检查错误码传播
+  - 请求参数序列化/反序列化失败
+  - Fallback 降级逻辑未正确触发
+- **跨服务数据不一致**：
+  - 分布式事务未正确提交/回滚
+  - 最终一致性延迟过大
+  - 补偿机制未正确执行
+- **服务注册/发现问题**：
+  - 目标服务未注册到注册中心
+  - 服务名配置错误
+  - 负载均衡策略导致的问题
+
 **如果是前端项目：**
 - 读取失败测试的输出
 - 定位出错的代码行
@@ -810,14 +1289,74 @@ interface User { ... }
 **如果是前端项目，识别以下错误类型：**
 - TypeError/ReferenceError/SyntaxError/ModuleNotFound/...
 
+**如果是 Java 微服务（多服务模式），额外识别以下跨服务错误类型：**
+| 错误类型 | 特征 | 常见原因 |
+|----------|------|----------|
+| FeignException | Feign 调用异常 | 目标服务不可用、超时、参数错误 |
+| FeignException.ServiceUnavailable | 503 服务不可用 | 目标服务宕机或未注册 |
+| FeignException.BadRequest | 400 请求错误 | 请求参数与目标服务不匹配 |
+| FeignException.InternalServerError | 500 内部错误 | 目标服务内部异常 |
+| DecodeException | 响应解码异常 | 返回值类型不匹配、序列化失败 |
+| RetryableException | 可重试异常 | 网络超时、连接被拒绝 |
+
 **Step 2: 定位相关代码**
 - 读取错误文件
 - 分析错误上下文
+- **如果是 Java 微服务（多服务模式）：**
+  - 根据错误堆栈判断错误发生在哪个服务
+  - 如果是 Feign 调用异常，同时检查调用方和被调用方的代码
+  - 检查 service-registry.md 确认服务间依赖关系
 
 **Step 3: 生成修复方案**
 - 说明根因分析
 - 提供修复代码
 - 提供验证步骤
+
+**Java 微服务（多服务模式）常见跨服务修复模式：**
+
+**Feign 调用超时处理：**
+```java
+// 修复前：无超时和降级处理
+@FeignClient(name = "xxx-service")
+public interface XxxClient {
+    @GetMapping("/api/xxx/{id}")
+    ApiResponse<XxxDTO> getById(@PathVariable Long id);
+}
+
+// 修复后：添加 fallback 降级
+@FeignClient(name = "xxx-service", fallbackFactory = XxxClientFallbackFactory.class)
+public interface XxxClient {
+    @GetMapping("/api/xxx/{id}")
+    ApiResponse<XxxDTO> getById(@PathVariable Long id);
+}
+
+@Component
+public class XxxClientFallbackFactory implements FallbackFactory<XxxClient> {
+    @Override
+    public XxxClient create(Throwable cause) {
+        return new XxxClient() {
+            @Override
+            public ApiResponse<XxxDTO> getById(Long id) {
+                log.error("调用 xxx-service 失败, id={}, 原因: {}", id, cause.getMessage());
+                return ApiResponse.fail("服务暂时不可用，请稍后重试");
+            }
+        };
+    }
+}
+```
+
+**跨服务错误码传播：**
+```java
+// 修复前：直接抛出 Feign 异常，丢失目标服务的错误信息
+XxxDTO result = xxxClient.getById(id);
+
+// 修复后：检查返回的错误码并正确处理
+ApiResponse<XxxDTO> response = xxxClient.getById(id);
+if (!response.isSuccess()) {
+    throw new BusinessException(response.getCode(), response.getMessage());
+}
+XxxDTO result = response.getData();
+```
 
 **Java 项目常见修复模式：**
 
@@ -897,7 +1436,41 @@ Optional.ofNullable(order.getItems())
 
 ### 记忆目录结构
 
-**Java 项目：**
+**Java 微服务（多服务模式）：**
+```
+.dev-flow/memory/                          # 根目录共享记忆（全局）
+├── project-overview.md                    # 微服务架构总览（所有服务、技术栈、端口）
+├── conventions.md                         # 项目级编码规范（从公共模块推断）
+├── service-registry.md                    # 服务注册表（服务名、端口、角色、子模块列表）
+├── dependency-graph.md                    # 服务间依赖图谱（谁依赖谁、Feign 调用关系）
+├── common-modules.md                      # 公共模块清单（通用 Entity/DTO/Util/Enum）
+├── patterns.md                            # 常见代码模式
+├── mistakes.md                            # 常见错误及修复
+├── preferences.md                         # 用户偏好
+└── decisions.md                           # 架构决策记录
+
+service-a/.dev-flow/memory/                # 服务 A 专属记忆
+├── modules.md                             # 服务 A 的模块清单（Entity/Mapper/Service/Controller/DTO/Enum）
+├── apis.md                                # 服务 A 的 API 列表
+├── models.md                              # 服务 A 的数据模型
+├── config.md                              # 服务 A 的配置信息
+└── architecture.md                        # 服务 A 的架构决策
+
+service-b/.dev-flow/memory/                # 服务 B 专属记忆
+├── modules.md                             # 服务 B 的模块清单
+├── apis.md                                # 服务 B 的 API 列表
+├── models.md                              # 服务 B 的数据模型
+├── config.md                              # 服务 B 的配置信息
+└── architecture.md                        # 服务 B 的架构决策
+```
+
+**service-registry.md 说明**：记录所有服务的元信息，包括服务名、目录路径、端口、角色（网关/认证/业务/公共）、子模块列表（自动发现，不硬编码模块名）。
+
+**dependency-graph.md 说明**：记录服务间的依赖关系和 Feign 调用关系，包括调用方服务、被调用方服务、Feign Client 接口名、方法签名。
+
+**common-modules.md 说明**：记录所有公共模块（common-*）中可复用的类，包括通用 Entity、DTO、Enum、Util、Exception 等，供各服务开发时优先复用。
+
+**Java 单服务项目：**
 ```
 .dev-flow/memory/
 ├── project-overview.md    # 项目概览
@@ -932,12 +1505,21 @@ Optional.ofNullable(order.getItems())
 - Develop 前：必须读取 conventions、modules/components、apis、utils、patterns、mistakes
 - Design 前：必须读取 project-overview、architecture、decisions
 - Analyze 前：必须读取 modules/components、apis、models
+- **多服务模式额外读取时机**：
+  - Analyze 前：必须读取 service-registry.md、dependency-graph.md、common-modules.md
+  - Design 前：必须读取 service-registry.md、dependency-graph.md、common-modules.md
+  - Develop 前：必须读取 service-registry.md、dependency-graph.md、common-modules.md
+  - 开发某服务时：读取该服务的 `.dev-flow/memory/modules.md`（如有）
 
 **更新时机**：
 - Research 完成后：创建/更新所有记忆文件
 - Develop 完成后：更新 modules/components、apis、models、patterns
 - Fix 完成后：更新 mistakes（记录新错误模式）
 - 用户反馈后：更新 preferences（记录偏好）
+- **多服务模式额外更新时机**：
+  - 新增/删除服务后：更新 service-registry.md、dependency-graph.md
+  - 新增/修改 Feign Client 后：更新 dependency-graph.md
+  - 公共模块变更后：更新 common-modules.md
 
 ### 记忆文件格式
 
@@ -961,7 +1543,7 @@ Optional.ofNullable(order.getItems())
 - 构建：Maven 3.9
 
 ## 目录结构
-```
+\`\`\`
 src/main/java/com/example/project/
 ├── config/          # 配置类
 ├── controller/      # REST API 控制器
@@ -978,7 +1560,7 @@ src/main/resources/
 ├── mapper/          # MyBatis XML 映射文件
 ├── application.yml  # 应用配置
 └── application-dev.yml  # 开发环境配置
-```
+\`\`\`
 
 ## 入口文件
 - 启动类：src/main/java/com/example/project/Application.java
@@ -1051,7 +1633,7 @@ src/main/resources/
 - 构建：Vite
 
 ## 目录结构
-```
+\`\`\`
 src/
 ├── components/    # React 组件
 ├── api/           # Express 路由
@@ -1059,7 +1641,7 @@ src/
 ├── models/        # Prisma 模型
 ├── utils/         # 工具函数
 └── hooks/         # React Hooks
-```
+\`\`\`
 
 ## 入口文件
 - 前端：src/main.tsx
