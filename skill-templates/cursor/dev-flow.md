@@ -1,364 +1,449 @@
-# dev-flow
+# dev-flow - AI开发全流程编排
 
-AI开发全流程自动化Agent技能系统（支持断点续传 + 进度可视化）
+## 定位
 
-## 使用方法
+你是一个结构化的开发流程编排系统。当用户输入 `/dev-flow <需求>` 时，你将严格按照本技能定义的阶段、步骤和规范执行开发任务。
 
-在 Cursor 输入框中输入：
-- `/dev-flow <需求描述>` - 执行完整开发流程
-- `/dev-flow --resume` - 断点续传，从上次中断处继续
-- `/dev-flow -research` - 项目调研
-- `/dev-flow -architecture <需求>` - 架构决策（规模评估/技术选型/架构模式/分层设计）
-- `/dev-flow -analyze` - 需求分析
-- `/dev-flow -design` - 详细设计
-- `/dev-flow -plan` - 任务拆分
-- `/dev-flow -develop` - 开发执行（含算法专家）
-- `/dev-flow -test` - 测试验证
-- `/dev-flow -fix` - Bug修复
-- `/dev-flow -hotfix <错误描述>` - 紧急修复（独立模式，无需前置阶段）
-- `/dev-flow -<stage> --refresh` - 刷新模式
+**核心价值**：让 AI 编程工具按结构化流程工作，避免遗漏步骤，确保产出质量。
 
-## 工作流程
+## 使用方式
 
-### 0. 断点续传
+| 命令 | 说明 |
+|------|------|
+| `/dev-flow <需求描述>` | 全流程：Research → Analyze → Design → Develop → Test |
+| `/dev-flow -research` | 仅执行项目调研 |
+| `/dev-flow -analyze <需求>` | 仅执行需求分析 |
+| `/dev-flow -design <需求>` | 仅执行详细设计 |
+| `/dev-flow -develop <需求>` | 直接开发（跳过设计，适合小需求） |
+| `/dev-flow -test` | 生成测试并执行 |
+| `/dev-flow -fix` | 分析并修复 Bug |
+| `/dev-flow -hotfix <错误信息>` | 紧急修复线上错误 |
+| `/dev-flow --resume` | 从上次中断处继续 |
 
-全流程执行时自动保存会话状态到 `.dev-flow/sessions/{sessionId}.json`。
-- 每个阶段完成后自动保存阶段结果
-- 使用 `/dev-flow --resume` 从最近未完成的会话继续
-- 自动跳过已完成的阶段，从中断的下一阶段恢复
+## 全局规则
 
-### 1. 项目记忆
+### 执行原则
+1. **每个阶段完成后必须暂停，向用户展示成果并等待确认**
+2. **生成任何代码前，必须先读取项目记忆和已有代码**
+3. **所有代码必须完整可运行，禁止生成空壳**
+4. **遵守项目已有的编码风格和架构模式**
 
-项目记忆存储在 `.dev-flow/memory/` 目录。执行任何阶段前，先读取相关记忆：
+### 禁止事项
+- ❌ 生成 `// TODO: 实现业务逻辑` 等占位符
+- ❌ 生成 `{/* 描述 */}` 等空 JSX
+- ❌ 生成 `expect(true).toBe(true)` 等无效测试
+- ❌ 返回硬编码的 `{ code: 0, data: null }`
+- ❌ 跳过任何阶段（除非用户明确要求）
+- ❌ 在未读取项目记忆的情况下生成代码
+
+---
+
+## 阶段一：Research（项目调研）
+
+### 触发条件
+- 全流程模式自动触发
+- 用户输入 `/dev-flow -research` 或 `/dev-flow --refresh`
+
+### 执行步骤
+
+**Step 1: 扫描项目结构**
+- 读取项目根目录的文件列表
+- 识别项目类型（前端/后端/全栈/移动端/库/CLI工具）
+- 读取 `package.json`、`pom.xml`、`pyproject.toml`、`go.mod`、`Cargo.toml` 等配置文件
+- 识别语言、框架、UI 库、状态管理、CSS 方案、测试框架、构建工具
+
+**Step 2: 扫描源码目录**
+- 读取 `src/` 目录结构（或项目约定的源码目录）
+- 识别入口文件（main.ts/index.ts/App.tsx/app.py/main.go 等）
+- 提取路由定义（API 路由、页面路由）
+- 识别分层架构（controllers/services/models/utils 等）
+
+**Step 3: 扫描已有组件和 API**
+- 列出所有组件文件及其导出
+- 列出所有 API 端点及其请求/响应格式
+- 列出所有工具函数和 Hooks
+- 列出所有数据模型/类型定义
+
+**Step 4: 识别编码规范**
+- 读取 `.eslintrc`、`.prettierrc`、`tsconfig.json` 等配置
+- 从代码中推断命名风格（camelCase/PascalCase/snake_case）
+- 识别导入排序风格、注释风格、文件组织方式
+
+**Step 5: 写入项目记忆**
+将以上所有信息以 Markdown 格式写入 `.dev-flow/memory/` 目录：
 
 ```
 .dev-flow/memory/
-├── conventions/     # 编码规范
-├── components/      # 组件库文档
-├── apis/           # API接口文档
-├── utils/          # 工具函数文档
-├── styles/         # 样式系统
-├── architecture/   # 架构决策记忆
-└── patterns/       # 学习到的模式
+├── project-overview.md    # 项目概览（技术栈、架构、目录结构）
+├── conventions.md         # 编码规范（命名、导入、注释）
+├── components.md          # 已有组件列表（名称、路径、Props、用途）
+├── apis.md                # 已有 API 列表（路径、方法、参数、响应）
+├── models.md              # 数据模型列表（名称、字段、关系）
+├── utils.md               # 工具函数列表（名称、签名、用途）
+└── architecture.md        # 架构决策（如存在）
 ```
 
-### 2. 阶段执行
+**输出格式**：
+向用户展示调研摘要表格：
 
-#### Architecture 阶段
-评估项目规模并生成架构方案：
-1. 规模评估（小型/中型/大型）
-2. 技术选型（框架/数据库/缓存/消息队列/认证/监控/部署）
-3. 架构模式选择（单体/分层/微服务）
-4. 分层设计和目录结构
-5. 部署方案和权衡分析
+| 维度 | 结果 |
+|------|------|
+| 项目类型 | 前端/后端/全栈 |
+| 语言 | TypeScript/Python/Java/... |
+| 框架 | React/Vue/Spring Boot/FastAPI/... |
+| 组件数量 | X 个 |
+| API 数量 | X 个 |
+| 编码规范 | camelCase/PascalCase/... |
 
-输出：`.dev-flow/sessions/architecture-{timestamp}.md`
+**暂停，等待用户确认。**
 
-#### Research 阶段
-扫描项目结构，提取：
-- 目录结构和技术栈
-- 编码规范（ESLint/TSConfig）
-- 组件（Props/Events/Slots）
-- API接口（端点/模型）
-- 工具函数和Hooks
+---
 
-将结果写入 `.dev-flow/memory/` 各目录。
+## 阶段二：Analyze（需求分析）
 
-#### Analyze 阶段
-解析用户需求：
-1. 识别需求类型（功能/重构/优化）
-2. 检索相关项目记忆
-3. 识别歧义和缺失信息
-4. 评估影响范围
+### 触发条件
+- 全流程模式（Research 确认后）
+- 用户输入 `/dev-flow -analyze <需求>`
 
-输出：`.dev-flow/sessions/<id>/analyze-result.md`
+### 执行步骤
 
-#### Design 阶段
-基于需求分析生成设计：
-1. 数据层设计（模型/校验）
-2. 接口层设计（端点/错误码）
-3. 组件层设计（组件树/Props）
-4. 业务逻辑设计（流程/状态）
-5. 样式设计（主题/响应式）
+**Step 1: 需求解析**
+- 识别需求类型：新功能 / 功能增强 / Bug 修复 / 重构 / 性能优化
+- 识别优先级：P0(紧急) / P1(高) / P2(中) / P3(低)
+- 提取核心功能点列表
 
-输出：`.dev-flow/sessions/<id>/design-doc.md`
+**Step 2: 上下文关联**
+- 读取 `.dev-flow/memory/` 中的项目记忆
+- 识别与需求相关的已有组件、API、数据模型
+- 评估需求对现有代码的影响范围
 
-#### Plan 阶段
-将设计拆分为任务：
-1. 识别可执行单元
-2. 分析依赖关系
-3. 构建DAG并拓扑排序
-4. 划分执行批次
+**Step 3: 歧义识别**
+- 列出需求中不明确的地方
+- 列出缺失的信息（如：认证方式未指定、错误处理策略未定义）
+- 向用户提问澄清
 
-输出：`.dev-flow/sessions/<id>/task-list.json`
+**Step 4: 生成需求文档**
+输出格式：
 
-#### Develop 阶段
-执行开发任务：
-1. 按依赖顺序读取任务
-2. 匹配专家（前端/后端/数据库/算法）
-3. 并行执行无依赖任务
-4. 每个任务自检
-5. 生成代码变更
+```markdown
+## 需求分析：[需求标题]
 
-> **算法专家**: 当任务涉及排序、搜索、数据结构、动态规划等算法时，自动匹配 AlgorithmExpert，从20+内置算法模板生成 TypeScript 实现和测试用例。
+### 基本信息
+- 类型：新功能
+- 优先级：P1
+- 影响范围：[列出受影响的文件/模块]
 
-#### Test 阶段
-生成并执行测试：
-1. 单元测试（Vitest）
-2. API测试
-3. E2E测试（Playwright）
-4. 生成测试报告
+### 功能点
+1. [功能点1] - 描述
+2. [功能点2] - 描述
+3. [功能点3] - 描述
 
-#### Fix 阶段
-修复测试发现的问题：
-1. 分析失败用例
-2. 定位Bug
-3. 生成修复
-4. 回归测试
+### 约束条件
+- [约束1]
+- [约束2]
 
-#### Hotfix 模式（独立）
-快速修复线上错误：
-1. 解析错误类型（语法/类型/依赖/配置/运行时/逻辑）
-2. 搜索相关文件（三级搜索策略）
-3. 分析根因
-4. 生成修复方案（最多5个文件）
-5. 生成验证步骤
+### 歧义/待确认
+- [歧义1] → 建议：[建议方案]
 
-无需前置阶段，直接调用。
+### 相关已有代码
+- 组件：[已有组件列表]
+- API：[已有 API 列表]
+- 模型：[已有模型列表]
+```
 
-### 3. 进度可视化
+**暂停，等待用户确认。**
 
-全流程执行时自动生成 Markdown 进度报告：
-- 保存位置: `.dev-flow/sessions/progress-{sessionId}.md`
-- 包含: 总进度百分比、进度条、各阶段状态和耗时、任务详情、产出文件清单
+---
 
-### 4. 上下文控制
+## 阶段三：Design（详细设计）
 
-- 任务拆分：单个任务控制在 8000 tokens 以内
-- 记忆检索：使用向量索引，限制 4000 tokens
-- 增量加载：按需加载任务相关上下文
+### 触发条件
+- 全流程模式（Analyze 确认后）
+- 用户输入 `/dev-flow -design <需求>`
 
-### 5. 学习机制
+### 执行步骤
 
-从用户确认和修改中学习：
-- 提取代码模式
-- 记录用户反馈
-- 更新 `.dev-flow/memory/patterns/`
-- 后续任务自动应用
+**Step 1: 数据层设计**
+- 设计数据模型（TypeScript interface / Python dataclass / Java record）
+- 定义字段、类型、默认值、验证规则
+- 设计模型间关系（一对一、一对多、多对多）
 
-## 代码生成规范
+**Step 2: 接口层设计**
+- 设计 RESTful API 端点（方法、路径、请求体、响应体）
+- 定义错误码和错误响应格式
+- 设计认证和权限要求
 
-### 核心原则
-1. **禁止生成空壳代码**：所有生成的代码必须是完整可运行的实现，不允许出现 `// TODO: 实现业务逻辑`、`{/* 描述 */}` 等占位符
-2. **基于设计文档生成**：严格按照 Design 阶段的输出（数据模型、API 契约、组件定义、业务流程）生成代码
-3. **复用已有代码**：生成代码前必须读取 `.dev-flow/memory/` 中的组件库、API、工具函数，优先复用
-4. **遵守项目规范**：必须遵守 `.dev-flow/memory/conventions/` 中的编码规范
+**Step 3: 组件层设计**
+- 设计组件树（页面 → 容器 → 展示组件）
+- 定义每个组件的 Props 接口
+- 定义组件间的数据流和事件流
+
+**Step 4: 业务逻辑设计**
+- 描述核心业务流程（用文字或流程图）
+- 定义状态管理方案
+- 定义副作用处理（API 调用、事件监听）
+
+**Step 5: 自检**
+- 检查每个功能点是否都有对应的数据模型、API 或组件覆盖
+- 检查 API 端点是否都有对应的数据模型
+- 检查页面组件是否都有对应的 API
+
+**输出格式**：
+
+```markdown
+## 设计文档：[需求标题]
+
+### 数据模型
+\`\`\`typescript
+interface User { ... }
+\`\`\`
+
+### API 设计
+| 方法 | 路径 | 说明 | 请求体 | 响应体 |
+|------|------|------|--------|--------|
+| POST | /api/users | 创建用户 | CreateUserReq | User |
+
+### 组件设计
+| 组件 | 类型 | Props | 说明 |
+|------|------|-------|------|
+| UserList | 页面 | - | 用户列表页 |
+| UserCard | 展示 | User | 用户卡片 |
+
+### 业务流程
+1. 用户打开页面 → 调用 GET /api/users → 渲染列表
+2. 用户点击"新增" → 打开表单弹窗
+3. ...
+```
+
+**暂停，等待用户确认。**
+
+---
+
+## 阶段四：Develop（开发执行）
+
+### 触发条件
+- 全流程模式（Design 确认后）
+- 用户输入 `/dev-flow -develop <需求>`（直接开发，跳过设计）
+
+### 执行步骤
+
+**Step 1: 读取项目记忆**
+- 读取 `.dev-flow/memory/conventions.md` - 遵守编码规范
+- 读取 `.dev-flow/memory/components.md` - 复用已有组件
+- 读取 `.dev-flow/memory/apis.md` - 复用已有 API 模式
+- 读取 `.dev-flow/memory/utils.md` - 复用已有工具函数
+
+**Step 2: 按依赖顺序开发**
+根据 Design 阶段的输出，按以下顺序开发：
+1. 数据模型/类型定义
+2. 工具函数
+3. API 端点/服务层
+4. 状态管理（Hooks/Store）
+5. 展示组件
+6. 容器组件/页面组件
+7. 路由配置
+
+**Step 3: 代码生成规范**
+- 每个文件必须完整可运行
+- 必须包含类型定义和错误处理
+- 必须遵守项目已有的编码风格
+- 每个文件生成后，简要说明实现思路
+
+**Step 4: 自检**
+每个文件生成后，AI 自行检查：
+- 是否有 TypeScript 编译错误
+- 是否有未处理的边界情况
+- 是否与已有代码风格一致
+- 是否有安全漏洞（XSS、注入等）
 
 ### 代码质量要求
-- 所有函数必须有完整的参数类型和返回类型
-- 所有公共方法必须有 JSDoc/docstring 注释
-- 错误处理必须完整（try-catch 或错误边界）
-- 组件必须有 Props 类型定义和默认值
-- API 端点必须有请求验证和错误响应
 
-### 禁止事项
+**必须做到**：
+- ✅ 完整的类型定义（interface/type）
+- ✅ 完整的错误处理（try-catch / Error Boundary）
+- ✅ 完整的 JSDoc 注释（公共方法）
+- ✅ 完整的 Props 验证和默认值
+- ✅ 完整的 API 请求验证和错误响应
+- ✅ 遵循项目已有的命名规范和文件组织方式
+
+**禁止事项**：
 - ❌ `// TODO: 实现业务逻辑`
-- ❌ `// TODO: 添加字段定义`
 - ❌ `{/* 描述 */}`
-- ❌ `// TODO: 调用被测函数`
-- ❌ `expect(true).toBe(true)` （测试必须有真实断言）
-- ❌ 返回硬编码的 `{ code: 0, data: null }`
+- ❌ `data: null` 硬编码返回
+- ❌ 任何形式的空壳/占位代码
 
-## 代码生成示例
+---
 
-### React 组件示例
+## 阶段五：Test（测试验证）
 
-```tsx
-// ✅ 正确：完整实现
-import React, { useState } from 'react';
+### 触发条件
+- 全流程模式（Develop 确认后）
+- 用户输入 `/dev-flow -test`
 
-interface LoginFormProps {
-  onSubmit: (credentials: { email: string; password: string }) => Promise<void>;
-  isLoading?: boolean;
-  error?: string | null;
-}
+### 执行步骤
 
-export const LoginForm: React.FC<LoginFormProps> = ({ onSubmit, isLoading = false, error }) => {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [validationError, setValidationError] = useState<string | null>(null);
+**Step 1: 生成测试用例**
+根据 Develop 阶段生成的代码，为每个模块生成测试：
+- 组件测试：渲染测试、交互测试、边界情况测试
+- API 测试：正常流程、参数验证、错误处理、权限检查
+- 工具函数测试：正常输入、边界值、异常输入
 
-  const validate = (): boolean => {
-    if (!email.includes('@')) {
-      setValidationError('请输入有效的邮箱地址');
-      return false;
-    }
-    if (password.length < 6) {
-      setValidationError('密码至少6个字符');
-      return false;
-    }
-    setValidationError(null);
-    return true;
-  };
+**Step 2: 执行测试**
+- 运行 `npm test` / `pytest` / `mvn test`（根据项目类型）
+- 收集测试结果
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!validate()) return;
-    await onSubmit({ email, password });
-  };
+**Step 3: 生成测试报告**
+| 模块 | 测试数 | 通过 | 失败 | 覆盖率 |
+|------|--------|------|------|--------|
+| 组件 | X | X | X | X% |
+| API | X | X | X | X% |
 
-  return (
-    <form onSubmit={handleSubmit} className="login-form">
-      <div className="form-field">
-        <label htmlFor="email">邮箱</label>
-        <input id="email" type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="请输入邮箱" />
-      </div>
-      <div className="form-field">
-        <label htmlFor="password">密码</label>
-        <input id="password" type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="请输入密码" />
-      </div>
-      {(validationError || error) && <div className="error-message">{validationError || error}</div>}
-      <button type="submit" disabled={isLoading}>{isLoading ? '登录中...' : '登录'}</button>
-    </form>
-  );
-};
+**暂停，等待用户确认。如果有失败用例，进入 Fix 阶段。**
+
+---
+
+## 阶段六：Fix（Bug 修复）
+
+### 触发条件
+- Test 阶段发现失败用例
+- 用户输入 `/dev-flow -fix`
+
+### 执行步骤
+
+**Step 1: 分析失败原因**
+- 读取失败测试的输出
+- 定位出错的代码行
+- 分析根因（逻辑错误/类型错误/遗漏边界情况）
+
+**Step 2: 修复代码**
+- 修改出错的代码
+- 确保修复不引入新问题
+
+**Step 3: 回归测试**
+- 重新运行所有测试
+- 确认修复成功且无回归
+
+---
+
+## Hotfix 模式（独立）
+
+### 触发条件
+- 用户输入 `/dev-flow -hotfix <错误信息>`
+
+### 执行步骤
+
+**Step 1: 解析错误**
+- 识别错误类型（TypeError/ReferenceError/SyntaxError/ModuleNotFound/...）
+- 提取错误位置（文件名:行号）
+
+**Step 2: 定位相关代码**
+- 读取错误文件
+- 分析错误上下文
+
+**Step 3: 生成修复方案**
+- 说明根因分析
+- 提供修复代码
+- 提供验证步骤
+
+**直接输出，无需等待确认。**
+
+---
+
+## 断点续传
+
+### 触发条件
+- 用户输入 `/dev-flow --resume`
+
+### 执行步骤
+
+1. 读取 `.dev-flow/sessions/` 目录下的会话文件
+2. 找到最近的未完成会话
+3. 读取已完成的阶段和当前进度
+4. 从下一个未完成的阶段继续执行
+
+### 会话文件格式
+
+`.dev-flow/sessions/{sessionId}.md`：
+```markdown
+# 会话：{需求标题}
+- 状态：进行中
+- 当前阶段：Design
+- 已完成：Research ✅ → Analyze ✅
+- 开始时间：2026-05-24 10:00
+
+## Research 摘要
+[调研结果摘要]
+
+## Analyze 摘要
+[需求分析摘要]
 ```
 
-### API 端点示例
+---
 
-```typescript
-// ✅ 正确：完整实现
-import { Router, Request, Response } from 'express';
+## 记忆系统
 
-const router = Router();
-
-interface LoginRequest {
-  email: string;
-  password: string;
-}
-
-interface LoginResponse {
-  token: string;
-  user: { id: string; name: string; email: string };
-}
-
-/**
- * 用户登录
- * POST /api/auth/login
- */
-router.post('/login', async (req: Request<{}, {}, LoginRequest>, res: Response<LoginResponse | { error: string }>) => {
-  const { email, password } = req.body;
-
-  if (!email || !password) {
-    res.status(400).json({ error: '邮箱和密码不能为空' });
-    return;
-  }
-
-  try {
-    // 查询用户
-    const user = await UserModel.findByEmail(email);
-    if (!user) {
-      res.status(401).json({ error: '邮箱或密码错误' });
-      return;
-    }
-
-    // 验证密码
-    const isValid = await bcrypt.compare(password, user.passwordHash);
-    if (!isValid) {
-      res.status(401).json({ error: '邮箱或密码错误' });
-      return;
-    }
-
-    // 生成 token
-    const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET!, { expiresIn: '7d' });
-
-    res.json({ token, user: { id: user.id, name: user.name, email: user.email } });
-  } catch (error) {
-    console.error('登录失败:', error);
-    res.status(500).json({ error: '服务器内部错误' });
-  }
-});
+### 记忆目录结构
+```
+.dev-flow/memory/
+├── project-overview.md    # 项目概览
+├── conventions.md         # 编码规范
+├── components.md          # 已有组件
+├── apis.md                # 已有 API
+├── models.md              # 数据模型
+├── utils.md               # 工具函数
+└── architecture.md        # 架构决策
 ```
 
-### 测试用例示例
+### 记忆使用规则
 
-```typescript
-// ✅ 正确：有真实断言
-import { describe, it, expect, vi } from 'vitest';
-import { LoginForm } from '../components/LoginForm';
+**读取时机**：
+- Develop 前：必须读取 conventions、components、apis、utils
+- Design 前：必须读取 project-overview、architecture
+- Analyze 前：必须读取 components、apis、models
 
-describe('LoginForm', () => {
-  it('should render email and password inputs', () => {
-    const onSubmit = vi.fn();
-    render(<LoginForm onSubmit={onSubmit} />);
-    expect(screen.getByLabelText('邮箱')).toBeInTheDocument();
-    expect(screen.getByLabelText('密码')).toBeInTheDocument();
-  });
+**更新时机**：
+- Research 完成后：创建/更新所有记忆文件
+- Develop 完成后：更新 components、apis、models
+- Fix 完成后：更新 conventions（如有新规范）
 
-  it('should show validation error for invalid email', () => {
-    const onSubmit = vi.fn();
-    render(<LoginForm onSubmit={onSubmit} />);
-    fireEvent.change(screen.getByLabelText('邮箱'), { target: { value: 'invalid' } });
-    fireEvent.click(screen.getByText('登录'));
-    expect(screen.getByText('请输入有效的邮箱地址')).toBeInTheDocument();
-    expect(onSubmit).not.toHaveBeenCalled();
-  });
+### 记忆文件格式
 
-  it('should call onSubmit with credentials when form is valid', async () => {
-    const onSubmit = vi.fn().mockResolvedValue(undefined);
-    render(<LoginForm onSubmit={onSubmit} />);
-    fireEvent.change(screen.getByLabelText('邮箱'), { target: { value: 'test@example.com' } });
-    fireEvent.change(screen.getByLabelText('密码'), { target: { value: 'password123' } });
-    fireEvent.click(screen.getByText('登录'));
-    expect(onSubmit).toHaveBeenCalledWith({ email: 'test@example.com', password: 'password123' });
-  });
+所有记忆文件使用 Markdown 格式，方便 AI 直接读取和理解：
 
-  it('should disable submit button when loading', () => {
-    const onSubmit = vi.fn();
-    render(<LoginForm onSubmit={onSubmit} isLoading={true} />);
-    expect(screen.getByText('登录中...')).toBeDisabled();
-  });
-});
+**project-overview.md 示例**：
+```markdown
+# 项目概览
+
+## 技术栈
+- 语言：TypeScript
+- 框架：React 18 + Express 4
+- 数据库：PostgreSQL + Prisma ORM
+- 测试：Vitest + Playwright
+- 构建：Vite
+
+## 目录结构
+\`\`\`
+src/
+├── components/    # React 组件
+├── api/           # Express 路由
+├── services/      # 业务逻辑
+├── models/        # Prisma 模型
+├── utils/         # 工具函数
+└── hooks/         # React Hooks
+\`\`\`
+
+## 入口文件
+- 前端：src/main.tsx
+- 后端：src/server.ts
 ```
 
-## 记忆驱动的开发流程
+**components.md 示例**：
+```markdown
+# 已有组件
 
-### 开发前必须读取记忆
-在生成任何代码之前，必须按以下顺序读取项目记忆：
-
-1. **编码规范**（`.dev-flow/memory/conventions/`）
-   - 读取所有规范文件，确保生成的代码符合项目风格
-   - 包括：命名规范、文件组织、导入顺序、注释风格
-
-2. **已有组件**（`.dev-flow/memory/components/`）
-   - 检查是否已有可复用的组件
-   - 如果已有类似组件，应扩展而非重新创建
-   - 遵循已有组件的 Props 命名和结构模式
-
-3. **已有 API**（`.dev-flow/memory/apis/`）
-   - 检查是否已有相关的 API 端点
-   - 新 API 应遵循已有的路由命名、错误码、响应格式
-
-4. **工具函数**（`.dev-flow/memory/utils/`）
-   - 检查是否已有可复用的工具函数
-   - 优先使用项目已有的工具函数
-
-5. **架构决策**（`.dev-flow/memory/architecture/`）
-   - 读取架构决策，确保新代码符合整体架构
-
-### 记忆更新
-每个阶段完成后，将新产生的信息写入记忆：
-- Research: 写入项目结构、技术栈、组件、API
-- Design: 写入新的数据模型、API 契约
-- Develop: 更新组件库、API 文档
-- Fix: 记录常见 Bug 模式和修复方案
-
-## 注意事项
-
-1. 每个阶段完成后等待用户确认
-2. 严格遵守项目记忆中的编码规范
-3. 优先复用已有组件和API
-4. 代码必须包含适当注释
-5. 测试覆盖率目标：单元 >80%，关键路径 100%
-6. Hotfix 模式无需等待确认，直接输出修复方案
-7. 断点续传自动跳过已完成阶段
+## Button
+- 路径：src/components/Button.tsx
+- 类型：展示组件
+- Props：{ variant: 'primary' | 'secondary'; size: 'sm' | 'md' | 'lg'; disabled?: boolean; children: ReactNode }
+- 用途：通用按钮组件
+```
