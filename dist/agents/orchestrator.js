@@ -7,6 +7,9 @@ import { TestAgent } from './test-agent.js';
 import { FixAgent } from './fix-agent.js';
 import { HotfixAgent } from './hotfix-agent.js';
 import { ArchitectureAgent } from './architecture-agent.js';
+import { LegacyAnalyzer } from './legacy-analyzer.js';
+import { LegacyMigrator } from './legacy-migrator.js';
+import { LegacyRefactor } from './legacy-refactor.js';
 import { SessionManager } from '../session/index.js';
 import { ProgressReporter } from '../utils/progress-reporter.js';
 import { logger } from '../utils/logger.js';
@@ -34,7 +37,7 @@ export class Orchestrator {
             }
         }
         if (stage) {
-            await this.executeStage(stage, requirement, refresh, onStageComplete);
+            await this.executeStage(stage, requirement, refresh, onStageComplete, options);
         }
         else if (requirement) {
             await this.executeFullFlow(requirement, onStageComplete);
@@ -79,7 +82,7 @@ export class Orchestrator {
         await this.sessionManager.complete(session.id);
         logger.success('会话已恢复并完成');
     }
-    async executeStage(stage, requirement, refresh, onStageComplete) {
+    async executeStage(stage, requirement, refresh, onStageComplete, execOptions) {
         const agentContext = {
             projectRoot: this.context.projectRoot,
             memory: this.context.memory,
@@ -185,6 +188,42 @@ export class Orchestrator {
                 const result = await agent.execute(requirement);
                 this.results.set('hotfix', result);
                 await onStageComplete?.('hotfix', result);
+                break;
+            }
+            case 'legacy-analyze': {
+                const agent = new LegacyAnalyzer(agentContext);
+                const result = await agent.execute({
+                    module: execOptions?.legacyModule,
+                    techDebt: true,
+                    complexity: true,
+                });
+                this.results.set('legacy-analyze', result);
+                await onStageComplete?.('legacy-analyze', result);
+                break;
+            }
+            case 'legacy-migrate': {
+                if (!execOptions?.legacyFrom || !execOptions?.legacyTo) {
+                    logger.error('legacy-migrate 需要指定 --legacy-from 和 --legacy-to');
+                    return;
+                }
+                const agent = new LegacyMigrator(agentContext);
+                const result = await agent.execute({
+                    from: execOptions.legacyFrom,
+                    to: execOptions.legacyTo,
+                    module: execOptions.legacyModule,
+                });
+                this.results.set('legacy-migrate', result);
+                await onStageComplete?.('legacy-migrate', result);
+                break;
+            }
+            case 'legacy-refactor': {
+                const agent = new LegacyRefactor(agentContext);
+                const result = await agent.execute({
+                    module: execOptions?.legacyModule,
+                    safe: execOptions?.legacySafe,
+                });
+                this.results.set('legacy-refactor', result);
+                await onStageComplete?.('legacy-refactor', result);
                 break;
             }
             default:

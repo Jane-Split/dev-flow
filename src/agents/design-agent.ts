@@ -65,7 +65,7 @@ export class DesignAgent extends BaseAgent {
       logger.success(`定义 ${styleDesign.componentStyles.length} 个组件样式`);
 
       // Step 6: 设计自检
-      logger.step(5, 5, '执行设计自检...');
+      logger.step(6, 7, '执行设计自检...');
       const issues = this.selfCheck(dataDesign, apiDesign, componentDesign, analyzeResult);
       if (issues.length > 0) {
         logger.warn(`发现 ${issues.length} 个设计问题`);
@@ -75,7 +75,7 @@ export class DesignAgent extends BaseAgent {
       }
 
       // Step 7: 生成设计文档
-      logger.step(5, 5, '生成设计文档...');
+      logger.step(7, 7, '生成设计文档...');
       const documentPath = await this.generateDocument({
         title: analyzeResult.title,
         dataDesign,
@@ -117,21 +117,41 @@ export class DesignAgent extends BaseAgent {
   ): string[] {
     const issues: string[] = [];
 
-    // 检查功能点覆盖
     for (const feature of analyzeResult.features) {
-      const hasApi = apiDesign.endpoints.some((a: any) =>
-        feature.name.toLowerCase().includes('登录') && a.path.includes('auth')
+      const featureName = feature.name.toLowerCase();
+      const featureAction = (feature.action || '').toLowerCase();
+
+      // 检查每个功能点是否至少有数据模型、API 或组件设计覆盖
+      const hasDataModel = dataDesign.models?.some((m: any) =>
+        featureName.includes(m.name?.toLowerCase()) ||
+        featureAction.includes(m.name?.toLowerCase()) ||
+        m.name?.toLowerCase().includes(featureName)
       );
-      const hasComponent = componentDesign.components.some((c: any) =>
-        feature.name.toLowerCase().includes('登录') && c.name.includes('Login')
+      const hasApi = apiDesign.endpoints?.some((a: any) =>
+        featureName.includes(a.path?.toLowerCase()) ||
+        featureAction.includes(a.path?.toLowerCase()) ||
+        a.path?.toLowerCase().includes(featureName) ||
+        a.description?.toLowerCase().includes(featureName)
+      );
+      const hasComponent = componentDesign.components?.some((c: any) =>
+        featureName.includes(c.name?.toLowerCase()) ||
+        featureAction.includes(c.name?.toLowerCase()) ||
+        c.name?.toLowerCase().includes(featureName)
       );
 
-      if (!hasApi && feature.name.toLowerCase().includes('登录')) {
-        issues.push(`功能"${feature.name}"缺少对应的API设计`);
+      if (!hasDataModel && !hasApi && !hasComponent) {
+        issues.push(`功能"${feature.name}"没有任何设计覆盖（缺少数据模型/API/组件）`);
       }
-      if (!hasComponent && feature.name.toLowerCase().includes('登录')) {
-        issues.push(`功能"${feature.name}"缺少对应的组件设计`);
-      }
+    }
+
+    // 检查是否有 API 端点但缺少对应的数据模型
+    if (apiDesign.endpoints?.length > 0 && dataDesign.models?.length === 0) {
+      issues.push('定义了 API 端点但没有对应的数据模型');
+    }
+
+    // 检查是否有组件但缺少对应的 API
+    if (componentDesign.components?.some((c: any) => c.type === 'page') && apiDesign.endpoints?.length === 0) {
+      issues.push('定义了页面组件但没有对应的 API 端点');
     }
 
     return issues;

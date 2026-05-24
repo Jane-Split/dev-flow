@@ -11,10 +11,10 @@ export declare class Learner {
     collectFeedback(input: FeedbackInput): void;
     applyLearnedPatterns(context: string): Promise<LearnedPattern[]>;
     private updateConfidence;
-    getLearningStats(): {
+    getLearningStats(): Promise<{
         totalPatterns: number;
         avgConfidence: number;
         topPatterns: LearnedPattern[];
-    };
+    }>;
 }
 //# sourceMappingURL=learner.d.ts.map

@@ -94,10 +94,10 @@ export class UtilScanner {
         const match = content.match(regex);
         if (match) {
             const comment = match[0];
-            const lines = comment.split('\\n');
+            const lines = comment.split('\n');
             const description = lines
                 .slice(1, -1)
-                .map(line => line.replace(/^\\s*\\*\\s?/, ''))
+                .map(line => line.replace(/^\s*\*\s?/, ''))
                 .join(' ')
                 .trim();
             return description;

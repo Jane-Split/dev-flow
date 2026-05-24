@@ -1,4 +1,7 @@
 import type { MemoryManager } from '../memory/index.js';
+import { BaseWorker, type WorkerContext } from '../core/base-worker.js';
+
+export type { WorkerContext };
 
 export interface AgentContext {
   projectRoot: string;
@@ -13,26 +16,10 @@ export interface AgentResult<T = unknown> {
   artifacts?: string[];
 }
 
-export abstract class BaseAgent {
-  protected context: AgentContext;
-  protected name: string;
-
+export abstract class BaseAgent extends BaseWorker {
   constructor(name: string, context: AgentContext) {
-    this.name = name;
-    this.context = context;
+    super(name, context);
   }
 
   abstract execute(...args: unknown[]): Promise<AgentResult>;
-
-  protected log(message: string): void {
-    console.log(`[${this.name}] ${message}`);
-  }
-
-  protected getMemory(): MemoryManager {
-    return this.context.memory;
-  }
-
-  protected getProjectRoot(): string {
-    return this.context.projectRoot;
-  }
 }

@@ -1,18 +1,7 @@
-export class BaseExpert {
-    name;
-    context;
+import { BaseWorker } from '../core/base-worker.js';
+export class BaseExpert extends BaseWorker {
     constructor(name, context) {
-        this.name = name;
-        this.context = context;
-    }
-    log(message) {
-        console.log(`[${this.name}] ${message}`);
-    }
-    getMemory() {
-        return this.context.memory;
-    }
-    getProjectRoot() {
-        return this.context.projectRoot;
+        super(name, context);
     }
 }
 //# sourceMappingURL=base-expert.js.map

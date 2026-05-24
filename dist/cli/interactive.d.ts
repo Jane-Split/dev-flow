@@ -2,6 +2,11 @@ export interface DevFlowOptions {
     requirement: string;
     stage: string | null;
     refresh: boolean;
+    legacy?: boolean;
+    legacyFrom?: string | null;
+    legacyTo?: string | null;
+    legacyModule?: string | null;
+    legacySafe?: boolean;
 }
 /**
  * 运行开发流程

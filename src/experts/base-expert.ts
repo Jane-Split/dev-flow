@@ -1,5 +1,8 @@
 import type { Task } from '../planner/task-splitter.js';
 import type { MemoryManager } from '../memory/index.js';
+import { BaseWorker, type WorkerContext } from '../core/base-worker.js';
+
+export type { WorkerContext };
 
 export interface ExpertContext {
   projectRoot: string;
@@ -15,27 +18,11 @@ export interface ExpertResult {
   suggestions?: string[];
 }
 
-export abstract class BaseExpert {
-  protected name: string;
-  protected context: ExpertContext;
-
+export abstract class BaseExpert extends BaseWorker {
   constructor(name: string, context: ExpertContext) {
-    this.name = name;
-    this.context = context;
+    super(name, context);
   }
 
   abstract canHandle(task: Task): boolean;
   abstract execute(task: Task): Promise<ExpertResult>;
-
-  protected log(message: string): void {
-    console.log(`[${this.name}] ${message}`);
-  }
-
-  protected getMemory(): MemoryManager {
-    return this.context.memory;
-  }
-
-  protected getProjectRoot(): string {
-    return this.context.projectRoot;
-  }
 }

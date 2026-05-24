@@ -5,10 +5,15 @@ export interface OrchestratorContext {
     sessionId: string;
 }
 export interface ExecutionOptions {
-    stage?: 'research' | 'architecture' | 'analyze' | 'design' | 'plan' | 'develop' | 'test' | 'fix' | 'hotfix';
+    stage?: 'research' | 'architecture' | 'analyze' | 'design' | 'plan' | 'develop' | 'test' | 'fix' | 'hotfix' | 'legacy-analyze' | 'legacy-migrate' | 'legacy-refactor';
     requirement?: string;
     refresh?: boolean;
     resume?: boolean;
+    legacy?: boolean;
+    legacyFrom?: string;
+    legacyTo?: string;
+    legacyModule?: string;
+    legacySafe?: boolean;
     onStageComplete?: (stage: string, result: any) => Promise<boolean>;
 }
 export declare class Orchestrator {

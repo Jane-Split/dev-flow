@@ -2,7 +2,7 @@
 # Dev-Flow 综合评估报告
 
 ## 执行摘要
-- 测试时间: 2026-05-24T08:15:04.264Z
+- 测试时间: 2026-05-24T10:05:15.400Z
 - 测试用例: 74 个全部通过
 - 编译状态: TypeScript 零错误
 
@@ -32,7 +32,7 @@
 - 错误处理机制健全
 
 ### 3. 效率 (Efficiency): 94/100
-- DependencyScanner: 3ms
+- DependencyScanner: 2ms
 - JavaExpert代码生成: 1ms
 - 内存增长: 2.04MB
 - 代码生成 <1000ms

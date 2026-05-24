@@ -6,8 +6,15 @@ export class BackendExpert extends BaseExpert {
         super('BackendExpert', context);
     }
     canHandle(task) {
-        return task.type === 'api' || task.type === 'logic' ||
-            task.expert === 'BackendExpert';
+        if (task.expert === 'BackendExpert')
+            return true;
+        if (task.expert && task.expert !== 'BackendExpert')
+            return false;
+        // 如果输出文件明确是 .java/.py，让步给 JavaExpert/PythonExpert
+        const hasSpecificExt = task.output.files.some(f => f.endsWith('.java') || f.endsWith('.py') || f.endsWith('.go') || f.endsWith('.rs'));
+        if (hasSpecificExt)
+            return false;
+        return task.type === 'api' || task.type === 'logic';
     }
     async execute(task) {
         this.log(`执行任务: ${task.name}`);

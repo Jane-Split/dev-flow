@@ -1,0 +1,1 @@
+{"version":3,"file":"index.d.ts","sourceRoot":"","sources":["../../src/migration/index.ts"],"names":[],"mappings":"AAAA;;GAEG;AAEH,OAAO,EAAE,oBAAoB,EAAE,kBAAkB,EAAE,uBAAuB,EAAE,MAAM,0BAA0B,CAAC;AAC7G,YAAY,EAAE,iBAAiB,EAAE,gBAAgB,EAAE,MAAM,0BAA0B,CAAC;AACpF,OAAO,EAAE,gBAAgB,EAAE,MAAM,wBAAwB,CAAC;AAC1D,YAAY,EAAE,mBAAmB,EAAE,qBAAqB,EAAE,eAAe,EAAE,WAAW,EAAE,MAAM,wBAAwB,CAAC"}

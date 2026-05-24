@@ -6,6 +6,8 @@ export declare class StructureScanner {
     private scanDirectories;
     private findEntryFiles;
     private extractRoutes;
+    private extractJavaRoutes;
+    private extractPythonRoutes;
     private fileToRoute;
 }
 //# sourceMappingURL=structure-scanner.d.ts.map

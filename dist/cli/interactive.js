@@ -14,6 +14,9 @@ const STAGES = [
     { id: 'develop', name: '开发执行', description: '多Agent并行编码实现' },
     { id: 'test', name: '测试验证', description: '运行单元测试、API测试、E2E测试' },
     { id: 'fix', name: 'Bug修复', description: '根据测试报告修复问题' },
+    { id: 'legacy-analyze', name: '老旧项目分析', description: '识别老旧技术栈、分析技术债务、生成迁移路径' },
+    { id: 'legacy-migrate', name: '老旧项目迁移', description: '渐进式代码迁移（jQuery→React, AngularJS→Angular 等）' },
+    { id: 'legacy-refactor', name: '老旧项目重构', description: '安全重构分析（提取函数、消除重复、简化条件）' },
 ];
 /**
  * 运行开发流程
@@ -95,6 +98,11 @@ async function runSingleStage(orchestrator, options, onStageComplete) {
         stage: options.stage,
         requirement: options.requirement,
         refresh: options.refresh,
+        legacy: options.legacy,
+        legacyFrom: options.legacyFrom || undefined,
+        legacyTo: options.legacyTo || undefined,
+        legacyModule: options.legacyModule || undefined,
+        legacySafe: options.legacySafe,
         onStageComplete,
     });
 }

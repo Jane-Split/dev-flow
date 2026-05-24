@@ -66,16 +66,22 @@ export class Learner {
     }
   }
 
-  getLearningStats(): {
+  async getLearningStats(): Promise<{
     totalPatterns: number;
     avgConfidence: number;
     topPatterns: LearnedPattern[];
-  } {
-    // 从记忆中获取统计
-    return {
-      totalPatterns: 0,
-      avgConfidence: 0,
-      topPatterns: [],
-    };
+  }> {
+    const patterns = await this.memory.getPatterns() || [];
+
+    const totalPatterns = patterns.length;
+    const avgConfidence = totalPatterns > 0
+      ? patterns.reduce((sum, p) => sum + (p.confidence || 0), 0) / totalPatterns
+      : 0;
+
+    const topPatterns = [...patterns]
+      .sort((a, b) => (b.confidence || 0) - (a.confidence || 0))
+      .slice(0, 10);
+
+    return { totalPatterns, avgConfidence, topPatterns };
   }
 }

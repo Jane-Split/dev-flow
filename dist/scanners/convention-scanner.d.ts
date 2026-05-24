@@ -6,5 +6,6 @@ export declare class ConventionScanner {
     private scanEslint;
     private scanTsconfig;
     private inferNamingConventions;
+    private findCodeFiles;
 }
 //# sourceMappingURL=convention-scanner.d.ts.map

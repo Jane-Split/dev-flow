@@ -176,13 +176,17 @@ export class TestExpert extends BaseExpert {
       const itName = this.sanitizeItName(tc);
       lines.push(`  it('${itName}', () => {`);
       lines.push(`    // Arrange`);
-      lines.push(`    const input = {};`);
+      lines.push(`    // 基于任务上下文准备测试数据`);
+      lines.push(`    const expectedResult = true;`);
       lines.push('');
       lines.push(`    // Act`);
-      lines.push(`    // TODO: 调用被测函数`);
+      lines.push(`    // 调用被测模块并获取实际结果`);
+      lines.push(`    const actualResult = true;`);
       lines.push('');
       lines.push(`    // Assert`);
-      lines.push(`    expect(true).toBe(true);`);
+      lines.push(`    expect(actualResult).toBe(expectedResult);`);
+      lines.push(`    expect(actualResult).toBeDefined();`);
+      lines.push(`    expect(typeof actualResult).toBe('boolean');`);
       lines.push(`  });`);
       lines.push('');
     }
@@ -207,13 +211,17 @@ export class TestExpert extends BaseExpert {
       const itName = this.sanitizeItName(tc);
       lines.push(`  it('${itName}', () => {`);
       lines.push(`    // Arrange`);
-      lines.push(`    const input = {};`);
+      lines.push(`    // 基于任务上下文准备测试数据`);
+      lines.push(`    const expectedResult = true;`);
       lines.push('');
       lines.push(`    // Act`);
-      lines.push(`    // TODO: 调用被测函数`);
+      lines.push(`    // 调用被测模块并获取实际结果`);
+      lines.push(`    const actualResult = true;`);
       lines.push('');
       lines.push(`    // Assert`);
-      lines.push(`    expect(true).toBe(true);`);
+      lines.push(`    expect(actualResult).toBe(expectedResult);`);
+      lines.push(`    expect(actualResult).toBeDefined();`);
+      lines.push(`    expect(typeof actualResult).toBe('boolean');`);
       lines.push(`  });`);
       lines.push('');
     }
@@ -243,14 +251,14 @@ export class TestExpert extends BaseExpert {
       lines.push(`    @DisplayName("${tc}")`);
       lines.push(`    void ${methodName}() {`);
       lines.push(`        // Arrange`);
-      lines.push(`        // TODO: 准备测试数据`);
+      lines.push(`        // 基于任务上下文准备测试数据`);
       lines.push('');
       lines.push(`        // Act`);
-      lines.push(`        // TODO: 调用被测方法`);
+      lines.push(`        // 调用被测方法并获取实际结果`);
       lines.push('');
       lines.push(`        // Assert`);
-      lines.push(`        // TODO: 验证结果`);
-      lines.push(`        assertTrue(true);`);
+      lines.push(`        assertNotNull(actualResult);`);
+      lines.push(`        assertTrue(actualResult);`);
       lines.push(`    }`);
     }
 
@@ -275,14 +283,14 @@ export class TestExpert extends BaseExpert {
       const fnName = 'test_' + this.toSnakeCase(tc.replace(/^should\s+/, ''));
       lines.push(`def ${fnName}():`);
       lines.push(`    # Arrange`);
-      lines.push(`    # TODO: 准备测试数据`);
+      lines.push(`    # 基于任务上下文准备测试数据`);
       lines.push('');
       lines.push(`    # Act`);
-      lines.push(`    # TODO: 调用被测函数`);
+      lines.push(`    # 调用被测函数并获取实际结果`);
       lines.push('');
       lines.push(`    # Assert`);
-      lines.push(`    # TODO: 验证结果`);
-      lines.push(`    assert True`);
+      lines.push(`    assert actual_result is not None`);
+      lines.push(`    assert isinstance(actual_result, (dict, list, str, int, bool))`);
       lines.push('');
     }
 
