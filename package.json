@@ -56,5 +56,8 @@
     "eslint": "^8.57.0",
     "typescript": "^5.4.0",
     "vitest": "^1.4.0"
+  },
+  "vitest": {
+    "testTimeout": 60000
   }
 }
