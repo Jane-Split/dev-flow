@@ -168,6 +168,11 @@ description: AI开发全流程编排技能 - 在AI编程工具对话框中结构
 
 ### 执行步骤
 
+**Step 0: 读取项目记忆**
+- 读取 `.dev-flow/memory/project-overview.md` - 了解项目技术栈和架构
+- 读取 `.dev-flow/memory/architecture.md` - 了解架构决策和约束
+- 确保设计方案符合项目整体架构
+
 **Step 1: 数据层设计**
 - 设计数据模型（TypeScript interface / Python dataclass / Java record）
 - 定义字段、类型、默认值、验证规则
@@ -271,11 +276,13 @@ interface User { ... }
 - ✅ 完整的 API 请求验证和错误响应
 - ✅ 遵循项目已有的命名规范和文件组织方式
 
-**禁止事项**：
+**禁止事项**:
 - ❌ `// TODO: 实现业务逻辑`
 - ❌ `{/* 描述 */}`
 - ❌ `data: null` 硬编码返回
 - ❌ 任何形式的空壳/占位代码
+
+**暂停，等待用户确认后再进入 Test 阶段。**
 
 ---
 
@@ -292,6 +299,13 @@ interface User { ... }
 - 组件测试：渲染测试、交互测试、边界情况测试
 - API 测试：正常流程、参数验证、错误处理、权限检查
 - 工具函数测试：正常输入、边界值、异常输入
+
+**测试覆盖度要求**：
+- 每个功能点必须至少有一个对应的测试用例
+- 组件测试必须覆盖渲染、交互、边界情况（空数据、加载状态、错误状态）
+- API 测试必须覆盖成功流程、参数验证失败、权限不足、服务器错误
+- 禁止只测试渲染而不测试交互（浅层测试）
+- 测试数据必须使用有意义的模拟数据，禁止使用随机字符串
 
 **Step 2: 执行测试**
 - 运行 `npm test` / `pytest` / `mvn test`（根据项目类型）
@@ -327,6 +341,12 @@ interface User { ... }
 **Step 3: 回归测试**
 - 重新运行所有测试
 - 确认修复成功且无回归
+
+**阶段流转**：
+- 如果所有测试通过：流程结束，向用户展示总结
+- 如果仍有失败用例：回到 Fix 阶段继续修复（最多循环 3 次，超过则提示用户人工介入）
+
+**暂停，等待用户确认。**
 
 ---
 
@@ -365,6 +385,11 @@ interface User { ... }
 2. 找到最近的未完成会话
 3. 读取已完成的阶段和当前进度
 4. 从下一个未完成的阶段继续执行
+
+**会话写入时机**：
+- 每个阶段完成后立即更新会话文件
+- 写入内容包括：阶段名称、完成时间、关键产出摘要
+- 如果阶段失败：记录错误信息和重试次数
 
 ### 会话文件格式
 
@@ -452,3 +477,242 @@ src/
 - Props：{ variant: 'primary' | 'secondary'; size: 'sm' | 'md' | 'lg'; disabled?: boolean; children: ReactNode }
 - 用途：通用按钮组件
 ```
+
+---
+
+## 长期记忆系统
+
+长期记忆让 AI 能够记住项目的深层知识，包括常见错误模式、用户的偏好设置、历史决策等，实现"越用越好用"。
+
+### 长期记忆文件
+
+`.dev-flow/memory/` 目录下新增以下长期记忆文件：
+
+```
+.dev-flow/memory/
+├── ...                     # 基础记忆文件（已有）
+├── patterns.md            # 常见代码模式（新增）
+├── mistakes.md            # 常见错误及修复方案（新增）
+├── preferences.md         # 用户偏好设置（新增）
+└── decisions.md           # 历史架构决策记录（新增）
+```
+
+### patterns.md - 常见代码模式
+
+记录项目中反复出现的代码模式，供后续开发复用：
+
+```markdown
+# 常见代码模式
+
+## API 错误处理模式
+```typescript
+// 标准错误处理包装器
+try {
+  const result = await apiCall();
+  return { success: true, data: result };
+} catch (error) {
+  if (error.response?.status === 401) {
+    return { success: false, error: '未授权，请重新登录' };
+  }
+  return { success: false, error: error.message || '服务器错误' };
+}
+```
+- 使用场景：所有 API 调用
+- 添加时间：2026-05-24
+- 使用次数：5
+
+## 表单验证模式
+```typescript
+// Zod 验证模式
+const schema = z.object({
+  email: z.string().email('请输入有效的邮箱'),
+  password: z.string().min(6, '密码至少6位'),
+});
+```
+- 使用场景：用户输入表单
+- 添加时间：2026-05-24
+- 使用次数：3
+```
+
+### mistakes.md - 常见错误及修复
+
+记录项目中反复出现的 Bug 及其修复方案：
+
+```markdown
+# 常见错误及修复
+
+## 类型错误：Promise 未 await
+**错误模式**：`const data = fetchUser();`（忘记 await）
+**修复方案**：`const data = await fetchUser();`
+**出现次数**：3
+**最后出现**：2026-05-24
+**预防措施**：ESLint 规则 @typescript-eslint/no-floating-promises
+
+## 逻辑错误：数组空值检查遗漏
+**错误模式**：`items.map(...)` 未检查 items 是否为 null
+**修复方案**：`items?.map(...) || []`
+**出现次数**：2
+**最后出现**：2026-05-24
+```
+
+### preferences.md - 用户偏好
+
+记录用户的编码偏好和习惯：
+
+```markdown
+# 用户偏好
+
+## 代码风格
+- 引号：单引号（'）
+- 分号：必须
+- 缩进：2 空格
+- 最大行宽：100
+
+## 架构偏好
+- 状态管理：React Context + useReducer（不喜欢 Redux）
+- 样式方案：Tailwind CSS（不喜欢 CSS Modules）
+- 表单处理：React Hook Form + Zod
+
+## 质量要求
+- 必须包含单元测试
+- 必须包含 JSDoc 注释
+- 错误处理必须友好（中文错误消息）
+
+## 更新历史
+- 2026-05-24：确定使用 Tailwind CSS
+```
+
+### decisions.md - 历史架构决策
+
+记录项目中的重要架构决策及其原因：
+
+```markdown
+# 架构决策记录
+
+## ADR-001：选择 React Hook Form 而非 Formik
+**日期**：2026-05-24
+**决策**：使用 React Hook Form 处理表单
+**原因**：
+- 性能更好（减少重渲染）
+- 与 TypeScript 集成更顺畅
+- 包体积更小
+**影响**：所有表单组件
+
+## ADR-002：API 错误码规范
+**日期**：2026-05-24
+**决策**：使用 6 位数字错误码，前三位表示模块，后三位表示具体错误
+**原因**：便于错误追踪和国际化
+**影响**：所有 API 端点
+```
+
+### 长期记忆使用规则
+
+**读取时机**：
+- Develop 前：读取 patterns.md（复用已有模式）
+- Fix 前：读取 mistakes.md（参考历史修复方案）
+- 所有阶段前：读取 preferences.md（遵守用户偏好）
+- Design 前：读取 decisions.md（遵守架构决策）
+
+**更新时机**：
+- Develop 完成后：更新 patterns.md（记录新模式）
+- Fix 完成后：更新 mistakes.md（记录新错误模式）
+- 用户明确反馈后：更新 preferences.md（记录偏好）
+- 重大决策后：更新 decisions.md（记录决策）
+
+**记忆强化机制**：
+- 每个模式/错误/偏好记录使用次数
+- 使用次数 > 3 次标记为"高频"，优先推荐
+- 使用次数 > 5 次标记为"标准"，必须遵守
+
+---
+
+## 学习能力
+
+dev-flow 具备从用户反馈中学习的能力，通过持续积累项目知识，实现"越用越好用"。
+
+### 学习来源
+
+**1. 用户显式反馈**
+- 用户说"这段代码很好，以后都按这个风格"→ 更新 preferences.md
+- 用户说"这个错误又出现了"→ 更新 mistakes.md
+- 用户修改了 AI 生成的代码 → 分析差异，更新 patterns.md
+
+**2. 隐式学习**
+- 观察用户如何修改 AI 生成的代码
+- 统计哪些代码模式被复用最多
+- 记录哪些错误反复出现
+
+**3. 阶段间学习**
+- Test 阶段发现的 Bug → 更新 mistakes.md
+- Fix 阶段的修复方案 → 更新 patterns.md
+- Develop 阶段的新模式 → 更新 patterns.md
+
+### 学习动作
+
+当发生以下情况时，AI 应主动学习和更新记忆：
+
+| 场景 | 学习动作 | 更新文件 |
+|------|----------|----------|
+| 用户表扬某段代码 | 记录代码模式，标记为"推荐" | patterns.md |
+| 用户修改 AI 生成的代码 | 分析修改原因，更新偏好或模式 | preferences.md / patterns.md |
+| 测试发现 Bug | 记录错误模式和修复方案 | mistakes.md |
+| 用户明确指定偏好 | 记录偏好设置 | preferences.md |
+| 重大架构决策 | 记录决策和原因 | decisions.md |
+| 某模式被复用 3 次以上 | 标记为"高频模式" | patterns.md |
+
+### 学习示例
+
+**示例 1：从用户修改中学习**
+
+AI 生成的代码：
+```typescript
+const handleSubmit = async (data) => {
+  await api.createUser(data);
+  router.push('/users');
+};
+```
+
+用户修改为：
+```typescript
+const handleSubmit = async (data) => {
+  try {
+    await api.createUser(data);
+    toast.success('用户创建成功');
+    router.push('/users');
+  } catch (error) {
+    toast.error(error.message);
+  }
+};
+```
+
+AI 学习：用户偏好添加 toast 提示 → 更新 preferences.md
+AI 学习：API 调用需要 try-catch + toast → 更新 patterns.md
+
+**示例 2：从错误中学习**
+
+Test 阶段发现：组件未处理 loading 状态导致测试失败
+Fix 阶段修复：添加 loading 状态处理
+
+AI 学习：记录"忘记处理 loading 状态"为常见错误 → 更新 mistakes.md
+AI 学习：记录"标准 loading 处理模式" → 更新 patterns.md
+
+### 学习效果评估
+
+通过以下指标评估学习效果：
+
+| 指标 | 目标 | 评估方式 |
+|------|------|----------|
+| 代码接受率 | > 80% | 用户修改 AI 生成代码的比例降低 |
+| Bug 重复率 | < 10% | 同一错误不出现超过 2 次 |
+| 模式复用率 | > 60% | 新代码复用已有模式的比例 |
+| 用户满意度 | > 4.5/5 | 用户主观评价 |
+
+### 学习提示
+
+在每个阶段结束时，AI 应主动询问用户：
+
+- **Research 后**："调研结果是否符合项目实际情况？有需要补充的吗？"
+- **Develop 后**："代码风格是否符合您的预期？有哪些需要调整的地方？"
+- **Fix 后**："修复方案是否解决了问题？这个错误以前出现过吗？"
+
+通过持续收集反馈，dev-flow 会越来越了解项目和用户的偏好，生成越来越符合预期的代码。
