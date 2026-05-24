@@ -29,6 +29,7 @@ dev-flow 通过**结构化的流程编排 + 项目记忆 + 长期记忆 + 学习
 - **断点续传** - 长流程中断后可从上次断点恢复（`.dev-flow/sessions/`）
 - **Markdown 记忆** - 所有记忆使用 Markdown 格式，AI 可直接读写
 - **多工具支持** - Cursor、Trae、Qoder、Claude Code
+- **多语言支持** - Java (Spring Boot)、前端 (React/Vue)、Python、Go、Rust 等主流技术栈
 - **零依赖** - 纯 Markdown + 安装脚本，无需编译
 
 ## 安装
@@ -129,6 +130,7 @@ Hotfix（独立模式，随时可用，直接输出无需等待确认）
 
 ### 基础记忆（Research 阶段自动填充）
 
+**前端/Node.js 项目：**
 ```
 .dev-flow/memory/
 ├── project-overview.md    # 项目概览（技术栈、架构、目录结构）
@@ -137,6 +139,19 @@ Hotfix（独立模式，随时可用，直接输出无需等待确认）
 ├── apis.md                # 已有 API 列表（路径、方法、参数、响应）
 ├── models.md              # 数据模型列表（名称、字段、关系）
 ├── utils.md               # 工具函数列表（名称、签名、用途）
+└── architecture.md        # 架构决策
+```
+
+**Java 项目：**
+```
+.dev-flow/memory/
+├── project-overview.md    # 项目概览（技术栈、架构、目录结构）
+├── conventions.md         # 编码规范（命名、导入、注释风格）
+├── modules.md             # 已有模块列表（Entity/Mapper/Service/Controller/DTO/Enum）
+├── apis.md                # 已有 API 列表（路径、方法、参数、响应）
+├── models.md              # 数据模型列表（Entity、DTO、数据库表）
+├── utils.md               # 工具类列表（名称、签名、用途）
+├── config.md              # 配置信息（数据库、Redis、中间件）
 └── architecture.md        # 架构决策
 ```
 
@@ -152,23 +167,23 @@ Hotfix（独立模式，随时可用，直接输出无需等待确认）
 
 ### 记忆使用规则
 
-| 时机 | 读取文件 |
-|------|----------|
-| Develop 前 | conventions、components、apis、utils、patterns |
-| Design 前 | project-overview、architecture、decisions |
-| Analyze 前 | components、apis、models |
-| Fix 前 | mistakes（参考历史修复方案） |
-| 所有阶段前 | preferences（遵守用户偏好） |
+| 时机 | 读取文件（前端项目） | 读取文件（Java 项目） |
+|------|---------------------|----------------------|
+| Develop 前 | conventions、components、apis、utils、patterns | conventions、modules、apis、utils、patterns |
+| Design 前 | project-overview、architecture、decisions | project-overview、architecture、decisions |
+| Analyze 前 | components、apis、models | modules、apis、models |
+| Fix 前 | mistakes | mistakes |
+| 所有阶段前 | preferences | preferences |
 
 ### 记忆更新规则
 
-| 时机 | 更新文件 |
-|------|----------|
-| Research 完成后 | 创建/更新所有基础记忆文件 |
-| Develop 完成后 | 更新 components、apis、models、patterns |
-| Fix 完成后 | 更新 mistakes、patterns、conventions |
-| 用户明确反馈后 | 更新 preferences |
-| 重大架构决策后 | 更新 decisions |
+| 时机 | 更新的文件（前端项目） | 更新的文件（Java 项目） |
+|------|----------------------|------------------------|
+| Research 完成后 | 创建/更新所有基础记忆文件 | 创建/更新所有基础记忆文件 |
+| Develop 完成后 | 更新 components、apis、models、patterns | 更新 modules、apis、models、patterns |
+| Fix 完成后 | 更新 mistakes、patterns、conventions | 更新 mistakes、patterns、conventions |
+| 用户明确反馈后 | 更新 preferences | 更新 preferences |
+| 重大架构决策后 | 更新 decisions | 更新 decisions |
 
 ### 记忆强化机制
 
