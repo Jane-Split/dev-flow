@@ -5,7 +5,7 @@ export interface ProjectMeta {
   name: string;
   version: string;
   techStack: TechStack;
-  packageManager: 'npm' | 'yarn' | 'pnpm';
+  packageManager: string;
   framework: string;
   buildTool: string;
   createdAt: string;
@@ -15,10 +15,23 @@ export interface ProjectMeta {
 export interface TechStack {
   language: string;
   framework: string;
+  frameworkVersion?: string;
   uiLibrary?: string;
   stateManagement?: string;
   cssSolution?: string;
   testFramework?: string;
+  orm?: string;
+  // Java 特有
+  javaVersion?: string;
+  // Python 特有
+  pythonVersion?: string;
+  // Go 特有
+  goVersion?: string;
+  // 其他
+  packageManager?: string;
+  buildTool?: string;
+  taskQueue?: string;
+  asyncFramework?: string;
 }
 
 // 目录结构

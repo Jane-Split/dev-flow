@@ -38,7 +38,7 @@ export interface Component {
 export const CONTEXT_LIMIT = 8000;
 
 // 任务类型
-export type TaskType = 'data' | 'api' | 'component' | 'logic' | 'style' | 'test' | 'algorithm';
+export type TaskType = 'data' | 'api' | 'component' | 'logic' | 'style' | 'test' | 'algorithm' | 'legacy' | 'migration';
 
 // 复杂度等级
 export type Complexity = 'high' | 'medium' | 'low';

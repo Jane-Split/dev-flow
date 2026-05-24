@@ -5,6 +5,9 @@ import { BackendExpert } from './backend-expert.js';
 import { DBExpert } from './db-expert.js';
 import { TestExpert } from './test-expert.js';
 import { AlgorithmExpert } from './algorithm-expert.js';
+import { LegacyExpert } from './legacy-expert.js';
+import { JavaExpert } from './java-expert.js';
+import { PythonExpert } from './python-expert.js';
 
 export class ExpertRegistry {
   private experts: BaseExpert[] = [];
@@ -21,6 +24,9 @@ export class ExpertRegistry {
     this.experts.push(new DBExpert(this.context));
     this.experts.push(new TestExpert(this.context));
     this.experts.push(new AlgorithmExpert(this.context));
+    this.experts.push(new LegacyExpert(this.context));
+    this.experts.push(new JavaExpert(this.context));
+    this.experts.push(new PythonExpert(this.context));
   }
 
   register(expert: BaseExpert): void {
