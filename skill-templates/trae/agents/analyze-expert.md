@@ -153,11 +153,31 @@ tasks:
 - 风险清单及缓解措施
 - 任务拆分清单
 
-## 精准加载原则
+## 精准加载策略
 
-- **只读取相关记忆**：不加载全部 memory，只读取与需求相关的部分
-- **按需读取源码**：只读取需要分析的已有代码文件
-- **摘要优先**：分析结论外置，只保留关键判断在上下文中
+### 必读文件
+| 文件 | 读取方式 | 用途 |
+|------|----------|------|
+| `.dev-flow/memory/project-overview.md` | Read 全文 | 技术栈、架构概览 |
+| `.dev-flow/memory/service-registry.md` | Read 全文 | 服务列表、跨服务调用（多服务模式） |
+| `.dev-flow/memory/dependency-graph.md` | Read 全文 | 服务间依赖关系 |
+| `.dev-flow/memory/common-modules.md` | Read 全文 | 可复用的公共类 |
+| `.dev-flow/memory/conventions.md` | Read 全文 | 编码规范 |
+
+### 按需读取（根据需求关键词匹配）
+- 需求涉及"用户"→ Read `user-service` 相关 memory
+- 需求涉及"订单"→ Read `order-service` 相关 memory
+- 需求涉及"审批/流程"→ Read `workflow-service` 相关 memory
+- 需求涉及"权限"→ Read `auth-service` 相关 memory
+
+### 源码按需读取
+- 只 Read 需求直接影响的文件（通过 Grep 类名/方法名定位）
+- 不 Read 未被需求影响的服务的代码
+- Read 已有代码时只 Read 接口定义（前 50 行），不 Read 实现细节
+
+### 上下文控制
+- 分析结论写入 `analyze-result.md`，不在上下文中保留原始代码
+- 任务拆分写入 `task-breakdown.yaml`，只保留任务 ID 和状态在上下文中
 
 ## 输出格式
 

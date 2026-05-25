@@ -127,12 +127,39 @@ test_status: passed|failed|not_tested
 3. **依赖声明**：如果生成的代码依赖其他并行任务的结果，在 develop-result.yaml 中声明
 4. **冲突处理**：如果发现冲突，标记为阻塞，等待 Orchestrator 协调
 
-## 精准加载原则
+## 精准加载策略
 
-- **只读取设计文档**：不重新分析需求
-- **只读取相关代码**：只读取实现当前任务必需的已有代码
-- **生成即外置**：代码写入文件，不保留在上下文中
-- **结果报告精简**：只保留关键信息，详细内容在生成的代码文件中
+### 必读文件
+| 文件 | 读取方式 | 用途 |
+|------|----------|------|
+| `.dev-flow/sessions/{session-id}/design-result.md` | Read 全文 | 详细设计方案 |
+| `.dev-flow/sessions/{session-id}/task-context.yaml` | Read 全文 | 本任务的具体要求 |
+| `.dev-flow/memory/conventions.md` | Read 全文 | 编码规范 |
+
+### 按需读取（仅读取当前任务相关的代码）
+- 要修改的已有文件 → Read 全文
+- 要继承的基类/接口 → Read 全文
+- 要引用的工具类 → Read 方法签名（Grep 定位，Read 相关方法）
+- 要调用的已有 Service → Read 接口定义（不 Read 实现）
+- 要使用的已有 Entity → Read 字段定义（不 Read 全部代码）
+
+### 文件过滤规则（按任务类型）
+| 任务类型 | 需要读取的文件 | 不需要读取的文件 |
+|----------|--------------|----------------|
+| develop-entity | 基类 BaseEntity、同包已有 Entity（1个参考） | Service、Controller、Mapper |
+| develop-dto | 关联的 Entity、已有 DTO（1个参考） | Service、Controller、Mapper |
+| develop-mapper | 对应的 Entity、已有 Mapper（1个参考） | Service、Controller、DTO |
+| develop-service | 对应的 DTO、Mapper 接口、已有 Service（1个参考） | Controller、其他 Service |
+| develop-controller | 对应的 Service 接口、已有 Controller（1个参考） | Service 实现、Mapper、Entity |
+
+### 跨服务任务额外读取
+- 目标服务的 Feign Client 接口定义
+- 公共模块中相关的 Entity/DTO
+
+### 上下文控制
+- 代码写入文件后，上下文中只保留：文件路径 + 关键类名/方法名
+- 不在上下文中保留完整代码内容
+- 每完成一个文件，立即 Write 到磁盘
 
 ## 输出规范
 

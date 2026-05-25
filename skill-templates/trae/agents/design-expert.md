@@ -136,8 +136,28 @@ ReturnType methodName(ParamType param);
 - **依赖倒置**：依赖抽象，不依赖具体实现
 - **接口隔离**：接口小而精，不强迫实现无关方法
 
-## 精准加载原则
+## 精准加载策略
 
-- **只读取分析结果**：不重新分析需求
-- **按需读取已有代码**：参考现有设计模式
-- **设计细节外置**：详细设计写入文件，只保留架构决策在上下文中
+### 必读文件
+| 文件 | 读取方式 | 用途 |
+|------|----------|------|
+| `.dev-flow/sessions/{session-id}/analyze-result.md` | Read 全文 | 需求分析结论 |
+| `.dev-flow/sessions/{session-id}/task-breakdown.yaml` | Read 全文 | 任务拆分清单 |
+| `.dev-flow/memory/conventions.md` | Read 全文 | 编码规范 |
+| `.dev-flow/memory/service-registry.md` | Read 全文 | 服务信息（多服务模式） |
+| `.dev-flow/memory/common-modules.md` | Read 全文 | 可复用公共类 |
+
+### 按需读取（参考已有设计模式）
+- Read 1-2 个同类型的已有 Service 接口作为参考
+- Read 1-2 个同类型的已有 Controller 作为参考
+- Read 1 个已有 Entity 作为字段命名/注解参考
+- Read 1 个已有 DTO 作为校验注解参考
+
+### 不读取
+- 不 Read 业务实现细节（只参考接口定义）
+- 不 Read 其他服务的代码（除非跨服务设计）
+- 不 Read 配置文件（除非设计涉及新配置）
+
+### 上下文控制
+- 设计文档写入 `design-result.md`，不在上下文中保留
+- 接口定义写入 `api-spec.yaml`，只保留接口列表在上下文中
