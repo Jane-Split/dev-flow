@@ -1,3 +1,7 @@
+---
+name: dev-flow
+description: AI开发全流程编排技能 - 在AI编程工具对话框中结构化执行完整开发流程
+---
 
 # dev-flow - AI开发全流程编排
 
@@ -136,449 +140,202 @@ dev-flow 支持两种运行模式：
 - 全流程模式自动触发
 - 用户输入 `/dev-flow -research` 或 `/dev-flow --refresh`
 
-### 执行步骤
+---
 
-**Step 1: 扫描项目结构并检测项目类型**
-- 读取项目根目录的文件列表
-- **检测项目类型**（根据全局规则中的项目类型检测表）
-- **检测是否为微服务架构**（根据全局规则中的微服务架构检测）
+### 🔴 必须按顺序执行的检查清单
 
-**Step 1.5: 判断运行模式**
+> **规则**：以下每个步骤都必须完成，不能跳过。每完成一步打一个 ✅。如果某步无数据，必须写入"暂无数据"。
 
-**如果是微服务架构（多服务模式）：**
-- 读取根目录的父级 `pom.xml`，解析 `<modules>` 获取所有子服务列表
-- 对每个子服务：
-  - 读取子服务的 `pom.xml`，**通过内容分析识别服务角色**（不依赖命名）：
-    - **公共模块**：被其他服务依赖、无启动类（`@SpringBootApplication`）、无 `application.yml`
-    - **网关服务**：有 Spring Cloud Gateway 依赖或路由配置
-    - **认证服务**：有安全相关配置（OAuth2、JWT、Security）
-    - **业务服务**：有启动类、有业务代码
-    - **如果无法推断**：仅记录模块名，不做假设
-  - 扫描子服务的多模块结构：
-    - 读取子服务的 `pom.xml`，解析 `<modules>` 获取子模块列表
-    - **完全自动发现所有子模块，不预设任何命名模式**
-    - **通过内容分析识别每个子模块的职责**（不依赖命名）：
-      - 扫描模块内的 Java 文件，根据注解推断：
-        - 含 `@FeignClient` → Feign Client 模块
-        - 含 `@Entity` / `@TableName` / `@Table` → Entity 模块
-        - 含 `@Service` / `@Component` 且无 `@Controller` → Service 模块
-        - 含 `@Controller` / `@RestController` → Controller 模块
-        - 含 `@Mapper` / `@Repository` → Mapper/Repository 模块
-        - 含 `@Configuration` / `@ConfigurationProperties` → Config 模块
-      - **如果无法推断**：仅记录模块名，在后续开发时根据实际需求定位
-  - 识别子服务间的依赖关系：
-    - 读取子服务 `pom.xml` 中的 `<dependencies>`，识别引用了哪些其他子服务
-    - 全局搜索 `@FeignClient` 注解，识别跨服务调用入口
+---
 
-**如果是单服务架构（单服务模式）：**
-- 按原有流程执行
+#### ✅ Step 1：检测项目类型和架构
 
-**Step 2: 深层扫描依赖项目（关键步骤）**
+- [ ] 读取项目根目录文件列表
+- [ ] 检测项目类型（Java / 前端 / Node.js / Python / Go / Rust）
+- [ ] 如果是 Java 项目，进一步检测是否为微服务：
+  - 根目录有父 `pom.xml`（`<packaging>pom</packaging>`）且含 `<modules>` → **微服务（多服务模式）**
+  - 当前目录有 `src/main/java` → **单服务模式**
+- [ ] 如果是微服务：读取父 `pom.xml` 的 `<modules>`，列出所有子服务
+- [ ] 对每个子服务读取其 `pom.xml`，识别角色（公共模块/网关/认证/业务）
 
-> ⚠️ **这是最关键的步骤。必须递归读取所有依赖项目的源码，否则后续开发会因缺少上下文而生成错误代码。**
+---
 
-**执行方式**：
+#### ✅ Step 2：深层扫描依赖项目（🔴 最关键步骤，绝对不能跳过）
 
-对当前服务的 `pom.xml` 中所有 `<dependency>` 进行分析：
-1. **识别项目内依赖**（groupId 与根 pom.xml 的 groupId 一致）→ 这些是同仓库的其他服务/模块
-2. **识别第三方依赖**（groupId 为外部组织）→ 记录到 config.md
+> **为什么关键**：后续开发需要依赖项目的 Entity/DTO/Enum/Util 才能生成正确代码。跳过此步 = 生成错误代码。
 
-**对每个项目内依赖执行深层扫描**：
+**操作方法**：
 
+1. 读取当前服务的 `pom.xml`，找出所有 `<dependency>`
+2. 区分两类依赖：
+   - **项目内依赖**：`groupId` 与父 pom 的 `groupId` 一致 → 需要深层扫描
+   - **第三方依赖**：`groupId` 为外部组织 → 记录到 config.md
+3. **对每个项目内依赖，执行以下扫描**：
+
+| 扫描类别 | Glob 模式 | 读取内容 |
+|----------|-----------|----------|
+| Entity | `**/entity/*.java`、`**/*Entity*.java` | 类名、表名(`@TableName`)、字段列表 |
+| DTO | `**/dto/*.java` | 类名、字段列表 |
+| Enum | `**/enums/*.java`、`**/*Enum.java` | 枚举名、所有枚举值 |
+| Util | `**/util/*.java`、`**/utils/*.java` | 类名、方法签名 |
+| Feign Client | `**/*Client.java`、`**/*Api.java` | 接口名、目标服务、方法签名 |
+| Config | `**/config/*.java` | 配置类名、配置项 |
+
+4. **扫描策略**：
+   - 先 Glob 列出文件 → 再逐个 Read 前 80 行（足够获取类定义和字段）
+   - 文件过多时（>50 个），每类最多采样 10 个
+   - **必须记录完整类路径**，如 `com.mom.common.bean.entity.User`
+
+**示例**：
 ```
-当前服务 quality
-  └── 依赖 common-bean → 扫描 common-bean 的所有 Entity/DTO/Enum/Util
-  └── 依赖 basedata-api → 扫描 basedata-api 的所有 Feign Client/DTO
-  └── 依赖 workflow-api → 扫描 workflow-api 的所有 Feign Client/DTO
+当前服务 qms-quality-management
+  └── 依赖 qms-common-bean → Glob ../qms-common-bean/**/*.java → 提取 Entity/DTO/Enum/Util
+  └── 依赖 qms-business-basedata-api → Glob ../qms-business-basedata/**/api/**/*.java → 提取 Feign Client/DTO
+  └── 依赖 qms-workflow-api → Glob ../qms-workflow/**/api/**/*.java → 提取 Feign Client/DTO
 ```
 
-**深层扫描内容**：
-- **Entity 扫描**：Glob `**/*Entity*.java`、`**/entity/*.java`，读取每个文件的类名、表名、字段列表
-- **DTO 扫描**：Glob `**/dto/*.java`，读取每个文件的类名、字段列表
-- **Enum 扫描**：Glob `**/enums/*.java`、`**/*Enum.java`，读取每个枚举的名称和值
-- **Util 扫描**：Glob `**/util/*.java`、`**/utils/*.java`，读取每个工具类的名称和方法签名
-- **Feign Client 扫描**：Glob `**/*Client.java`、`**/*Api.java`，读取每个接口的方法签名和目标服务
-- **Config 扫描**：Glob `**/config/*.java`，读取配置类
-- **中间件扫描**：搜索 `pom.xml` 中的中间件依赖（PowerJob、XXL-Job、ElasticJob、RabbitMQ、Kafka、Redis、Elasticsearch、MinIO 等），记录到 config.md
+---
 
-**扫描策略**：
-- 使用 Glob 列出文件，然后逐个 Read（每个文件读取前 80 行即可获取类定义和字段）
-- 如果依赖项目文件过多（>50 个 Java 文件），每个类别最多采样 10 个文件
-- **必须记录每个类的完整路径**，格式：`com.example.common.bean.entity.User`
+#### ✅ Step 3：扫描当前服务源码
 
-**Step 3: 扫描当前服务源码**
+- [ ] 读取 `application.yml` / `bootstrap.yml`（端口、服务名、数据库、Redis、Nacos、中间件）
+- [ ] 扫描当前服务各子模块的 Java 文件，按注解识别分层：
+  - `@Entity` / `@TableName` → Entity
+  - `@Service` → Service
+  - `@RestController` / `@Controller` → Controller
+  - `@Mapper` / `@Repository` → Mapper
+  - `@Configuration` → Config
+  - `@FeignClient` → Feign Client
+  - 继承 `Enum` → Enum
+- [ ] 扫描 `pom.xml` 中的中间件依赖（PowerJob、XXL-Job、RabbitMQ、Kafka、Redis、ES、MinIO 等）
 
-**如果是 Java 微服务（多服务模式）：**
+---
 
-- **读取当前服务的 `application.yml` / `bootstrap.yml`**：
-  - 服务端口、服务名称（`spring.application.name`）
-  - Nacos/注册中心配置
-  - 数据库配置
-  - Redis 配置
-  - 中间件配置（PowerJob、MQ、ES 等）
-- **识别当前服务的分层架构**（通过扫描各子模块内的注解）：
-  - Entity/Model 模块：含 `@Entity` / `@TableName` / `@Table` 注解的类
-  - DTO 模块：含 `@Data` 且无持久化注解的传输对象
-  - Mapper/Repository 模块：含 `@Mapper` / `@Repository` 注解的接口
-  - Service 模块：含 `@Service` 注解的类（接口 + 实现）
-  - Controller 模块：含 `@Controller` / `@RestController` 注解的类
-  - Config 模块：含 `@Configuration` 注解的类
-  - Enums 模块：继承 `Enum` 或使用 `@EnumValue` 的类
-  - Exception 模块：继承 `Exception` / `RuntimeException` 的类
+#### ✅ Step 4：识别编码规范
 
-**如果是 Java 单服务项目：**
-- 按原有流程执行（扫描 `src/main/java/` 下的包结构）
-
-**如果是前端项目：**
-- 按原有流程执行
-
-**Step 4: 识别编码规范（按项目类型）**
-
-**如果是 Java 微服务（多服务模式）：**
-- 从公共模块中推断编码规范（公共模块通常代表项目级规范）
-- 验证各服务是否遵循相同的编码规范
-- 识别：
-  - 命名风格（类名、方法名、常量）
-  - Lombok 使用策略
-  - MyBatis-Plus / JPA 使用策略
-  - 异常处理风格
-  - 统一响应包装类（ApiResponse / Result 等）
-  - 分页封装类
+- [ ] 从公共模块和现有代码中推断：
+  - 命名风格（类名 PascalCase / 方法 camelCase / 常量 UPPER_SNAKE_CASE）
+  - Lombok 使用（@Data, @Slf4j, @RequiredArgsConstructor）
+  - ORM 框架（MyBatis-Plus / JPA）
+  - 统一响应类（ResultDTO / ApiResponse / R）
+  - 分页封装类（PageDTO / PageResult）
   - DTO 转换方式（MapStruct / BeanUtils / 手动）
+  - 异常处理（BusinessException + @RestControllerAdvice）
 
-**如果是 Java 单服务项目 / 前端项目：**
-- 按原有流程执行
+---
 
-**Step 5: 写入项目记忆（必须逐文件写入完整内容）**
+#### ✅ Step 5：写入 memory 文件（🔴 每个文件必须有内容）
 
-> ⚠️ **每个 memory 文件都必须写入具体内容，不允许留空。如果某个文件确实没有内容，写入"暂无数据"。**
+> **铁律**：每个文件必须写入具体内容。没有数据也要写"暂无数据"。空文件 = 执行失败。
 
-**如果是 Java 微服务（多服务模式）：**
+**创建目录**：`.dev-flow/memory/`
 
-```
-.dev-flow/memory/                          # 根目录共享记忆
-├── project-overview.md                    # 微服务架构总览
-├── conventions.md                         # 项目级编码规范
-├── service-registry.md                    # 服务注册表
-├── dependency-graph.md                    # 服务间依赖图谱
-├── common-modules.md                      # 公共模块清单
-├── patterns.md                            # 常见代码模式
-├── mistakes.md                            # 常见错误及修复
-├── preferences.md                         # 用户偏好
-└── decisions.md                           # 架构决策记录
-```
+**逐文件写入以下内容**：
 
-**每个文件的写入内容要求**（必须严格遵守）：
+| # | 文件名 | 必须包含的内容 | 不能为空 |
+|---|--------|---------------|---------|
+| 1 | `project-overview.md` | 技术栈、服务列表表格、目录结构 | ✅ |
+| 2 | `service-registry.md` | 服务列表表格（服务名/目录/端口/角色/子模块/启动类）+ 跨服务调用关系表格 | ✅ |
+| 3 | `dependency-graph.md` | Maven 依赖关系表格 + Feign 调用关系表格 + 依赖链路图（如 `quality → common-bean`） | ✅ |
+| 4 | `common-modules.md` | **从 Step 2 深层扫描的结果**：每个依赖项目的 Entity/DTO/Enum/Util/Feign Client 表格，含完整类路径 | ✅ |
+| 5 | `conventions.md` | 命名规范、注解使用、统一响应、异常处理、DTO 转换方式 | ✅ |
+| 6 | `config.md` | 数据库/Redis/Nacos/中间件配置（从 application.yml 提取） | ✅ |
+| 7 | `models.md` | 当前服务的 Entity 表格 + 依赖项目的 Entity 表格（从 Step 2 获取）+ DTO 表格 | ✅ |
+| 8 | `apis.md` | 当前服务的 Controller API 表格 + 依赖服务的 Feign Client API 表格 | ✅ |
+| 9 | `utils.md` | 当前服务工具类 + 依赖项目工具类（从 Step 2 获取） | ✅ |
+| 10 | `decisions.md` | 架构决策表格（无则写"暂无已识别的架构决策，后续开发中持续记录"） | ✅ |
+| 11 | `mistakes.md` | 常见错误（初始写"暂无记录，在 Fix 阶段和开发过程中持续积累"） | ✅ |
+| 12 | `patterns.md` | 代码模式表格（无则写"暂无已识别的代码模式，后续开发中持续记录"） | ✅ |
 
-#### project-overview.md — 必须包含：
-```markdown
-# 项目概览
-
-## 技术栈
-- 语言：Java XX
-- 框架：Spring Boot X.X.X + Spring Cloud
-- ORM：MyBatis-Plus / JPA
-- 数据库：MySQL / PostgreSQL
-- 缓存：Redis
-- 消息队列：RabbitMQ / Kafka
-- 远程调用：OpenFeign
-- 中间件：（从 pom.xml 中识别的所有中间件）
-- 工具库：Lombok、Hutool、MapStruct
-
-## 服务列表
-| 服务名 | 目录 | 端口 | 角色 | 子模块 |
-|--------|------|------|------|--------|
-| ... | ... | ... | ... | ... |
-
-## 目录结构
-（项目根目录的目录树）
-```
-
-#### service-registry.md — 必须包含：
-```markdown
-# 服务注册表
-
-## 服务列表
-| 服务名 | 目录 | 端口 | 角色 | 子模块 | 启动类 |
-|--------|------|------|------|--------|--------|
-| common-bean | common-bean | - | 公共模块 | entity, dto, util, enums | 无 |
-| gateway | gateway | 8080 | 网关 | core | GatewayApplication |
-| quality | quality | 8084 | 业务服务 | api, biz, dao, web | QualityApplication |
-
-## 跨服务调用关系
-| 调用方 | Feign Client | 所在模块 | 目标服务 | 方法 |
-|--------|-------------|----------|----------|------|
-| quality | WorkflowClient | quality-api | workflow | startProcess(), completeTask() |
-| quality | UserClient | quality-api | user | getUserById() |
-```
-
-#### dependency-graph.md — 必须包含：
-```markdown
-# 服务间依赖图谱
-
-## Maven 依赖关系
-| 服务 | 依赖的服务/模块 | 依赖类型 |
-|------|----------------|----------|
-| quality | common-bean | Maven 依赖 |
-| quality | basedata-api | Maven 依赖（仅 API 模块） |
-| quality | workflow-api | Maven 依赖（仅 API 模块） |
-
-## Feign 调用关系
-| 调用方服务 | Feign Client | 目标服务 | 调用方法 |
-|-----------|-------------|----------|----------|
-| quality | WorkflowClient | workflow-service | startProcess(), completeTask() |
-
-## 依赖链路图
-quality → common-bean
-quality → basedata-api → basedata-service
-quality → workflow-api → workflow-service
-```
-
-#### common-modules.md — 必须包含（从依赖项目深层扫描的结果）：
+**每个文件的格式要求**（以 common-modules.md 为例）：
 ```markdown
 # 公共模块清单
 
-## common-bean
+## qms-common-bean
 
-### Entity（从 common-bean 扫描）
+### Entity
 | 类名 | 完整路径 | 表名 | 主要字段 |
 |------|----------|------|----------|
-| User | com.example.common.bean.entity.User | t_user | id, username, realName, phone, email |
-| BaseEntity | com.example.common.bean.entity.BaseEntity | - | id, createTime, updateTime, createBy, updateBy |
-
-### DTO（从 common-bean 扫描）
-| 类名 | 完整路径 | 主要字段 |
-|------|----------|----------|
-| PageDTO | com.example.common.bean.dto.PageDTO | current, size |
-| ResultDTO | com.example.common.bean.dto.ResultDTO | code, message, data |
-
-### Enum（从 common-bean 扫描）
-| 枚举名 | 完整路径 | 值 |
-|--------|----------|-----|
-| ResultCode | com.example.common.bean.enums.ResultCode | SUCCESS(200), FAIL(500) |
-
-### Util（从 common-bean 扫描）
-| 类名 | 完整路径 | 方法 |
-|------|----------|------|
-| JwtUtil | com.example.common.bean.util.JwtUtil | generateToken(), parseToken() |
-
-## basedata-api（被 quality 依赖）
-
-### Feign Client
-| 接口名 | 完整路径 | 目标服务 | 方法 |
-|--------|----------|----------|------|
-| ProductApi | com.example.basedata.api.ProductApi | basedata-service | getProductById(), listProducts() |
+| User | com.mom.common.bean.entity.User | sys_user | id, username, realName |
 
 ### DTO
 | 类名 | 完整路径 | 主要字段 |
 |------|----------|----------|
-| ProductDTO | com.example.basedata.api.dto.ProductDTO | id, productName, productCode |
+| PageDTO | com.mom.common.bean.dto.PageDTO | current, size |
+
+### Enum
+| 枚举名 | 完整路径 | 值 |
+|--------|----------|-----|
+
+### Util
+| 类名 | 完整路径 | 方法 |
+|------|----------|------|
+
+## qms-business-basedata（API 模块）
+
+### Feign Client
+| 接口名 | 完整路径 | 目标服务 | 方法 |
+|--------|----------|----------|------|
 ```
 
-#### conventions.md — 必须包含：
-```markdown
-# 编码规范
+> **其他文件格式参照上述表格风格，使用 Markdown 表格组织信息。**
 
-## 命名规范
-- 类名：PascalCase（User, OrderService）
-- 方法名：camelCase（getUserById, createOrder）
-- 常量：UPPER_SNAKE_CASE（MAX_RETRY_COUNT）
-- 数据库字段：snake_case（create_time, update_time）
-- 包名：全小写（com.example.quality.biz.service）
+---
 
-## 注解使用
-- 实体类：@Data, @TableName, @Schema
-- Service：@Service, @Slf4j, @RequiredArgsConstructor
-- Controller：@RestController, @RequestMapping, @Tag
-- 方法：@Override, @Transactional, @Async
+#### ✅ Step 6：自检（写完文件后立即执行）
 
-## 统一响应
-- 响应包装类：ResultDTO<T>
-- 分页类：PageDTO<T>
+> **如果任何一项不通过，返回对应步骤重新执行。**
 
-## 异常处理
-- 业务异常：BusinessException
-- 全局异常处理：@RestControllerAdvice
+- [ ] `common-modules.md` 包含依赖项目的类？（不能只有标题没有数据）
+- [ ] `dependency-graph.md` 包含 Maven 依赖 + Feign 调用？
+- [ ] `models.md` 包含当前服务和依赖服务的 Entity？
+- [ ] `utils.md` 包含依赖项目的工具类？
+- [ ] `apis.md` 包含 Feign Client API？
+- [ ] `config.md` 包含数据库/Redis/中间件配置？
+- [ ] `decisions.md` 和 `mistakes.md` 至少有"暂无"文字？
+- [ ] 所有 12 个文件都已创建？
 
-## DTO 转换
-- 方式：MapStruct / BeanUtils.copyProperties / 手动
-```
+---
 
-#### config.md — 必须包含（在服务专属 memory 目录下）：
-```markdown
-# 配置信息
+### 输出格式
 
-## 数据库
-- 类型：MySQL 8.0
-- 地址：localhost:3306
-- 数据库名：qms_quality
-
-## Redis
-- 地址：localhost:6379
-- 用途：缓存、分布式锁
-
-## Nacos
-- 地址：localhost:8848
-- 命名空间：dev
-
-## 中间件
-| 中间件 | 用途 | 配置 |
-|--------|------|------|
-| PowerJob | 分布式任务调度 | localhost:7700 |
-| RabbitMQ | 消息队列 | localhost:5672 |
-| MinIO | 文件存储 | localhost:9000 |
-
-## 其他配置
-- MyBatis-Plus：mapper-locations, global-config
-- 日志级别：logging.level
-```
-
-#### models.md — 必须包含（在服务专属 memory 目录下）：
-```markdown
-# 数据模型
-
-## 当前服务的 Entity
-| 类名 | 完整路径 | 表名 | 主要字段 |
-|------|----------|------|----------|
-| QualityRecord | com.qms.quality.biz.entity.QualityRecord | qms_quality_record | id, recordCode, batchNo, ... |
-
-## 依赖项目的 Entity（从依赖深层扫描）
-| 类名 | 所属模块 | 完整路径 | 表名 | 主要字段 |
-|------|----------|----------|------|----------|
-| User | common-bean | com.qms.common.bean.entity.User | sys_user | id, username, realName |
-| Product | basedata | com.qms.basedata.entity.Product | bas_product | id, productName, productCode |
-
-## DTO
-| 类名 | 完整路径 | 主要字段 |
-|------|----------|----------|
-```
-
-#### apis.md — 必须包含（在服务专属 memory 目录下）：
-```markdown
-# API 列表
-
-## 当前服务的 API
-| Controller | 基础路径 | 方法 | 端点 | 说明 |
-|-----------|----------|------|------|------|
-| QualityRecordController | /api/quality-records | POST | / | 创建质量记录 |
-| QualityRecordController | /api/quality-records | GET | /{id} | 查询质量记录 |
-
-## 依赖服务提供的 API（通过 Feign Client 调用）
-| Feign Client | 目标服务 | 方法 | 说明 |
-|-------------|----------|------|------|
-| WorkflowClient | workflow-service | startProcess() | 启动审批流程 |
-| ProductApi | basedata-service | getProductById() | 查询产品信息 |
-| UserApi | user-service | getUserById() | 查询用户信息 |
-```
-
-#### utils.md — 必须包含：
-```markdown
-# 工具类
-
-## 当前服务的工具类
-| 类名 | 完整路径 | 方法 | 说明 |
-|------|----------|------|------|
-（如果当前服务没有工具类，写"当前服务无自定义工具类"）
-
-## 依赖项目的工具类（从依赖深层扫描）
-| 类名 | 所属模块 | 完整路径 | 方法 | 说明 |
-|------|----------|----------|------|------|
-| JwtUtil | common-bean | com.qms.common.bean.util.JwtUtil | generateToken(), parseToken() | JWT 令牌工具 |
-| DateUtil | common-bean | com.qms.common.bean.util.DateUtil | format(), parse() | 日期工具 |
-```
-
-#### decisions.md — 必须包含：
-```markdown
-# 架构决策记录
-
-## 已识别的架构决策
-| 决策 | 选择 | 原因 |
-|------|------|------|
-（如果无法从代码中推断，写"暂无已识别的架构决策，后续开发中持续记录"）
-```
-
-#### mistakes.md — 必须包含：
-```markdown
-# 常见错误及修复
-
-> 初始为空，在 Fix 阶段和开发过程中持续积累。
-
-## 错误模式
-（暂无记录）
-```
-
-#### patterns.md — 必须包含：
-```markdown
-# 常见代码模式
-
-## 从现有代码中识别的模式
-| 模式名称 | 描述 | 示例位置 |
-|----------|------|----------|
-（如果无法从代码中识别，写"暂无已识别的代码模式，后续开发中持续记录"）
-```
-
-**如果是 Java 单服务项目 / 前端项目：**
-- 按原有流程执行，但同样要求每个文件写入完整内容
-
-**Step 6: 自检**
-- 验证所有记忆文件是否已成功写入
-- **逐文件检查内容**：
-  - `common-modules.md`：是否包含依赖项目的 Entity/DTO/Enum/Util？（不能为空）
-  - `config.md`：是否包含中间件配置？（不能为空）
-  - `decisions.md`：是否有内容？（至少写"暂无"）
-  - `dependency-graph.md`：是否有 Maven 依赖关系和 Feign 调用关系？（不能为空）
-  - `mistakes.md`：是否有内容？（至少写"暂无"）
-  - `models.md`：是否包含当前服务和依赖服务的 Entity？（不能为空）
-  - `utils.md`：是否包含依赖项目的工具类？（不能为空）
-  - `apis.md`：是否包含当前服务 API 和依赖服务的 Feign Client API？（不能为空）
-- **多服务模式额外验证**：
-  - 所有子服务是否都被扫描到
-  - 公共模块是否被正确识别
-  - Feign Client 调用关系是否完整
-  - 服务间依赖图谱是否正确
-  - **依赖项目是否被深层扫描**（common-bean、basedata-api 等）
-
-**输出格式**：
+完成所有步骤后，输出以下汇总表：
 
 **Java 微服务（多服务模式）：**
 | 维度 | 结果 |
 |------|------|
 | 项目类型 | Java 微服务（多服务模式） |
-| 语言/版本 | Java 17 |
-| 框架 | Spring Boot 3.2.5 + Spring Cloud |
+| 语言/版本 | Java XX |
+| 框架 | Spring Boot X.X.X + Spring Cloud |
 | 注册中心 | Nacos / Eureka / Consul |
 | 网关 | Spring Cloud Gateway |
 | 服务数量 | X 个 |
 | 公共模块 | X 个 |
 | 跨服务调用 | X 个 Feign Client |
-| 依赖项目扫描 | X 个（common-bean, basedata-api, workflow-api...） |
-| 中间件 | PowerJob, RabbitMQ, Redis... |
+| **依赖项目深层扫描** | **X 个（列出名称）** |
+| 中间件 | 列出所有中间件 |
 | 编码规范 | 从公共模块推断 |
+| memory 文件 | 12/12 已写入 ✅ |
 
 **Java 单服务项目：**
 | 维度 | 结果 |
 |------|------|
-| 项目类型 | Java 后端微服务 |
-| 语言/版本 | Java 17 |
-| 框架 | Spring Boot 3.2.5 |
-| ORM/数据访问 | MyBatis-Plus |
-| 主要依赖 | Redis, OpenFeign, MapStruct, Lombok |
+| 项目类型 | Java 后端 |
+| 语言/版本 | Java XX |
+| 框架 | Spring Boot X.X.X |
+| ORM | MyBatis-Plus / JPA |
 | 分层架构 | Controller / Service / Mapper / Entity / DTO / Enum / Config |
-| Entity 数量 | X 个 |
-| Service 数量 | X 个 |
-| Controller 数量 | X 个 |
-| API 端点数量 | X 个 |
-| 编码规范 | PascalCase(类)/camelCase(方法)/UPPER_SNAKE_CASE(常量) |
+| Entity/Service/Controller 数量 | X / X / X |
+| memory 文件 | 12/12 已写入 ✅ |
 
 **前端项目：**
 | 维度 | 结果 |
 |------|------|
-| 项目类型 | 前端/后端/全栈 |
-| 语言 | TypeScript/Python/Java/... |
-| 框架 | React/Vue/Spring Boot/FastAPI/... |
-| 组件数量 | X 个 |
-| API 数量 | X 个 |
-| 编码规范 | camelCase/PascalCase/... |
+| 项目类型 | 前端 |
+| 语言 | TypeScript / JavaScript |
+| 框架 | React / Vue / Angular |
+| 组件/API 数量 | X / X |
+| memory 文件 | 12/12 已写入 ✅ |
 
 **暂停，等待用户确认。**
 
