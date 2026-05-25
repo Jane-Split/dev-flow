@@ -21,6 +21,7 @@ dev-flow 通过**结构化的流程编排 + 项目记忆 + 长期记忆 + 学习
 ## 特性
 
 - **结构化流程** - 6 个阶段 + Hotfix 模式，每个阶段有明确的输入/输出和自检步骤
+- **Subagent 模式** - 复杂任务拆分为独立 subagent 并行执行，上下文隔离，效率翻倍
 - **项目记忆** - Research 阶段自动扫描并记录项目结构、组件、API、编码规范（7 个文件）
 - **长期记忆** - 记录常见代码模式、错误修复方案、用户偏好、架构决策（4 个文件），跨会话持久化
 - **学习能力** - 从用户反馈、代码修改、测试 Bug 中自动学习，持续优化代码生成策略
@@ -50,6 +51,18 @@ npx dev-flow install
 | Cursor | `.cursor/commands/dev-flow.md` | 输入框输入 `/dev-flow` |
 | Qoder | `.qoder/commands/dev-flow.md` | 输入框输入 `/dev-flow` |
 | Claude Code | `.claude/commands/dev-flow.md` | 输入框输入 `/dev-flow` |
+
+**Subagent 文件**（用于 `-subagent` 模式）：
+
+| Agent | 文件路径 | 职责 |
+|-------|----------|------|
+| orchestrator | `.trae/skills/dev-flow/agents/orchestrator.md` | 主协调者，任务拆分和调度 |
+| research-expert | `.trae/skills/dev-flow/agents/research-expert.md` | 项目研究，扫描技术栈 |
+| analyze-expert | `.trae/skills/dev-flow/agents/analyze-expert.md` | 需求分析，影响评估 |
+| design-expert | `.trae/skills/dev-flow/agents/design-expert.md` | 详细设计，接口定义 |
+| develop-expert | `.trae/skills/dev-flow/agents/develop-expert.md` | 代码开发（可并行） |
+| verify-expert | `.trae/skills/dev-flow/agents/verify-expert.md` | 代码验证，质量检查 |
+| task-protocol | `.trae/skills/dev-flow/agents/task-protocol.md` | 任务拆分协议定义 |
 
 同时创建 `.dev-flow/memory/` 目录（11 个 Markdown 记忆模板）和 `.dev-flow/sessions/` 目录（会话记录）。
 
@@ -99,6 +112,42 @@ AI 将按阶段逐步执行，每个阶段完成后等待你确认。
 /dev-flow -fix               # 分析并修复 Bug
 /dev-flow -hotfix <错误信息> # 紧急修复线上错误
 ```
+
+### Subagent 模式（复杂任务）
+
+```
+/dev-flow -subagent <需求描述>  # 使用 subagent 并行模式
+```
+
+适用于：
+- 需求涉及 2 个以上服务/模块
+- 预计生成 10 个以上文件
+- 项目代码量大（上下文可能不足）
+- 需要并行开发加速
+
+**架构**：
+```
+用户 ←→ 主 Agent（协调者）
+              │
+              ├── /research-expert  → 扫描项目，输出 memory/
+              ├── /analyze-expert   → 分析需求，输出分析文档
+              ├── /design-expert    → 详细设计，输出设计文档
+              ├── /develop-expert   → 代码开发（可并行多个）
+              └── /verify-expert    → 代码验证
+```
+
+**工作流程**：
+1. 主 agent 接收需求，创建会话目录
+2. 按顺序调度 subagent：Research → Analyze → Design → Develop → Verify
+3. 每个 subagent 在独立上下文中执行，只读取必要的文件
+4. Develop 阶段根据任务拆分可并行启动多个 develop-expert
+5. 主 agent 收集各 subagent 结果，整合后向用户汇报
+
+**任务拆分与依赖处理**：
+- Analyze 阶段输出的 `task-breakdown.yaml` 定义所有开发任务及其依赖关系
+- 主 agent 根据 DAG 依赖图进行拓扑排序，分批执行
+- 无依赖的任务并行执行（如不同服务的开发任务）
+- 有依赖的任务串行执行（如 Entity → DTO → Service → Controller）
 
 ### 断点续传
 
