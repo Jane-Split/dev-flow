@@ -16,6 +16,7 @@ description: AI开发全流程编排技能 - 在AI编程工具对话框中结构
 | 命令 | 说明 |
 |------|------|
 | `/dev-flow <需求描述>` | 全流程：Research → Analyze → Design → Develop → Test |
+| `/dev-flow -subagent <需求描述>` | Subagent 模式：主 agent 协调，各阶段由专业 subagent 独立执行 |
 | `/dev-flow -research` | 仅执行项目调研 |
 | `/dev-flow -analyze <需求>` | 仅执行需求分析 |
 | `/dev-flow -design <需求>` | 仅执行详细设计 |
@@ -24,6 +25,56 @@ description: AI开发全流程编排技能 - 在AI编程工具对话框中结构
 | `/dev-flow -fix` | 分析并修复 Bug |
 | `/dev-flow -hotfix <错误信息>` | 紧急修复线上错误 |
 | `/dev-flow --resume` | 从上次中断处继续 |
+
+## 运行模式
+
+### 模式选择
+
+dev-flow 支持两种运行模式：
+
+| 模式 | 触发命令 | 适用场景 |
+|------|----------|----------|
+| **标准模式** | `/dev-flow <需求>` | 简单需求、单服务项目、快速开发 |
+| **Subagent 模式** | `/dev-flow -subagent <需求>` | 复杂需求、多服务项目、大型重构 |
+
+### Subagent 模式
+
+当使用 `-subagent` 参数时，主 agent 作为协调者，不直接读取源码、不直接生成代码，而是调度专业 subagent 执行各阶段任务。
+
+**架构**：
+```
+用户 ←→ 主 Agent（协调者）
+              │
+              ├── /research-expert  → 扫描项目，输出 memory/
+              ├── /analyze-expert   → 分析需求，输出分析文档
+              ├── /design-expert    → 详细设计，输出设计文档
+              ├── /develop-expert   → 代码开发（可并行多个）
+              └── /verify-expert    → 代码验证
+```
+
+**工作流程**：
+1. 主 agent 接收需求，创建会话目录 `.dev-flow/sessions/{session-id}/`
+2. 主 agent 按顺序调度 subagent：Research → Analyze → Design → Develop → Verify
+3. 每个 subagent 在独立上下文中执行，只读取必要的文件
+4. Develop 阶段根据任务拆分可并行启动多个 develop-expert
+5. 主 agent 收集各 subagent 结果，整合后向用户汇报
+
+**任务拆分与依赖处理**：
+- Analyze 阶段输出的 `task-breakdown.yaml` 定义所有开发任务及其依赖关系
+- 主 agent 根据 DAG 依赖图进行拓扑排序，分批执行
+- 无依赖的任务并行执行（如不同服务的开发任务）
+- 有依赖的任务串行执行（如 Entity → DTO → Service → Controller）
+
+**Subagent 通信**：
+- 通过文件系统传递信息（task-context.yaml / task-result.yaml）
+- 主 agent 只保留任务状态，详细内容外置到文件
+- 详见 `.dev-flow/agents/task-protocol.md`
+
+**何时使用 Subagent 模式**：
+- 需求涉及 2 个以上服务/模块
+- 预计生成 10 个以上文件
+- 项目代码量大（上下文可能不足）
+- 需要并行开发加速
 
 ## 全局规则
 

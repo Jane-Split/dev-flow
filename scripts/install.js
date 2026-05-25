@@ -15,6 +15,24 @@ const SKILL_FILES = {
   claude: { src: 'skill-templates/claude/dev-flow.md', dest: '.claude/commands/dev-flow.md' },
 };
 
+// Subagent 定义文件（按工具适配安装路径）
+const AGENT_FILES = [
+  'orchestrator.md',
+  'research-expert.md',
+  'analyze-expert.md',
+  'design-expert.md',
+  'develop-expert.md',
+  'verify-expert.md',
+  'task-protocol.md',
+];
+
+const AGENT_DEST_MAP = {
+  trae: '.trae/skills/dev-flow/agents/',
+  cursor: '.cursor/agents/',
+  qoder: '.qoder/agents/',
+  claude: '.claude/agents/',
+};
+
 const MEMORY_FILES = [
   'project-overview.md',
   'conventions.md',
@@ -255,13 +273,16 @@ function install(target) {
   if (target === 'all' || !target) {
     for (const key of Object.keys(SKILL_FILES)) {
       installSkill(key);
+      installAgents(key);
     }
   } else {
     installSkill(target);
+    installAgents(target);
   }
   createMemoryTemplate();
   console.log('\n✅ dev-flow skill 安装完成！');
-  console.log('   在 AI 编程工具中输入 /dev-flow <需求> 开始使用\n');
+  console.log('   在 AI 编程工具中输入 /dev-flow <需求> 开始使用');
+  console.log('   输入 /dev-flow -subagent <需求> 使用 subagent 并行模式\n');
 }
 
 function installSkill(tool) {
@@ -283,6 +304,28 @@ function installSkill(tool) {
   mkdirSync(dirname(dest), { recursive: true });
   cpSync(src, dest);
   console.log(`✅ ${tool}: ${dest}`);
+}
+
+function installAgents(tool) {
+  const destDir = AGENT_DEST_MAP[tool];
+  if (!destDir) return;
+
+  const agentsSrcDir = resolve(ROOT, 'skill-templates/trae/agents');
+
+  for (const file of AGENT_FILES) {
+    const src = resolve(agentsSrcDir, file);
+    const dest = resolve(PROJECT_ROOT, destDir, file);
+
+    if (!existsSync(src)) {
+      console.error(`❌ Agent 文件不存在: ${src}`);
+      continue;
+    }
+
+    mkdirSync(dirname(dest), { recursive: true });
+    cpSync(src, dest);
+  }
+
+  console.log(`✅ ${tool} agents: ${destDir} (${AGENT_FILES.length} files)`);
 }
 
 function createMemoryTemplate() {
