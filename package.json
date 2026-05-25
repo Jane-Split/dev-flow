@@ -19,7 +19,8 @@
     "cursor",
     "trae",
     "qoder",
-    "claude"
+    "claude",
+    "codex"
   ],
   "license": "MIT",
   "engines": {

@@ -1,0 +1,7 @@
+# dev-flow Codex 配置
+model = "o4-mini"
+approval_mode = "suggest"
+context_window_tokens = 200000
+
+# 自定义指令（已通过 AGENTS.md 提供，此处为补充）
+[instructions]

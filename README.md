@@ -2,7 +2,7 @@
 
 [![node](https://img.shields.io/node/v/dev-flow.svg)](https://nodejs.org)
 
-AI 开发全流程编排 Skill，适用于 Cursor、Trae、Qoder、Claude Code 等 AI 编程工具。
+AI 开发全流程编排 Skill，适用于 Cursor、Trae、Qoder、Claude Code、OpenAI Codex 等 AI 编程工具。
 
 通过 `/dev-flow` 命令，AI 将按照结构化流程逐步执行：**项目调研 → 需求分析 → 详细设计 → 代码开发 → 测试验证 → Bug 修复**，每个阶段完成后暂停等待确认，确保产出质量。
 
@@ -29,7 +29,7 @@ dev-flow 通过**结构化的流程编排 + 项目记忆 + 长期记忆 + 学习
 - **阶段确认** - 每个阶段完成后暂停，展示成果并等待用户确认
 - **断点续传** - 长流程中断后可从上次断点恢复（`.dev-flow/sessions/`）
 - **Markdown 记忆** - 所有记忆使用 Markdown 格式，AI 可直接读写
-- **多工具支持** - Cursor、Trae、Qoder、Claude Code
+- **多工具支持** - Cursor、Trae、Qoder、Claude Code、OpenAI Codex
 - **多语言支持** - Java (Spring Boot)、前端 (React/Vue)、Python、Go、Rust 等主流技术栈
 - **零依赖** - 纯 Markdown + 安装脚本，无需编译
 
@@ -51,6 +51,7 @@ npx dev-flow install
 | Cursor | `.cursor/commands/dev-flow.md` | 输入框输入 `/dev-flow` |
 | Qoder | `.qoder/commands/dev-flow.md` | 输入框输入 `/dev-flow` |
 | Claude Code | `.claude/commands/dev-flow.md` | 输入框输入 `/dev-flow` |
+| OpenAI Codex | `AGENTS.md`（项目根目录） | 终端输入 `codex` 后使用自然语言 |
 
 **Subagent 文件**（用于 `-subagent` 模式）：
 
@@ -73,6 +74,7 @@ npx dev-flow trae     # 仅安装 Trae
 npx dev-flow cursor   # 仅安装 Cursor
 npx dev-flow qoder    # 仅安装 Qoder
 npx dev-flow claude   # 仅安装 Claude Code
+npx dev-flow codex    # 仅安装 OpenAI Codex
 ```
 
 ## 快速开始

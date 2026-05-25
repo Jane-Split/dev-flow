@@ -13,6 +13,7 @@ const SKILL_FILES = {
   cursor: { src: 'skill-templates/cursor/dev-flow.md', dest: '.cursor/commands/dev-flow.md' },
   qoder: { src: 'skill-templates/qoder/dev-flow.md', dest: '.qoder/commands/dev-flow.md' },
   claude: { src: 'skill-templates/claude/dev-flow.md', dest: '.claude/commands/dev-flow.md' },
+  codex: { src: 'skill-templates/codex/AGENTS.md', dest: 'AGENTS.md' },
 };
 
 // Subagent 定义文件（按工具适配安装路径）
@@ -24,6 +25,10 @@ const AGENT_FILES = [
   'develop-expert.md',
   'verify-expert.md',
   'task-protocol.md',
+  'dependency-scanner.md',
+  'service-scanner.md',
+  'structure-analyzer.md',
+  'config-analyzer.md',
 ];
 
 const AGENT_DEST_MAP = {
@@ -31,6 +36,7 @@ const AGENT_DEST_MAP = {
   cursor: '.cursor/agents/',
   qoder: '.qoder/agents/',
   claude: '.claude/agents/',
+  codex: '.dev-flow/agents/',
 };
 
 const MEMORY_FILES = [
