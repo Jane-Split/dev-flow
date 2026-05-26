@@ -15,13 +15,17 @@ description: AI开发全流程编排技能 - 在AI编程工具对话框中结构
 
 | 命令 | 说明 |
 |------|------|
-| `/dev-flow <需求描述>` | 全流程：Research → Analyze → Design → Develop → Test |
+| `/dev-flow <需求描述>` | 全流程：Research → Analyze → Design → Task Split → Develop → Unit Test → Smoke Test → Integration Test → Delivery |
 | `/dev-flow -subagent <需求描述>` | Subagent 模式：主 agent 协调，各阶段由专业 subagent 独立执行 |
 | `/dev-flow -research` | 仅执行项目调研 |
 | `/dev-flow -analyze <需求>` | 仅执行需求分析 |
 | `/dev-flow -design <需求>` | 仅执行详细设计 |
-| `/dev-flow -develop <需求>` | 直接开发（跳过设计，适合小需求） |
-| `/dev-flow -test` | 生成测试并执行 |
+| `/dev-flow -split <需求>` | 仅执行任务拆分 |
+| `/dev-flow -develop <需求>` | 直接开发（跳过设计和拆分） |
+| `/dev-flow -test` | 生成单元测试并执行 |
+| `/dev-flow -smoke` | 执行冒烟测试 |
+| `/dev-flow -integration` | 执行集成测试 |
+| `/dev-flow -delivery` | 生成交付报告 |
 | `/dev-flow -fix` | 分析并修复 Bug |
 | `/dev-flow -hotfix <错误信息>` | 紧急修复线上错误 |
 | `/dev-flow --resume` | 从上次中断处继续 |
@@ -46,10 +50,19 @@ dev-flow 支持两种运行模式：
 用户 ←→ 主 Agent（协调者）
               │
               ├── /research-expert  → 扫描项目，输出 memory/
-              ├── /analyze-expert   → 分析需求，输出分析文档
+              │     ├── @dependency-scanner   → 深层扫描依赖项目
+              │     ├── @service-scanner      → 扫描当前服务
+              │     ├── @structure-analyzer   → 分析项目结构
+              │     └── @config-analyzer      → 分析配置规范
+              ├── /analyze-expert   → 分析需求，输出需求分析文档
               ├── /design-expert    → 详细设计，输出设计文档
+              ├── /task-split       → 任务拆分，输出任务清单（DAG）
               ├── /develop-expert   → 代码开发（可并行多个）
-              └── /verify-expert    → 代码验证
+              │     └── 开发中汇报机制 → 向主 Agent 汇报进度
+              ├── /verify-expert    → 单元测试，输出测试报告
+              ├── /smoke-test       → 冒烟测试，输出冒烟测试报告
+              ├── /integration-test → 集成测试，输出集成测试报告
+              └── /delivery         → 生成交付报告
 ```
 
 **工作流程**：
@@ -1128,19 +1141,165 @@ interface User { ... }
 
 ---
 
-## 阶段四：Develop（开发执行）
+## 阶段四：Task Split（任务拆分）
 
 ### 触发条件
 - 全流程模式（Design 确认后）
-- 用户输入 `/dev-flow -develop <需求>`（直接开发，跳过设计）
+- 用户输入 `/dev-flow -split`
+
+### 目的
+将详细设计拆分为精确的开发任务，解决依赖关系，确定并行/串行执行顺序，为后续并行开发做准备。
 
 ### 执行步骤
 
-**Step 1: 读取项目记忆**
+**Step 1: 读取详细设计文档**
+- 读取 `.dev-flow/docs/{需求简称}-详细设计.md`
+- 提取所有需要新增/修改的文件列表
+- 识别每个文件的依赖关系
+
+**Step 2: 构建任务依赖图（DAG）**
+
+对每个开发任务分析：
+- **输入依赖**：该任务需要哪些其他任务的输出（如 Entity → Service → Controller）
+- **数据依赖**：该任务需要哪些公共模块的数据（如 common-bean 的 Entity）
+- **接口依赖**：该任务需要调用哪些其他服务的接口（如 Feign Client）
+
+**依赖分析规则**：
+
+| 任务类型 | 必须先完成的任务 |
+|----------|-----------------|
+| Entity | 无（可并行） |
+| Enum | 无（可并行） |
+| DTO | Entity（如果引用 Entity） |
+| Mapper | Entity |
+| Service 接口 | Entity, DTO |
+| Service 实现 | Mapper, DTO, Feign Client |
+| Feign Client | 无（可并行，但需目标服务已定义） |
+| Controller | Service, DTO |
+| Config | 无（可并行） |
+
+**Step 3: 划分执行批次**
+
+根据依赖图，将任务划分为多个批次：
+
+```
+批次 1（可并行）：
+  - Task-1: 新增 XxxEntity
+  - Task-2: 新增 XxxEnum
+  - Task-3: 新增 XxxConfig
+  - Task-4: 新增 XxxFeignClient
+
+批次 2（批次 1 完成后可并行）：
+  - Task-5: 新增 XxxMapper
+  - Task-6: 新增 XxxDTO
+
+批次 3（批次 2 完成后可并行）：
+  - Task-7: 新增 XxxService 接口
+  - Task-8: 新增 XxxServiceImpl
+
+批次 4（批次 3 完成后）：
+  - Task-9: 新增 XxxController
+```
+
+**Step 4: 生成任务清单**
+
+为每个任务生成详细描述：
+
+| 任务ID | 任务名称 | 文件路径 | 依赖任务 | 批次 | 预估复杂度 |
+|--------|----------|----------|----------|------|-----------|
+| Task-1 | 新增不合格品实体 | entity/NonConformingProduct.java | 无 | 1 | 低 |
+| Task-2 | 新增处置类型枚举 | enums/DispositionType.java | 无 | 1 | 低 |
+| ... | ... | ... | ... | ... | ... |
+
+**Step 5: 输出任务拆分文档**
+
+> **🔴 必须输出正式文档**：将任务拆分结果写入独立文档文件。
+
+**输出文档**：`.dev-flow/docs/{需求简称}-任务拆分.md`
+
+**文档模板**：
+```markdown
+# 任务拆分：{需求标题}
+
+<!-- last-updated: YYYY-MM-DD HH:mm -->
+
+## 1. 任务总览
+| 维度 | 数量 |
+|------|------|
+| 总任务数 | X |
+| 批次数 | X |
+| 可并行任务 | X |
+| 串行任务 | X |
+
+## 2. 依赖关系图
+```mermaid
+graph TD
+    Task-1[Entity] --> Task-5[Mapper]
+    Task-1 --> Task-7[Service]
+    Task-5 --> Task-8[ServiceImpl]
+    Task-7 --> Task-8
+    Task-8 --> Task-9[Controller]
+```
+
+## 3. 执行批次
+
+### 批次 1（可并行执行）
+| 任务ID | 任务名称 | 文件路径 | 复杂度 | 负责 Subagent |
+|--------|----------|----------|--------|---------------|
+| Task-1 | ... | ... | 低 | @develop-expert-1 |
+| Task-2 | ... | ... | 低 | @develop-expert-2 |
+
+### 批次 2（批次 1 完成后执行）
+| 任务ID | 任务名称 | 文件路径 | 依赖任务 | 复杂度 |
+|--------|----------|----------|----------|--------|
+
+## 4. 任务详情
+
+### Task-1: 新增不合格品实体
+- **文件路径**：`src/main/java/.../entity/NonConformingProduct.java`
+- **依赖任务**：无
+- **所属批次**：1
+- **预估复杂度**：低
+- **实现要点**：
+  - 继承 BaseEntity
+  - 包含字段：recordCode, batchNo, productId, dispositionType, status
+  - 使用 @TableName 注解
+
+## 5. 并行开发建议
+- 建议使用 3-4 个 develop-expert subagent 并行开发
+- 每个 subagent 负责一个批次的多个任务
+- 主 Agent 负责协调和汇总
+```
+
+**Step 6: 派发任务给主 Agent**
+
+输出任务清单后，主 Agent 根据批次顺序调度 develop-expert subagent：
+- 同一批次的任务可并行派发给多个 subagent
+- 下一批次需等待上一批次全部完成
+- 每个 subagent 完成后向主 Agent 汇报
+
+**暂停，等待用户确认任务拆分方案。**
+
+---
+
+## 阶段五：Develop（开发执行）
+
+### 触发条件
+- 全流程模式（Task Split 确认后）
+- 用户输入 `/dev-flow -develop <需求>`（直接开发，跳过设计和拆分）
+
+### 执行模式
+
+**标准模式**：单个 develop-expert subagent 顺序执行所有任务
+**并行模式**：多个 develop-expert subagent 并行执行同一批次的任务
+
+> **并行模式由主 Agent 协调**：根据任务拆分文档中的批次信息，同时派发多个 subagent。
+
+### 执行步骤
+
+**Step 1: 读取任务拆分文档和项目记忆**
+- 读取 `.dev-flow/docs/{需求简称}-任务拆分.md`（如有）
 - 读取 `.dev-flow/memory/conventions.md` - 遵守编码规范
-- 读取 `.dev-flow/memory/modules.md` - 复用已有模块（Java: Service/Mapper/Controller）
-- 读取 `.dev-flow/memory/apis.md` - 复用已有 API 模式
-- 读取 `.dev-flow/memory/utils.md` - 复用已有工具函数
 - 读取 `.dev-flow/memory/patterns.md` - 复用已有代码模式
 - 读取 `.dev-flow/memory/mistakes.md` - 避免历史错误
 - **如果是 Java 微服务（多服务模式），额外读取：**
@@ -1334,6 +1493,44 @@ interface User { ... }
 - ❌ `return null;` 空实现（Java）
 - ❌ 任何形式的空壳/占位代码
 
+**Step 5: 开发中汇报机制（并行模式必须）**
+
+> **目的**：让主 Agent 实时了解各 subagent 的开发进度，及时处理阻塞问题。
+
+**汇报时机**：
+- **任务开始时**：向主 Agent 报告"开始执行 Task-X"
+- **任务完成时**：向主 Agent 报告"Task-X 完成"，并提交成果
+- **遇到阻塞时**：向主 Agent 报告"Task-X 阻塞"，说明原因，请求协助
+- **批次完成时**：主 Agent 汇总该批次所有任务状态，决定是否进入下一批次
+
+**汇报格式**：
+```
+【进度汇报】
+- Subagent ID: @develop-expert-1
+- 当前任务: Task-5 (新增 XxxMapper)
+- 状态: 进行中 / 已完成 / 阻塞
+- 完成文件: entity/XxxEntity.java, enums/XxxEnum.java
+- 阻塞原因: （如有）需要 basedata-api 的 ProductDTO，但未找到
+- 预计完成时间: 5 分钟后
+```
+
+**主 Agent 职责**：
+1. 接收所有 subagent 的汇报
+2. 汇总进度，更新任务看板
+3. 处理阻塞问题（如协调其他 subagent 优先完成依赖任务）
+4. 决定是否进入下一批次
+5. 向用户展示整体进度
+
+**进度看板示例**：
+```
+| 批次 | 任务 | Subagent | 状态 |
+|------|------|----------|------|
+| 1 | Task-1 Entity | @dev-1 | ✅ 完成 |
+| 1 | Task-2 Enum | @dev-2 | ✅ 完成 |
+| 2 | Task-5 Mapper | @dev-1 | 🔄 进行中 |
+| 2 | Task-6 DTO | @dev-2 | ⏳ 等待 |
+```
+
 **暂停，等待用户确认后再进入 Test 阶段。**
 
 > **🔴 Develop 完成后必须输出开发报告**：
@@ -1376,7 +1573,7 @@ interface User { ... }
 
 ---
 
-## 阶段五：Test（测试验证）
+## 阶段六：Unit Test（单元测试）
 
 ### 触发条件
 - 全流程模式（Develop 确认后）
@@ -1532,7 +1729,7 @@ interface User { ... }
 
 ---
 
-## 阶段六：Fix（Bug 修复）
+## 阶段七：Fix（Bug 修复）
 
 ### 触发条件
 - Test 阶段发现失败用例
@@ -1758,6 +1955,294 @@ Optional.ofNullable(order.getItems())
 ## Analyze 摘要
 [需求分析摘要]
 ```
+
+---
+
+## 阶段八：Smoke Test（冒烟测试）
+
+### 触发条件
+- Unit Test 阶段通过后
+- 用户输入 `/dev-flow -smoke`
+
+### 目的
+快速验证核心业务流程可运行，不追求覆盖率，追求快速发现问题。冒烟测试通过后才进入集成测试。
+
+### 执行步骤
+
+**Step 1: 识别核心业务流程**
+- 从需求分析文档中提取核心功能点
+- 识别主要业务流程（如：创建订单 → 支付 → 发货）
+- 确定冒烟测试覆盖的最小路径
+
+**Step 2: 启动服务**
+- 启动当前服务（及必要的依赖服务）
+- 验证服务健康检查通过
+- 验证数据库连接正常
+- 验证 Redis 连接正常
+- 验证 Nacos 注册成功
+
+**Step 3: 执行核心流程测试**
+
+**后端冒烟测试**：
+```bash
+# 1. 健康检查
+curl http://localhost:8084/actuator/health
+
+# 2. 核心接口调用
+curl -X POST http://localhost:8084/api/xxx -H "Content-Type: application/json" -d '{"name":"test"}'
+
+# 3. 查询验证
+curl http://localhost:8084/api/xxx/1
+```
+
+**前端冒烟测试**：
+- 页面能否正常加载
+- 核心按钮能否点击
+- 表单能否提交
+- 列表能否渲染
+
+**Step 4: 记录测试结果**
+
+**输出文档**：`.dev-flow/docs/{需求简称}-冒烟测试报告.md`
+
+**文档模板**：
+```markdown
+# 冒烟测试报告：{需求标题}
+
+<!-- last-updated: YYYY-MM-DD HH:mm -->
+
+## 1. 测试概述
+| 项目 | 内容 |
+|------|------|
+| 需求标题 | {标题} |
+| 测试时间 | YYYY-MM-DD HH:mm |
+| 服务端口 | 8084 |
+| 测试环境 | 本地开发环境 |
+
+## 2. 服务启动检查
+| 检查项 | 结果 |
+|--------|------|
+| 服务启动 | ✅/❌ |
+| 数据库连接 | ✅/❌ |
+| Redis 连接 | ✅/❌ |
+| Nacos 注册 | ✅/❌ |
+
+## 3. 核心流程测试
+| # | 测试场景 | 接口/页面 | 预期结果 | 实际结果 | 状态 |
+|---|----------|----------|----------|----------|------|
+| 1 | 创建记录 | POST /api/xxx | 返回 200 | 返回 200 | ✅ PASS |
+| 2 | 查询记录 | GET /api/xxx/1 | 返回数据 | 返回数据 | ✅ PASS |
+
+## 4. 问题记录
+| # | 问题描述 | 严重程度 | 状态 |
+|---|----------|----------|------|
+
+## 5. 结论
+- 冒烟测试结果：通过 / 不通过
+- 可否进入集成测试：是 / 否
+```
+
+**暂停，等待用户确认。如有问题，进入 Fix 阶段。**
+
+---
+
+## 阶段九：Integration Test（集成测试）
+
+### 触发条件
+- Smoke Test 阶段通过后
+- 用户输入 `/dev-flow -integration`
+
+### 目的
+验证多模块/多服务联调，验证接口契约，验证数据一致性。
+
+### 执行步骤
+
+**Step 1: 识别集成点**
+- 读取 `.dev-flow/memory/dependency-graph.md`
+- 识别当前服务调用的其他服务（Feign Client）
+- 识别被其他服务调用的接口（Controller）
+
+**Step 2: 准备测试环境**
+- 启动所有相关服务（或使用 Mock）
+- 准备测试数据
+- 配置测试数据库（使用独立数据库或 H2）
+
+**Step 3: 执行集成测试**
+
+**跨服务调用测试**：
+```java
+@SpringBootTest
+class XxxIntegrationTest {
+    
+    @Autowired
+    private XxxService xxxService;
+    
+    @Test
+    void testCrossServiceCall() {
+        // 测试调用 basedata-service 获取产品信息
+        ProductDTO product = xxxService.getProductById(1L);
+        assertNotNull(product);
+    }
+}
+```
+
+**接口契约测试**：
+- 验证 Feign Client 接口与目标服务 Controller 匹配
+- 验证请求/响应 DTO 字段一致
+- 验证错误码处理一致
+
+**数据一致性测试**：
+- 验证跨服务事务（如有）
+- 验证数据同步（如有）
+
+**Step 4: 记录测试结果**
+
+**输出文档**：`.dev-flow/docs/{需求简称}-集成测试报告.md`
+
+**文档模板**：
+```markdown
+# 集成测试报告：{需求标题}
+
+<!-- last-updated: YYYY-MM-DD HH:mm -->
+
+## 1. 测试概述
+| 项目 | 内容 |
+|------|------|
+| 需求标题 | {标题} |
+| 测试时间 | YYYY-MM-DD HH:mm |
+| 涉及服务 | quality-management, basedata-service, workflow-service |
+
+## 2. 集成点清单
+| # | 集成类型 | 调用方 | 被调用方 | 接口 |
+|---|----------|--------|----------|------|
+| 1 | Feign | quality | basedata | ProductApi.getById() |
+| 2 | Feign | quality | workflow | WorkflowApi.startProcess() |
+
+## 3. 测试用例
+| # | 测试场景 | 涉及服务 | 预期结果 | 实际结果 | 状态 |
+|---|----------|----------|----------|----------|------|
+| 1 | 创建不合格品并启动流程 | quality, workflow | 流程启动成功 | 流程启动成功 | ✅ PASS |
+
+## 4. 接口契约验证
+| Feign Client | 目标 Controller | 契约一致 | 备注 |
+|-------------|-----------------|----------|------|
+| ProductApi | ProductController | ✅ | 字段完全匹配 |
+
+## 5. 问题记录
+| # | 问题描述 | 涉及服务 | 严重程度 | 状态 |
+|---|----------|----------|----------|------|
+
+## 6. 结论
+- 集成测试结果：通过 / 不通过
+- 可否交付：是 / 否
+```
+
+**暂停，等待用户确认。如有问题，进入 Fix 阶段。**
+
+---
+
+## 阶段十：Delivery Report（交付报告）
+
+### 触发条件
+- Integration Test 阶段通过后
+- 用户输入 `/dev-flow -delivery`
+
+### 目的
+汇总全流程成果，生成最终交付清单，记录已知问题和后续优化建议。
+
+### 执行步骤
+
+**Step 1: 汇总各阶段文档**
+- 读取 `.dev-flow/docs/` 下所有文档
+- 提取关键信息：需求概述、设计要点、开发清单、测试结果
+
+**Step 2: 生成交付清单**
+- 列出所有新增/修改的文件
+- 列出所有新增的 API 接口
+- 列出所有新增的数据库表
+
+**Step 3: 记录已知问题**
+- 从各阶段的问题记录中汇总
+- 标注优先级和计划修复时间
+
+**Step 4: 输出交付报告**
+
+**输出文档**：`.dev-flow/docs/{需求简称}-交付报告.md`
+
+**文档模板**：
+```markdown
+# 交付报告：{需求标题}
+
+<!-- last-updated: YYYY-MM-DD HH:mm -->
+<!-- status: delivered | pending_review -->
+
+## 1. 需求概述
+| 项目 | 内容 |
+|------|------|
+| 需求标题 | {标题} |
+| 需求类型 | 新功能 / 功能增强 / Bug 修复 |
+| 优先级 | P0/P1/P2/P3 |
+| 开发周期 | YYYY-MM-DD ~ YYYY-MM-DD |
+
+## 2. 功能清单
+| # | 功能点 | 完成状态 | 备注 |
+|---|--------|----------|------|
+| 1 | 不合格品登记 | ✅ 已完成 | |
+| 2 | 审批流程集成 | ✅ 已完成 | 调用 workflow-service |
+| 3 | 处置跟踪 | ✅ 已完成 | |
+
+## 3. 交付清单
+
+### 3.1 文件变更
+| 操作 | 文件路径 | 说明 |
+|------|----------|------|
+| 新增 | entity/NonConformingProduct.java | 不合格品实体 |
+| 新增 | service/NonConformingProductService.java | 服务接口 |
+| ... | ... | ... |
+
+### 3.2 API 接口
+| 方法 | 端点 | 说明 |
+|------|------|------|
+| POST | /api/non-conforming-products | 创建不合格品 |
+| GET | /api/non-conforming-products/{id} | 查询不合格品 |
+
+### 3.3 数据库变更
+| 表名 | 操作 | 说明 |
+|------|------|------|
+| qms_non_conforming_product | 新增 | 不合格品表 |
+
+## 4. 测试结果汇总
+| 阶段 | 结果 | 通过率 |
+|------|------|--------|
+| 单元测试 | ✅ 通过 | 100% |
+| 冒烟测试 | ✅ 通过 | - |
+| 集成测试 | ✅ 通过 | 100% |
+
+## 5. 已知问题
+| # | 问题描述 | 优先级 | 计划修复时间 |
+|---|----------|--------|--------------|
+| 1 | 批量导入性能待优化 | P2 | 下个迭代 |
+
+## 6. 后续优化建议
+- 建议增加缓存提升查询性能
+- 建议增加操作日志审计功能
+
+## 7. 相关文档
+- [需求分析](./{需求简称}-需求分析.md)
+- [详细设计](./{需求简称}-详细设计.md)
+- [任务拆分](./{需求简称}-任务拆分.md)
+- [开发报告](./{需求简称}-开发报告.md)
+- [单元测试报告](./{需求简称}-单元测试报告.md)
+- [冒烟测试报告](./{需求简称}-冒烟测试报告.md)
+- [集成测试报告](./{需求简称}-集成测试报告.md)
+
+## 8. 签收确认
+- [ ] 开发人员确认
+- [ ] 测试人员确认
+- [ ] 产品人员确认
+```
+
+**暂停，向用户展示交付报告，等待最终确认。**
 
 ---
 
