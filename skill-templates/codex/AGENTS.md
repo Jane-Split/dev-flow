@@ -72,6 +72,26 @@
 - 全流程模式自动触发
 - 用户说"执行 dev-flow research"
 
+### Step 0: 智能判断是否需要扫描（执行前必须先检查）
+
+> **目的**：避免重复全量扫描。如果项目记忆已经是最新的，直接跳过或增量更新。
+
+**检查流程**：
+
+1. `.dev-flow/memory/` 目录存在？→ 否则执行完整 Research
+2. 关键文件（project-overview.md、conventions.md、models.md）存在且非空？→ 否则执行完整 Research
+3. 检查时间戳标记 `<!-- last-updated: YYYY-MM-DD HH:mm -->`：
+   - **24 小时内** → 询问用户是否跳过 Research
+   - **7 天内** → 静默执行增量更新
+   - **超过 7 天** → 询问用户是否重新扫描
+4. 对比 pom.xml/package.json 修改时间与 memory 文件修改时间：
+   - 配置文件更新 → 增量更新（只扫描变更部分）
+   - 配置文件未变 → 跳过 Research
+
+**增量更新**：读取现有 memory → 对比文件列表 → 只扫描新增/修改/删除的文件 → 合并更新
+
+**时间戳格式**：每个 memory 文件首行写入 `<!-- last-updated: YYYY-MM-DD HH:mm -->`
+
 ### Research 模式自动选择
 
 先评估项目规模，使用 Glob 统计源码文件数量：
