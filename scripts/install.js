@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { cpSync, mkdirSync, writeFileSync, existsSync } from 'node:fs';
+import { appendFileSync, cpSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -15,6 +15,11 @@ const SKILL_FILES = {
   claude: { src: 'skill-templates/claude/dev-flow.md', dest: '.claude/commands/dev-flow.md' },
   codex: { src: 'skill-templates/codex/AGENTS.md', dest: 'AGENTS.md' },
 };
+
+const CODEX_EXTRA_FILES = [
+  { src: 'skill-templates/codex/skills/dev-flow/SKILL.md', dest: '.agents/skills/dev-flow/SKILL.md' },
+  { src: 'skill-templates/codex/config.toml', dest: '.codex/config.toml', optional: true },
+];
 
 // Subagent 定义文件（按工具适配安装路径）
 const AGENT_FILES = [
@@ -31,12 +36,24 @@ const AGENT_FILES = [
   'config-analyzer.md',
 ];
 
+const CODEX_AGENT_FILES = AGENT_FILES.map((file) => file.replace(/\.md$/, '.toml'));
+
 const AGENT_DEST_MAP = {
   trae: '.trae/skills/dev-flow/agents/',
   cursor: '.cursor/agents/',
   qoder: '.qoder/agents/',
   claude: '.claude/agents/',
-  codex: '.dev-flow/agents/',
+  codex: '.codex/agents/',
+};
+
+const TOOL_ALIASES = {
+  install: 'all',
+  all: 'all',
+  trae: 'trae',
+  cursor: 'cursor',
+  qoder: 'qoder',
+  claude: 'claude',
+  codex: 'codex',
 };
 
 const MEMORY_FILES = [
@@ -276,6 +293,8 @@ const MEMORY_TEMPLATES = {
 };
 
 function install(target) {
+  target = normalizeTarget(target);
+
   if (target === 'all' || !target) {
     for (const key of Object.keys(SKILL_FILES)) {
       installSkill(key);
@@ -307,19 +326,31 @@ function installSkill(tool) {
     return;
   }
 
-  mkdirSync(dirname(dest), { recursive: true });
-  cpSync(src, dest);
-  console.log(`✅ ${tool}: ${dest}`);
+  if (tool === 'codex') {
+    installCodexAgentsMd(src, dest);
+    installCodexExtras();
+  } else {
+    mkdirSync(dirname(dest), { recursive: true });
+    cpSync(src, dest);
+    console.log(`✅ ${tool}: ${dest}`);
+  }
 }
 
 function installAgents(tool) {
   const destDir = AGENT_DEST_MAP[tool];
   if (!destDir) return;
 
-  const agentsSrcDir = resolve(ROOT, 'skill-templates/trae/agents');
+  const agentFiles = tool === 'codex' ? CODEX_AGENT_FILES : AGENT_FILES;
+  const agentsSrcDir = resolve(ROOT, `skill-templates/${tool}/agents`);
+  const fallbackAgentsSrcDir = resolve(ROOT, 'skill-templates/trae/agents');
+  let installedCount = 0;
 
-  for (const file of AGENT_FILES) {
-    const src = resolve(agentsSrcDir, file);
+  for (const file of agentFiles) {
+    let src = resolve(agentsSrcDir, file);
+    if (!existsSync(src) && tool !== 'codex') {
+      src = resolve(fallbackAgentsSrcDir, file);
+    }
+
     const dest = resolve(PROJECT_ROOT, destDir, file);
 
     if (!existsSync(src)) {
@@ -329,9 +360,64 @@ function installAgents(tool) {
 
     mkdirSync(dirname(dest), { recursive: true });
     cpSync(src, dest);
+    installedCount += 1;
   }
 
-  console.log(`✅ ${tool} agents: ${destDir} (${AGENT_FILES.length} files)`);
+  console.log(`✅ ${tool} agents: ${destDir} (${installedCount} files)`);
+}
+
+function installCodexAgentsMd(src, dest) {
+  mkdirSync(dirname(dest), { recursive: true });
+
+  if (!existsSync(dest)) {
+    cpSync(src, dest);
+    console.log(`✅ codex: ${dest}`);
+    return;
+  }
+
+  const existing = readFileSync(dest, 'utf-8');
+  if (existing.includes('<!-- dev-flow:start -->')) {
+    console.log(`ℹ️ codex: ${dest} 已包含 dev-flow 指令，跳过追加`);
+    return;
+  }
+
+  const content = readFileSync(src, 'utf-8');
+  appendFileSync(dest, `\n\n<!-- dev-flow:start -->\n${content.trim()}\n<!-- dev-flow:end -->\n`, 'utf-8');
+  console.log(`✅ codex: 已追加 dev-flow 指令到 ${dest}`);
+}
+
+function installCodexExtras() {
+  for (const file of CODEX_EXTRA_FILES) {
+    const src = resolve(ROOT, file.src);
+    const dest = resolve(PROJECT_ROOT, file.dest);
+
+    if (!existsSync(src)) {
+      console.error(`❌ Codex 文件不存在: ${src}`);
+      continue;
+    }
+
+    if (file.optional && existsSync(dest)) {
+      console.log(`ℹ️ codex: ${file.dest} 已存在，保留用户配置`);
+      continue;
+    }
+
+    mkdirSync(dirname(dest), { recursive: true });
+    cpSync(src, dest);
+    console.log(`✅ codex: ${dest}`);
+  }
+}
+
+function normalizeTarget(target) {
+  const normalized = target || 'all';
+  const mapped = TOOL_ALIASES[normalized];
+
+  if (!mapped) {
+    console.error(`❌ 不支持的命令或工具: ${normalized}`);
+    console.error(`   支持: install, ${Object.keys(SKILL_FILES).join(', ')}, all`);
+    process.exit(1);
+  }
+
+  return mapped;
 }
 
 function createMemoryTemplate() {

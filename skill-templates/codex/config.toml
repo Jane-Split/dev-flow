@@ -1,7 +1,9 @@
-# dev-flow Codex 配置
-model = "o4-mini"
-approval_mode = "suggest"
-context_window_tokens = 200000
+# dev-flow Codex project defaults
+#
+# This file is intentionally conservative. Codex only loads project-scoped
+# .codex/config.toml after the project is trusted, and user/global settings
+# still take precedence where appropriate.
 
-# 自定义指令（已通过 AGENTS.md 提供，此处为补充）
-[instructions]
+approval_policy = "on-request"
+sandbox_mode = "workspace-write"
+model_reasoning_effort = "high"

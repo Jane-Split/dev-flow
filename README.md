@@ -54,23 +54,23 @@ npx dev-flow install
 | Cursor | `.cursor/commands/dev-flow.md` | 输入框输入 `/dev-flow` |
 | Qoder | `.qoder/commands/dev-flow.md` | 输入框输入 `/dev-flow` |
 | Claude Code | `.claude/commands/dev-flow.md` | 输入框输入 `/dev-flow` |
-| OpenAI Codex | `AGENTS.md`（项目根目录） | 终端输入 `codex` 后使用自然语言 |
+| OpenAI Codex | `AGENTS.md` + `.agents/skills/dev-flow/SKILL.md` + `.codex/agents/*.toml` | 终端输入 `codex` 后使用自然语言或 `$dev-flow` |
 
-**Subagent 文件**（用于 `-subagent` 模式和 Research 并行扫描）：
+**Subagent 文件**（用于 `-subagent` 模式和 Research 并行扫描；Codex 使用 `.codex/agents/*.toml`）：
 
 | Agent | 文件路径 | 职责 |
 |-------|----------|------|
-| orchestrator | `agents/orchestrator.md` | 主协调者，任务拆分和调度 |
-| research-expert | `agents/research-expert.md` | 项目研究，调度子 subagent 扫描 |
-| analyze-expert | `agents/analyze-expert.md` | 需求分析，影响评估 |
-| design-expert | `agents/design-expert.md` | 详细设计，接口定义 |
-| develop-expert | `agents/develop-expert.md` | 代码开发（可并行） |
-| verify-expert | `agents/verify-expert.md` | 代码验证，质量检查 |
-| task-protocol | `agents/task-protocol.md` | 任务拆分协议定义 |
-| dependency-scanner | `agents/dependency-scanner.md` | 依赖项目深层扫描（Entity/DTO/Enum/Util/Feign Client） |
-| service-scanner | `agents/service-scanner.md` | 当前服务源码扫描（Entity/Service/Controller/Mapper） |
-| structure-analyzer | `agents/structure-analyzer.md` | 项目结构和依赖关系分析 |
-| config-analyzer | `agents/config-analyzer.md` | 配置和编码规范分析 |
+| orchestrator | `.codex/agents/orchestrator.toml` / 其他工具的 `agents/orchestrator.md` | 主协调者，任务拆分和调度 |
+| research-expert | `.codex/agents/research-expert.toml` / 其他工具的 `agents/research-expert.md` | 项目研究，调度子 subagent 扫描 |
+| analyze-expert | `.codex/agents/analyze-expert.toml` / 其他工具的 `agents/analyze-expert.md` | 需求分析，影响评估 |
+| design-expert | `.codex/agents/design-expert.toml` / 其他工具的 `agents/design-expert.md` | 详细设计，接口定义 |
+| develop-expert | `.codex/agents/develop-expert.toml` / 其他工具的 `agents/develop-expert.md` | 代码开发（可并行） |
+| verify-expert | `.codex/agents/verify-expert.toml` / 其他工具的 `agents/verify-expert.md` | 代码验证，质量检查 |
+| task-protocol | `.codex/agents/task-protocol.toml` / 其他工具的 `agents/task-protocol.md` | 任务拆分协议定义 |
+| dependency-scanner | `.codex/agents/dependency-scanner.toml` / 其他工具的 `agents/dependency-scanner.md` | 依赖项目深层扫描（Entity/DTO/Enum/Util/Feign Client） |
+| service-scanner | `.codex/agents/service-scanner.toml` / 其他工具的 `agents/service-scanner.md` | 当前服务源码扫描（Entity/Service/Controller/Mapper） |
+| structure-analyzer | `.codex/agents/structure-analyzer.toml` / 其他工具的 `agents/structure-analyzer.md` | 项目结构和依赖关系分析 |
+| config-analyzer | `.codex/agents/config-analyzer.toml` / 其他工具的 `agents/config-analyzer.md` | 配置和编码规范分析 |
 
 同时创建 `.dev-flow/memory/` 目录（12 个 Markdown 记忆模板）和 `.dev-flow/sessions/` 目录（会话记录）。
 
@@ -99,7 +99,7 @@ npx dev-flow install
 
 # 3. 或在 OpenAI Codex 中：
 codex
-> 请执行 dev-flow 全流程，实现用户登录功能，包含表单验证和记住密码
+> 请使用 $dev-flow 全流程，实现用户登录功能，包含表单验证和记住密码
 ```
 
 AI 将按阶段逐步执行，每个阶段完成后等待你确认。
@@ -142,15 +142,15 @@ AI 将按阶段逐步执行，每个阶段完成后等待你确认。
 ```
 用户 ←→ 主 Agent（协调者）
               │
-              ├── /research-expert  → 扫描项目，输出 memory/
-              │     ├── @dependency-scanner   → 深层扫描依赖项目
-              │     ├── @service-scanner      → 扫描当前服务
-              │     ├── @structure-analyzer   → 分析项目结构
-              │     └── @config-analyzer      → 分析配置规范
-              ├── /analyze-expert   → 分析需求，输出分析文档
-              ├── /design-expert    → 详细设计，输出设计文档
-              ├── /develop-expert   → 代码开发（可并行多个）
-              └── /verify-expert    → 代码验证
+              ├── research-expert  → 扫描项目，输出 memory/
+              │     ├── dependency-scanner   → 深层扫描依赖项目
+              │     ├── service-scanner      → 扫描当前服务
+              │     ├── structure-analyzer   → 分析项目结构
+              │     └── config-analyzer      → 分析配置规范
+              ├── analyze-expert   → 分析需求，输出分析文档
+              ├── design-expert    → 详细设计，输出设计文档
+              ├── develop-expert   → 代码开发（可并行多个）
+              └── verify-expert    → 代码验证
 ```
 
 ### 断点续传
@@ -191,10 +191,10 @@ Research 阶段会自动评估项目规模，选择最优执行模式：
 
 | Subagent | 职责 | 输出文件 | 上下文 |
 |----------|------|---------|--------|
-| @dependency-scanner | 深层扫描依赖项目 | common-modules.md, utils.md | ~30-50KB |
-| @service-scanner | 扫描当前服务 | models.md, apis.md | ~20-40KB |
-| @structure-analyzer | 分析项目结构 | project-overview.md, service-registry.md, dependency-graph.md | ~10-20KB |
-| @config-analyzer | 分析配置规范 | config.md, conventions.md, patterns.md, decisions.md, mistakes.md | ~10-20KB |
+| dependency-scanner | 深层扫描依赖项目 | common-modules.md, utils.md | ~30-50KB |
+| service-scanner | 扫描当前服务 | models.md, apis.md | ~20-40KB |
+| structure-analyzer | 分析项目结构 | project-overview.md, service-registry.md, dependency-graph.md | ~10-20KB |
+| config-analyzer | 分析配置规范 | config.md, conventions.md, patterns.md, decisions.md, mistakes.md | ~10-20KB |
 
 **上下文优化效果**：主 Agent 从 ~420KB 降至 ~5KB，降低 98.8%。
 
@@ -272,7 +272,7 @@ dev-flow 要求 AI 生成的代码必须：
 | Trae | 最新版 | `/dev-flow` | ✅ 原生支持 |
 | Qoder | 最新版 | `/dev-flow` | ✅ 原生支持 |
 | Claude Code | 最新版 | `/dev-flow` | ✅ 原生支持 |
-| OpenAI Codex | >= 0.133.0 | 自然语言 | ✅ 原生支持 |
+| OpenAI Codex | 当前版本 | 自然语言 / `$dev-flow` | ✅ 原生支持（AGENTS.md + Skill + custom agents） |
 
 ## 项目结构
 
@@ -293,8 +293,9 @@ dev-flow/
 │   │   └── agents/
 │   └── codex/             # OpenAI Codex 模板
 │       ├── AGENTS.md      # Codex 项目指令文件
-│       ├── config.toml    # Codex CLI 配置
-│       └── agents/        # 11 个 subagent 定义
+│       ├── config.toml    # Codex 项目配置（安装到 .codex/config.toml）
+│       ├── skills/        # Codex repo skill（安装到 .agents/skills/）
+│       └── agents/        # 11 个 Codex custom agent TOML 定义
 ├── scripts/
 │   └── install.js         # 安装脚本（零依赖）
 ├── USER_GUIDE.md          # 用户操作手册
