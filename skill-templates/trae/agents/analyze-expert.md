@@ -82,6 +82,135 @@ is_background: false
 - 依赖哪些常量定义
 - 依赖哪些配置项
 
+### Step 3.5: 多层依赖链追踪（🔴 复杂项目必须执行）
+
+> **触发条件**：
+> - 项目为微服务架构
+> - 涉及跨服务调用
+> - 依赖链深度 > 2
+
+#### 3.5.1 依赖链追踪算法
+
+**追踪流程**：
+
+```
+1. 从需求涉及的服务出发（S0）
+2. 识别 S0 的直接依赖（D1）
+3. 对每个 D1，识别其依赖（D2）
+4. 递归执行，直到：
+   - 达到最大深度（默认5层）
+   - 遇到公共模块（无进一步依赖）
+   - 遇到第三方库
+5. 构建依赖树，标记影响范围
+```
+
+#### 3.5.2 依赖链输出格式
+
+```yaml
+# dependency-chain.yaml
+dependency_chain:
+  max_depth: 5
+  analyzed_at: "2026-05-29 14:00:00"
+  
+  chains:
+    - id: "chain-001"
+      description: "订单创建依赖链"
+      nodes:
+        - level: 0
+          service: "order-service"
+          type: "source"
+          impact: "direct"
+          
+        - level: 1
+          service: "inventory-service"
+          type: "feign-call"
+          interface: "InventoryApi.deduct"
+          impact: "direct"
+          
+        - level: 2
+          service: "product-service"
+          type: "feign-call"
+          interface: "ProductApi.getById"
+          impact: "indirect"
+          note: "inventory-service 内部调用"
+          
+        - level: 3
+          service: "common-bean"
+          type: "shared-entity"
+          entity: "Product"
+          impact: "indirect"
+          note: "product-service 返回的 DTO 依赖此 Entity"
+          
+    - id: "chain-002"
+      description: "用户信息依赖链"
+      nodes:
+        - level: 0
+          service: "order-service"
+          type: "source"
+          
+        - level: 1
+          service: "user-service"
+          type: "feign-call"
+          interface: "UserApi.getById"
+          
+        - level: 2
+          service: "common-bean"
+          type: "shared-entity"
+          entity: "User"
+          
+  impact_summary:
+    direct_services: ["inventory-service", "user-service"]
+    indirect_services: ["product-service"]
+    shared_modules: ["common-bean"]
+    affected_entities: ["Product", "User", "Inventory"]
+```
+
+#### 3.5.3 依赖变更影响矩阵
+
+```yaml
+# dependency-impact-matrix.yaml
+impact_matrix:
+  - change_type: "Entity字段新增"
+    change_location: "common-bean:User"
+    affected_services:
+      - service: "user-service"
+        impact: "direct"
+        action: "需要更新 DTO 转换逻辑"
+      - service: "order-service"
+        impact: "indirect"
+        action: "如果使用该字段，需要更新 Feign Client 返回类型"
+      - service: "auth-service"
+        impact: "indirect"
+        action: "检查登录逻辑是否受影响"
+        
+  - change_type: "接口签名变更"
+    change_location: "inventory-service:InventoryApi.deduct"
+    affected_services:
+      - service: "order-service"
+        impact: "direct"
+        action: "必须更新 Feign Client 接口定义"
+      - service: "payment-service"
+        impact: "indirect"
+        action: "检查支付回调是否调用该接口"
+```
+
+#### 3.5.4 依赖链可视化
+
+**依赖图示例**：
+```
+order-service (Level 0)
+├── inventory-service (Level 1, direct)
+│   └── product-service (Level 2, indirect)
+│       └── common-bean:Product (Level 3, indirect)
+└── user-service (Level 1, direct)
+    └── common-bean:User (Level 2, indirect)
+```
+
+**影响范围标记**：
+- 🔴 直接影响：需要修改代码
+- 🟡 间接影响：可能需要调整
+- ⚪ 无影响：仅作为参考
+
 ### Step 4: 风险识别
 
 | 风险类型 | 检查项 |

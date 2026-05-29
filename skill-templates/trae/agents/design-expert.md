@@ -97,6 +97,363 @@ ReturnType methodName(ParamType param);
 - 核心步骤
 - 复杂度分析
 
+### Step 3.4: 结构化业务逻辑设计（🔴 必须执行 - 方案1优化）
+
+> **目的**：将自然语言业务逻辑转换为结构化决策表，消除AI理解偏差
+
+#### 3.4.1 结构化业务逻辑格式
+
+**传统自然语言描述（不推荐）**：
+```yaml
+# 不推荐：自然语言描述，AI理解可能偏差
+logic:
+  - step: 1
+    action: "validate"
+    detail: "检查 userId 不为 null，否则抛 BusinessException"
+```
+
+**结构化决策表（推荐）**：
+```yaml
+# 推荐：结构化决策表，AI只需按规则翻译
+logic:
+  - step: 1
+    action: "validate"
+    condition: "userId != null"
+    onFail:
+      action: "throw"
+      exception: "BusinessException"
+      errorCode: "USER_ID_NULL"
+      message: "用户ID不能为空"
+    onSuccess: "goto_step_2"
+    
+  - step: 2
+    action: "query"
+    method: "userMapper.selectById"
+    params:
+      - name: "userId"
+        value: "userId"
+        type: "Long"
+    condition: "result != null"
+    onFail:
+      action: "throw"
+      exception: "BusinessException"
+      errorCode: "USER_NOT_FOUND"
+      message: "用户不存在"
+    onSuccess: 
+      action: "assign"
+      variable: "user"
+      value: "result"
+      next: "goto_step_3"
+    
+  - step: 3
+    action: "convert"
+    method: "UserConvertor.toDTO"
+    params:
+      - name: "user"
+        value: "user"
+        type: "User"
+    onSuccess:
+      action: "assign"
+      variable: "userDTO"
+      value: "result"
+      next: "goto_step_4"
+    
+  - step: 4
+    action: "return"
+    value: "userDTO"
+    type: "UserDTO"
+```
+
+#### 3.4.2 结构化业务逻辑元素
+
+| 元素 | 说明 | 必填 |
+|------|------|------|
+| `step` | 步骤编号 | ✅ |
+| `action` | 动作类型 | ✅ |
+| `condition` | 执行条件 | 条件动作必填 |
+| `onFail` | 失败处理 | 条件动作必填 |
+| `onSuccess` | 成功处理 | 可选 |
+| `method` | 调用方法 | 调用动作必填 |
+| `params` | 方法参数 | 调用动作必填 |
+
+**Action类型**：
+| 类型 | 说明 | 示例 |
+|------|------|------|
+| `validate` | 参数校验 | 检查userId不为null |
+| `query` | 数据查询 | 调用Mapper查询 |
+| `convert` | 数据转换 | DTO转换 |
+| `assign` | 变量赋值 | 给变量赋值 |
+| `throw` | 抛出异常 | 抛出BusinessException |
+| `return` | 返回结果 | 返回DTO |
+| `call` | 调用方法 | 调用其他Service |
+| `branch` | 条件分支 | if-else分支 |
+
+#### 3.4.3 复杂条件处理
+
+**多条件组合**：
+```yaml
+logic:
+  - step: 1
+    action: "validate"
+    condition:
+      operator: "AND"
+      conditions:
+        - "userId != null"
+        - "userId > 0"
+        - "StringUtils.isNotBlank(username)"
+    onFail:
+      action: "throw"
+      exception: "BusinessException"
+      errorCode: "INVALID_PARAMS"
+```
+
+**条件分支**：
+```yaml
+logic:
+  - step: 2
+    action: "branch"
+    condition: "user.getStatus() == UserStatus.NORMAL"
+    branches:
+      - condition: "true"
+        action: "call"
+        method: "processNormalUser"
+        next: "goto_step_3"
+      - condition: "false"
+        action: "throw"
+        exception: "BusinessException"
+        errorCode: "USER_STATUS_ABNORMAL"
+```
+
+### Step 3.5: 复杂业务逻辑设计（🔴 复杂场景必须执行）
+
+> **触发条件**：业务逻辑涉及以下任一场景时必须执行
+> - 状态转换（状态机）
+> - 多步骤流程（工作流）
+> - 复杂计算/算法
+> - 并发控制
+> - 分布式事务
+
+#### 3.5.1 状态机设计模板
+
+**状态机定义**：
+
+```yaml
+stateMachine:
+  name: "OrderStateMachine"
+  entity: "Order"
+  stateField: "status"
+  
+  states:
+    - name: "CREATED"
+      description: "已创建"
+      initial: true
+    - name: "PAID"
+      description: "已支付"
+    - name: "SHIPPED"
+      description: "已发货"
+    - name: "COMPLETED"
+      description: "已完成"
+      final: true
+    - name: "CANCELLED"
+      description: "已取消"
+      final: true
+      
+  transitions:
+    - from: "CREATED"
+      to: "PAID"
+      event: "pay"
+      guard: "paymentAmount >= orderTotal"
+      action: "updatePaymentInfo"
+      
+    - from: "CREATED"
+      to: "CANCELLED"
+      event: "cancel"
+      guard: "true"
+      action: "releaseInventory"
+      
+    - from: "PAID"
+      to: "SHIPPED"
+      event: "ship"
+      guard: "inventoryAvailable"
+      action: "createShipment"
+      
+    - from: "SHIPPED"
+      to: "COMPLETED"
+      event: "confirm"
+      guard: "true"
+      action: "updateCompletionTime"
+```
+
+**状态机实现要点**：
+1. 使用状态模式或状态机框架（如 Spring StateMachine）
+2. 每个状态转换必须有明确的触发事件
+3. 每个转换可以有前置条件（guard）和后置动作（action）
+4. 记录状态转换历史，支持审计
+
+#### 3.5.2 工作流设计模板
+
+**工作流定义**：
+
+```yaml
+workflow:
+  name: "ApprovalWorkflow"
+  trigger: "submitForApproval"
+  
+  steps:
+    - id: "submit"
+      name: "提交审批"
+      type: "start"
+      assignee: "currentUser"
+      next: "manager_approve"
+      
+    - id: "manager_approve"
+      name: "经理审批"
+      type: "approval"
+      assignee: "manager"
+      timeout: "3d"
+      actions:
+        - name: "approve"
+          next: "director_approve"
+        - name: "reject"
+          next: "end_rejected"
+          
+    - id: "director_approve"
+      name: "总监审批"
+      type: "approval"
+      assignee: "director"
+      condition: "amount > 10000"
+      timeout: "5d"
+      actions:
+        - name: "approve"
+          next: "end_approved"
+        - name: "reject"
+          next: "end_rejected"
+          
+    - id: "end_approved"
+      name: "审批通过"
+      type: "end"
+      status: "APPROVED"
+      
+    - id: "end_rejected"
+      name: "审批拒绝"
+      type: "end"
+      status: "REJECTED"
+```
+
+**工作流实现要点**：
+1. 每个步骤有明确的执行人和超时设置
+2. 支持条件分支（condition）
+3. 支持并行步骤（parallel）
+4. 记录审批历史和意见
+
+#### 3.5.3 复杂算法设计模板
+
+**算法定义**：
+
+```yaml
+algorithm:
+  name: "PricingCalculator"
+  description: "价格计算算法"
+  
+  inputs:
+    - name: "basePrice"
+      type: "BigDecimal"
+      description: "基础价格"
+    - name: "userLevel"
+      type: "UserLevel"
+      description: "用户等级"
+    - name: "promotionCode"
+      type: "String"
+      description: "促销代码"
+      required: false
+      
+  outputs:
+    - name: "finalPrice"
+      type: "BigDecimal"
+      description: "最终价格"
+    - name: "discountDetails"
+      type: "List<DiscountDetail>"
+      description: "折扣明细"
+      
+  steps:
+    - id: "validate"
+      description: "参数校验"
+      logic: |
+        1. basePrice > 0
+        2. userLevel 不为 null
+        3. 如果 promotionCode 不为空，验证有效性
+        
+    - id: "calc_level_discount"
+      description: "计算等级折扣"
+      logic: |
+        根据 userLevel 确定折扣率：
+        - VIP: 10%
+        - GOLD: 8%
+        - SILVER: 5%
+        - NORMAL: 0%
+        
+    - id: "calc_promotion_discount"
+      description: "计算促销折扣"
+      condition: "promotionCode 不为空"
+      logic: |
+        1. 查询促销规则
+        2. 验证促销条件（如满减门槛）
+        3. 计算促销折扣
+        
+    - id: "combine_discounts"
+      description: "组合折扣"
+      logic: |
+        折扣叠加规则：
+        1. 等级折扣和促销折扣取最大值（不叠加）
+        2. 计算最终价格
+        3. 记录折扣明细
+        
+  edgeCases:
+    - condition: "促销代码过期"
+      handling: "忽略促销折扣，仅应用等级折扣"
+    - condition: "折扣后价格为负"
+      handling: "返回错误，不允许负价格"
+    - condition: "并发计算"
+      handling: "使用乐观锁，版本号校验"
+```
+
+#### 3.5.4 并发控制设计
+
+**并发场景识别**：
+
+| 场景 | 风险 | 解决方案 |
+|------|------|----------|
+| 库存扣减 | 超卖 | 乐观锁 + 版本号 / 分布式锁 |
+| 余额操作 | 余额不一致 | 数据库行锁 / 事务隔离 |
+| 订单状态变更 | 状态不一致 | 状态机 + CAS |
+| 计数器更新 | 计数不准 | Redis 原子操作 |
+
+**并发控制设计模板**：
+
+```yaml
+concurrencyControl:
+  scenario: "库存扣减"
+  risk: "超卖"
+  
+  strategy:
+    type: "optimistic_lock"  # 或 pessimistic_lock, distributed_lock
+    implementation:
+      - step: "读取库存"
+        action: "SELECT quantity, version FROM inventory WHERE id = ?"
+      - step: "检查库存"
+        condition: "quantity >= requestQuantity"
+      - step: "扣减库存"
+        action: "UPDATE inventory SET quantity = quantity - ?, version = version + 1 WHERE id = ? AND version = ?"
+      - step: "检查更新结果"
+        condition: "affectedRows > 0"
+        onFailure: "重试或返回库存不足"
+        
+  retry:
+    maxAttempts: 3
+    backoff: "exponential"
+    initialDelay: "100ms"
+```
+
 ### Step 4: 数据库设计
 
 **表结构变更**：

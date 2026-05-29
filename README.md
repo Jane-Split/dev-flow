@@ -21,12 +21,19 @@ dev-flow 通过**结构化的流程编排 + 项目记忆 + 长期记忆 + 学习
 
 ## 特性
 
-- **结构化流程** - 6 个阶段 + Hotfix 模式，每个阶段有明确的输入/输出和自检步骤
+- **结构化流程** - 7 个阶段 + Hotfix 模式，每个阶段有明确的输入/输出和自检步骤
+- **智能任务拆分** - 方案C：Design 输出全局契约，Task Split 生成子任务级设计 + DAG 依赖图，每个 subagent 只接收必要信息
+- **接口契约机制** - 跨子任务接口定义（serviceContracts/eventContracts/dataContracts），契约冻结（stability: frozen）防止随意修改
 - **多 Subagent 并行** - 复杂任务拆分为独立 subagent 并行执行，上下文隔离，效率翻倍
 - **智能 Research** - 自动评估项目规模，选择标准模式或 4 subagent 并行扫描
 - **深层依赖扫描** - 自动扫描微服务项目的依赖项目（common-bean、basedata-api 等）
 - **项目记忆** - Research 阶段自动扫描并记录项目结构、组件、API、编码规范（12 个文件）
 - **长期记忆** - 记录常见代码模式、错误修复方案、用户偏好、架构决策（4 个文件），跨会话持久化
+- **结构化业务逻辑** - 设计阶段输出结构化决策表（8 种 Action 类型），开发阶段精确翻译为代码，消除自然语言歧义
+- **编译验证闭环** - 开发完成后自动编译验证（Java/前端），解析错误并自动修复（最多 3 轮）
+- **契约一致性校验** - contract-validator 自动验证方法签名、Entity 字段、实现完整性、依赖调用一致性
+- **全局集成编译** - 所有子任务完成后全局编译 + 契约验证 + 错误分类 + 循环修复
+- **错误经验学习** - 从编译错误、契约违反、测试失败中提取模式，生成预防策略，持续改进
 - **学习能力** - 从用户反馈、代码修改、测试 Bug 中自动学习，持续优化代码生成策略
 - **记忆强化** - 模式使用 >3 次标记"高频"优先推荐，>5 次标记"标准"必须遵守
 - **阶段确认** - 每个阶段完成后暂停，展示成果并等待用户确认
@@ -60,17 +67,20 @@ npx dev-flow install
 
 | Agent | 文件路径 | 职责 |
 |-------|----------|------|
-| orchestrator | `.codex/agents/orchestrator.toml` / 其他工具的 `agents/orchestrator.md` | 主协调者，任务拆分和调度 |
+| orchestrator | `.codex/agents/orchestrator.toml` / 其他工具的 `agents/orchestrator.md` | 主协调者，DAG 调度和依赖检查 |
 | research-expert | `.codex/agents/research-expert.toml` / 其他工具的 `agents/research-expert.md` | 项目研究，调度子 subagent 扫描 |
 | analyze-expert | `.codex/agents/analyze-expert.toml` / 其他工具的 `agents/analyze-expert.md` | 需求分析，影响评估 |
 | design-expert | `.codex/agents/design-expert.toml` / 其他工具的 `agents/design-expert.md` | 详细设计，接口定义 |
-| develop-expert | `.codex/agents/develop-expert.toml` / 其他工具的 `agents/develop-expert.md` | 代码开发（可并行） |
+| **task-split-expert** | `.codex/agents/task-split-expert.toml` / 其他工具的 `agents/task-split-expert.md` | **智能任务拆分，生成子任务级设计 + DAG** |
+| develop-expert | `.codex/agents/develop-expert.toml` / 其他工具的 `agents/develop-expert.md` | 代码开发（可并行，支持子任务级输入） |
 | verify-expert | `.codex/agents/verify-expert.toml` / 其他工具的 `agents/verify-expert.md` | 代码验证，质量检查 |
 | task-protocol | `.codex/agents/task-protocol.toml` / 其他工具的 `agents/task-protocol.md` | 任务拆分协议定义 |
 | dependency-scanner | `.codex/agents/dependency-scanner.toml` / 其他工具的 `agents/dependency-scanner.md` | 依赖项目深层扫描（Entity/DTO/Enum/Util/Feign Client） |
 | service-scanner | `.codex/agents/service-scanner.toml` / 其他工具的 `agents/service-scanner.md` | 当前服务源码扫描（Entity/Service/Controller/Mapper） |
 | structure-analyzer | `.codex/agents/structure-analyzer.toml` / 其他工具的 `agents/structure-analyzer.md` | 项目结构和依赖关系分析 |
 | config-analyzer | `.codex/agents/config-analyzer.toml` / 其他工具的 `agents/config-analyzer.md` | 配置和编码规范分析 |
+| **contract-validator** | `.codex/agents/contract-validator.toml` / 其他工具的 `agents/contract-validator.md` | **契约一致性校验（方法签名/字段/实现/依赖）** |
+| **error-pattern-learner** | `.codex/agents/error-pattern-learner.toml` / 其他工具的 `agents/error-pattern-learner.md` | **错误模式学习与预防策略生成** |
 
 同时创建 `.dev-flow/memory/` 目录（12 个 Markdown 记忆模板）和 `.dev-flow/sessions/` 目录（会话记录）。
 
@@ -112,7 +122,7 @@ AI 将按阶段逐步执行，每个阶段完成后等待你确认。
 /dev-flow <需求描述>
 ```
 
-执行：Research → Analyze → Design → Develop → Test → Fix
+执行：Research → Analyze → Design → **Task Split** → Develop → Test → Fix
 
 ### 单阶段模式
 
@@ -120,7 +130,8 @@ AI 将按阶段逐步执行，每个阶段完成后等待你确认。
 /dev-flow -research          # 项目调研
 /dev-flow -analyze <需求>    # 需求分析
 /dev-flow -design <需求>     # 详细设计
-/dev-flow -develop <需求>    # 直接开发（跳过设计，适合小需求）
+/dev-flow -split <需求>     # 任务拆分（方案C：生成子任务级设计 + DAG）
+/dev-flow -develop <需求>    # 直接开发（跳过设计和拆分，适合小需求）
 /dev-flow -test              # 生成测试并执行
 /dev-flow -fix               # 分析并修复 Bug
 /dev-flow -hotfix <错误信息> # 紧急修复线上错误
@@ -148,8 +159,9 @@ AI 将按阶段逐步执行，每个阶段完成后等待你确认。
               │     ├── structure-analyzer   → 分析项目结构
               │     └── config-analyzer      → 分析配置规范
               ├── analyze-expert   → 分析需求，输出分析文档
-              ├── design-expert    → 详细设计，输出设计文档
-              ├── develop-expert   → 代码开发（可并行多个）
+              ├── design-expert    → 详细设计，输出 design-contract.yaml
+              ├── task-split-expert → 智能拆分，输出 DAG + 子任务设计（方案C）
+              ├── develop-expert   → 子任务级代码开发（可并行多个）
               └── verify-expert    → 代码验证
 ```
 
@@ -162,8 +174,8 @@ AI 将按阶段逐步执行，每个阶段完成后等待你确认。
 ## 工作流程
 
 ```
-Research → Analyze → Design → Develop → Test → Fix
-  调研   →  分析  →  设计  →  开发  → 测试 → 修复
+Research → Analyze → Design → Task Split → Develop → Test → Fix
+  调研   →  分析  →  设计  →  任务拆分  →  开发  → 测试 → 修复
 
 Hotfix（独立模式，随时可用，直接输出无需等待确认）
 ```
@@ -172,8 +184,9 @@ Hotfix（独立模式，随时可用，直接输出无需等待确认）
 |------|----------|------|
 | **Research** | 扫描项目文件、识别技术栈、深层扫描依赖项目、提取编码规范 | `.dev-flow/memory/` 12 个记忆文件 |
 | **Analyze** | 解析需求、关联已有代码、识别歧义、评估影响范围 | 需求分析文档 |
-| **Design** | 读取项目记忆、设计数据模型、API 接口、组件树、业务流程 | 设计文档 |
-| **Develop** | 读取项目记忆、按依赖顺序生成完整可运行的代码 | 代码文件 |
+| **Design** | 读取项目记忆、设计数据模型、API 接口、组件树、业务流程 | `design-contract.yaml`（含接口契约） |
+| **Task Split** | 拆分为子任务、构建 DAG 依赖图、生成子任务级设计 | `task-dag.yaml` + `subtask-{id}-design.yaml` + `interface-registry.yaml` |
+| **Develop** | 读取子任务设计、按 DAG 批次并行生成完整可运行的代码 | 代码文件 |
 | **Test** | 生成测试用例（覆盖正常/异常/边界）、执行测试、生成报告 | 测试报告 |
 | **Fix** | 分析失败原因、修复代码、回归测试（最多循环 3 次） | 修复后的代码 |
 
@@ -281,7 +294,7 @@ dev-flow/
 ├── skill-templates/       # Skill 文件模板
 │   ├── trae/              # Trae 模板
 │   │   ├── SKILL.md       # 主指令文件
-│   │   └── agents/        # 11 个 subagent 定义
+│   │   └── agents/        # 12 个 subagent 定义（含 task-split-expert）
 │   ├── cursor/            # Cursor 模板
 │   │   ├── dev-flow.md
 │   │   └── agents/
