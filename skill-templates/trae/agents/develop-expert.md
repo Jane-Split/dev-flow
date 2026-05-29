@@ -225,6 +225,60 @@ provides:
 
 ---
 
+### Step 2.6: 读取结构化业务逻辑（🔴 方案1优化 - 必须执行）
+
+> **触发条件**：当 `subtask-{id}-design.yaml` 或 `design-contract.yaml` 中包含 `logic` 字段时必须执行
+
+#### 2.6.1 识别结构化逻辑
+
+**检查设计文档中是否包含结构化逻辑**：
+
+```yaml
+# 示例：结构化业务逻辑
+logic:
+  - step: 1
+    action: "validate"
+    condition: "userId != null"
+    onFail:
+      action: "throw"
+      exception: "BusinessException"
+      errorCode: "USER_ID_NULL"
+    onSuccess: "goto_step_2"
+  - step: 2
+    action: "query"
+    target: "userMapper.selectById"
+    params: ["userId"]
+    result: "user"
+```
+
+#### 2.6.2 结构化逻辑解析表
+
+**为每个步骤创建解析记录**：
+
+```markdown
+| 步骤 | Action | 条件 | onFail | onSuccess | 代码生成策略 |
+|------|--------|------|--------|-----------|-------------|
+| 1 | validate | userId != null | throw BusinessException | goto_step_2 | if 条件不满足则抛异常 |
+| 2 | query | - | - | - | 调用 mapper 方法 |
+| 3 | convert | - | - | - | 使用 convertor 转换 |
+| 4 | return | - | - | - | return 结果 |
+```
+
+#### 2.6.3 Action 类型映射表
+
+| Action | Java 代码模板 | 说明 |
+|--------|--------------|------|
+| `validate` | `if (!({condition})) { {onFail} }` | 条件验证 |
+| `query` | `{result} = {target}({params});` | 数据查询 |
+| `convert` | `{result} = {converter}.convert({source});` | 对象转换 |
+| `assign` | `{target} = {value};` | 赋值操作 |
+| `throw` | `throw new {exception}({errorCode}, {message});` | 抛出异常 |
+| `return` | `return {value};` | 返回结果 |
+| `call` | `{result} = {service}.{method}({params});` | 调用服务 |
+| `branch` | `if ({condition}) { {trueBranch} } else { {falseBranch} }` | 条件分支 |
+
+---
+
 ### Step 3: 代码实现
 
 **实现顺序**（单服务内）：
@@ -241,6 +295,212 @@ provides:
 - 添加必要的注释（类注释、方法注释、复杂逻辑注释）
 - 正确处理异常
 - 添加日志记录
+
+### Step 3.1: 结构化业务逻辑实现（🔴 方案1优化 - 必须执行）
+
+> **触发条件**：当设计文档中包含 `logic` 结构化逻辑定义时必须执行
+> **目的**：将结构化决策表转换为精确代码，消除自然语言歧义
+
+#### 3.1.1 实现流程
+
+```
+1. 读取 logic 定义
+2. 按 step 顺序生成代码
+3. 处理条件分支 (onFail/onSuccess)
+4. 验证代码完整性
+```
+
+#### 3.1.2 代码生成模板
+
+**完整方法实现模板**：
+
+```java
+@Override
+public {ReturnType} {methodName}({Params}) {
+    // ========== Step 1: 参数验证 ==========
+    if (!({condition})) {
+        throw new {exception}({errorCode}, "{message}");
+    }
+    
+    // ========== Step 2: 数据查询 ==========
+    {EntityType} {resultVar} = {mapper}.{method}({params});
+    
+    // ========== Step 3: 业务校验 ==========
+    if ({resultVar} == null) {
+        throw new {exception}({errorCode}, "{message}");
+    }
+    
+    // ========== Step 4: 对象转换 ==========
+    {ReturnType} {dtoVar} = {converter}.convert({resultVar});
+    
+    // ========== Step 5: 返回结果 ==========
+    return {dtoVar};
+}
+```
+
+#### 3.1.3 Action 详细实现规范
+
+**1. validate - 条件验证**
+
+```java
+// 结构化定义：
+// action: validate
+// condition: "userId != null && userId > 0"
+// onFail:
+//   action: throw
+//   exception: BusinessException
+//   errorCode: INVALID_USER_ID
+
+// 生成代码：
+if (!(userId != null && userId > 0)) {
+    throw new BusinessException("INVALID_USER_ID", "用户ID无效");
+}
+```
+
+**2. query - 数据查询**
+
+```java
+// 结构化定义：
+// action: query
+// target: userMapper.selectById
+// params: ["userId"]
+// result: "user"
+
+// 生成代码：
+User user = userMapper.selectById(userId);
+```
+
+**3. convert - 对象转换**
+
+```java
+// 结构化定义：
+// action: convert
+// source: "user"
+// converter: "UserConvertor"
+// result: "userDTO"
+
+// 生成代码：
+UserDTO userDTO = UserConvertor.convert(user);
+```
+
+**4. assign - 赋值操作**
+
+```java
+// 结构化定义：
+// action: assign
+// target: "order.status"
+// value: "OrderStatus.PAID"
+
+// 生成代码：
+order.setStatus(OrderStatus.PAID);
+```
+
+**5. throw - 抛出异常**
+
+```java
+// 结构化定义：
+// action: throw
+// exception: BusinessException
+// errorCode: USER_NOT_FOUND
+// message: "用户不存在"
+
+// 生成代码：
+throw new BusinessException("USER_NOT_FOUND", "用户不存在");
+```
+
+**6. return - 返回结果**
+
+```java
+// 结构化定义：
+// action: return
+// value: "userDTO"
+
+// 生成代码：
+return userDTO;
+```
+
+**7. call - 调用服务**
+
+```java
+// 结构化定义：
+// action: call
+// target: inventoryService.deductStock
+// params: ["productId", "quantity"]
+// result: "deductResult"
+
+// 生成代码：
+boolean deductResult = inventoryService.deductStock(productId, quantity);
+```
+
+**8. branch - 条件分支**
+
+```java
+// 结构化定义：
+// action: branch
+// condition: "user.getStatus() == UserStatus.ACTIVE"
+// trueBranch:
+//   - action: call
+//     target: sendWelcomeEmail
+// falseBranch:
+//   - action: throw
+//     exception: BusinessException
+
+// 生成代码：
+if (user.getStatus() == UserStatus.ACTIVE) {
+    sendWelcomeEmail(user);
+} else {
+    throw new BusinessException("USER_INACTIVE", "用户未激活");
+}
+```
+
+#### 3.1.4 复杂条件处理
+
+**多条件组合**：
+
+```java
+// 结构化定义：
+// condition:
+//   operator: AND
+//   conditions:
+//     - "amount > 0"
+//     - "amount <= maxLimit"
+//     - "accountStatus == ACTIVE"
+
+// 生成代码：
+if (!(amount > 0 && amount <= maxLimit && accountStatus == AccountStatus.ACTIVE)) {
+    throw new BusinessException("INVALID_AMOUNT", "金额无效");
+}
+```
+
+**范围条件**：
+
+```java
+// 结构化定义：
+// condition:
+//   type: range
+//   field: "age"
+//   min: 18
+//   max: 65
+
+// 生成代码：
+if (age < 18 || age > 65) {
+    throw new BusinessException("AGE_OUT_OF_RANGE", "年龄必须在18-65岁之间");
+}
+```
+
+#### 3.1.5 实现验证清单
+
+```markdown
+| 检查项 | 验证内容 | 状态 |
+|--------|---------|------|
+| 步骤完整性 | 所有 logic.steps 都已实现 | ⬜ |
+| 顺序正确性 | 代码顺序与 step 顺序一致 | ⬜ |
+| 条件覆盖 | 所有 condition 都已实现 | ⬜ |
+| onFail 处理 | 所有 onFail 分支都已实现 | ⬜ |
+| onSuccess 处理 | 所有 onSuccess 跳转正确 | ⬜ |
+| 变量一致性 | 变量名与设计文档一致 | ⬜ |
+| 类型匹配 | 参数类型与实际类型匹配 | ⬜ |
+```
 
 ### Step 3.5: 复杂业务逻辑实现（🔴 复杂场景必须执行）
 
@@ -698,6 +958,99 @@ private UserRequest createBoundaryUserRequest() {
 | 行覆盖率 | ≥ 90% | JaCoCo / Istanbul |
 | 分支覆盖率 | ≥ 85% | JaCoCo / Istanbul |
 | 方法覆盖率 | ≥ 95% | 检查公开方法都有测试 |
+
+### Step 5.7: 编译验证闭环（🔴 必须执行 - 方案2优化）
+
+> **目的**：确保生成的代码可以实际编译通过，消除编译级错误
+
+#### 5.7.1 Java 项目编译验证
+
+```bash
+# 编译当前模块及其依赖
+mvn clean compile -DskipTests -pl {当前模块} -am
+
+# 或编译整个项目
+mvn clean compile -DskipTests
+```
+
+#### 5.7.2 前端项目编译验证
+
+```bash
+# TypeScript 类型检查
+npx tsc --noEmit
+
+# 或构建项目
+npm run build --if-present
+```
+
+#### 5.7.3 编译结果解析
+
+**成功标准**：
+- 零编译错误
+- 警告数量在可接受范围内（或已记录可忽略警告）
+
+**失败处理流程**：
+
+```
+1. 解析编译错误信息
+   - 提取错误文件路径
+   - 提取错误行号
+   - 提取错误描述
+
+2. 分类错误类型
+   | 错误类型 | 常见原因 | 修复策略 |
+   |----------|----------|----------|
+   | 找不到符号 | import路径错误、类名拼写错误 | 修正import或类名 |
+   | 类型不匹配 | 赋值类型不兼容 | 添加类型转换或修正类型 |
+   | 方法未找到 | 方法名错误、参数类型不匹配 | 修正方法调用 |
+   | 缺少依赖 | Maven/Gradle依赖缺失 | 添加依赖声明 |
+
+3. 自动修复尝试
+   - 根据错误类型应用对应修复策略
+   - 最多自动修复3轮
+
+4. 修复后重新编译
+   - 编译成功 → 继续下一步
+   - 编译失败 → 记录错误，标记为需人工处理
+```
+
+#### 5.7.4 编译验证报告
+
+```yaml
+# compile-validation-report.yaml
+validation:
+  timestamp: "2026-05-29 14:30:00"
+  status: "success"  # success / partial / failed
+  
+  compile_info:
+    command: "mvn clean compile -DskipTests"
+    duration: "45s"
+    
+  results:
+    errors: 0
+    warnings: 3
+    
+  warnings:
+    - file: "UserServiceImpl.java"
+      line: 45
+      message: "Unchecked cast"
+      severity: "low"
+      ignored: true
+      reason: "已知问题，不影响功能"
+      
+  fixes_applied:
+    - error: "找不到符号 QmsBusinessException"
+      fix: "修正import路径为 com.xxx.common.exception.QmsBusinessException"
+      status: "fixed"
+      
+    - error: "类型不匹配: int 赋值给 byte"
+      fix: "添加显式转换: status = (byte) 1"
+      status: "fixed"
+      
+  unfixable_errors: []
+  
+  next_action: "proceed_to_verify"  # proceed_to_verify / manual_fix_required
+```
 
 ### Step 6: 生成结果报告
 

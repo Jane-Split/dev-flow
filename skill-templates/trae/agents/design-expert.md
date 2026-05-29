@@ -97,6 +97,133 @@ ReturnType methodName(ParamType param);
 - 核心步骤
 - 复杂度分析
 
+### Step 3.4: 结构化业务逻辑设计（🔴 必须执行 - 方案1优化）
+
+> **目的**：将自然语言业务逻辑转换为结构化决策表，消除AI理解偏差
+
+#### 3.4.1 结构化业务逻辑格式
+
+**传统自然语言描述（不推荐）**：
+```yaml
+# 不推荐：自然语言描述，AI理解可能偏差
+logic:
+  - step: 1
+    action: "validate"
+    detail: "检查 userId 不为 null，否则抛 BusinessException"
+```
+
+**结构化决策表（推荐）**：
+```yaml
+# 推荐：结构化决策表，AI只需按规则翻译
+logic:
+  - step: 1
+    action: "validate"
+    condition: "userId != null"
+    onFail:
+      action: "throw"
+      exception: "BusinessException"
+      errorCode: "USER_ID_NULL"
+      message: "用户ID不能为空"
+    onSuccess: "goto_step_2"
+    
+  - step: 2
+    action: "query"
+    method: "userMapper.selectById"
+    params:
+      - name: "userId"
+        value: "userId"
+        type: "Long"
+    condition: "result != null"
+    onFail:
+      action: "throw"
+      exception: "BusinessException"
+      errorCode: "USER_NOT_FOUND"
+      message: "用户不存在"
+    onSuccess: 
+      action: "assign"
+      variable: "user"
+      value: "result"
+      next: "goto_step_3"
+    
+  - step: 3
+    action: "convert"
+    method: "UserConvertor.toDTO"
+    params:
+      - name: "user"
+        value: "user"
+        type: "User"
+    onSuccess:
+      action: "assign"
+      variable: "userDTO"
+      value: "result"
+      next: "goto_step_4"
+    
+  - step: 4
+    action: "return"
+    value: "userDTO"
+    type: "UserDTO"
+```
+
+#### 3.4.2 结构化业务逻辑元素
+
+| 元素 | 说明 | 必填 |
+|------|------|------|
+| `step` | 步骤编号 | ✅ |
+| `action` | 动作类型 | ✅ |
+| `condition` | 执行条件 | 条件动作必填 |
+| `onFail` | 失败处理 | 条件动作必填 |
+| `onSuccess` | 成功处理 | 可选 |
+| `method` | 调用方法 | 调用动作必填 |
+| `params` | 方法参数 | 调用动作必填 |
+
+**Action类型**：
+| 类型 | 说明 | 示例 |
+|------|------|------|
+| `validate` | 参数校验 | 检查userId不为null |
+| `query` | 数据查询 | 调用Mapper查询 |
+| `convert` | 数据转换 | DTO转换 |
+| `assign` | 变量赋值 | 给变量赋值 |
+| `throw` | 抛出异常 | 抛出BusinessException |
+| `return` | 返回结果 | 返回DTO |
+| `call` | 调用方法 | 调用其他Service |
+| `branch` | 条件分支 | if-else分支 |
+
+#### 3.4.3 复杂条件处理
+
+**多条件组合**：
+```yaml
+logic:
+  - step: 1
+    action: "validate"
+    condition:
+      operator: "AND"
+      conditions:
+        - "userId != null"
+        - "userId > 0"
+        - "StringUtils.isNotBlank(username)"
+    onFail:
+      action: "throw"
+      exception: "BusinessException"
+      errorCode: "INVALID_PARAMS"
+```
+
+**条件分支**：
+```yaml
+logic:
+  - step: 2
+    action: "branch"
+    condition: "user.getStatus() == UserStatus.NORMAL"
+    branches:
+      - condition: "true"
+        action: "call"
+        method: "processNormalUser"
+        next: "goto_step_3"
+      - condition: "false"
+        action: "throw"
+        exception: "BusinessException"
+        errorCode: "USER_STATUS_ABNORMAL"
+```
+
 ### Step 3.5: 复杂业务逻辑设计（🔴 复杂场景必须执行）
 
 > **触发条件**：业务逻辑涉及以下任一场景时必须执行

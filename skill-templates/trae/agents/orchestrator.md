@@ -145,6 +145,200 @@ dependencies:
 - 验证接口契约一致性
 - 汇总生成最终代码库
 
+### Step 7: 全局集成编译（🔴 方案4优化 - 必须执行）
+
+> **目的**：在所有子任务开发完成后，进行全局集成编译，确保整体代码可编译
+
+#### 7.1 触发条件
+
+在以下情况执行全局集成编译：
+- 所有 develop-subtask 完成
+- 任何跨模块/跨服务的开发任务完成后
+- 涉及接口变更的任务完成后
+
+#### 7.2 集成编译流程
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                    全局集成编译流程                       │
+├─────────────────────────────────────────────────────────┤
+│  1. 收集所有子任务生成的代码文件                           │
+│  2. 执行全局编译 (mvn clean compile)                      │
+│  3. 解析编译错误                                          │
+│  4. 调用 contract-validator 进行契约验证                  │
+│  5. 分类错误并分配修复任务                                 │
+│  6. 循环修复直到编译成功                                   │
+└─────────────────────────────────────────────────────────┘
+```
+
+#### 7.3 编译执行
+
+**Java 项目**：
+```bash
+# 完整编译
+mvn clean compile -DskipTests
+
+# 或按模块编译
+mvn clean compile -DskipTests -pl module1,module2 -am
+```
+
+**前端项目**：
+```bash
+# TypeScript 类型检查
+npx tsc --noEmit
+
+# 构建检查
+npm run build --if-present
+```
+
+#### 7.4 契约一致性验证
+
+**调用 contract-validator 进行自动化验证**：
+
+```yaml
+# 验证请求
+validation_request:
+  type: "global_integrity_check"
+  scope: "all_subtasks"
+  inputs:
+    - design-contract.yaml      # 设计契约
+    - interface-registry.yaml    # 接口注册表
+    - generated_code_paths:     # 生成的代码路径列表
+        - "src/main/java/com/xxx/entity/"
+        - "src/main/java/com/xxx/mapper/"
+        - "src/main/java/com/xxx/service/"
+```
+
+**验证规则**：
+| 规则 | 验证内容 | 失败处理 |
+|------|---------|---------|
+| R1 | 方法签名一致性 | 标记对应子任务需修复 |
+| R2 | Entity 字段一致性 | 标记 design-expert 需更新 |
+| R3 | 实现完整性 | 标记 develop-expert 需补充 |
+| R4 | 依赖调用一致性 | 标记调用方需修正 |
+
+#### 7.5 错误分类与修复分配
+
+**编译错误分类**：
+
+```yaml
+error_classification:
+  category_a: # 单个子任务内部错误
+    pattern: "符号找不到在单个文件内"
+    fix_strategy: "重新调用对应 develop-expert 修复"
+    
+  category_b: # 跨任务接口不匹配
+    pattern: "方法签名不匹配、参数类型不一致"
+    fix_strategy: "调用 contract-validator 定位，协调相关任务修复"
+    
+  category_c: # 设计契约偏差
+    pattern: "Entity 字段缺失、DTO 结构不一致"
+    fix_strategy: "回退到 design-expert 更新设计，重新生成"
+    
+  category_d: # 依赖版本冲突
+    pattern: "Maven/Gradle 依赖冲突"
+    fix_strategy: "调用 analyze-expert 分析依赖，统一版本"
+```
+
+**修复任务分配**：
+
+```yaml
+# 修复任务分配示例
+fix_assignment:
+  errors:
+    - error_id: "E001"
+      type: "method_signature_mismatch"
+      file: "UserServiceImpl.java"
+      related_subtask: "task-003"
+      fix_assigned_to: "develop-expert"
+      context: "方法 getById 返回类型应为 UserDTO 而非 User"
+      
+    - error_id: "E002"
+      type: "entity_field_missing"
+      file: "User.java"
+      related_subtask: "task-001"
+      fix_assigned_to: "design-expert"
+      context: "缺少 emailVerified 字段"
+```
+
+#### 7.6 循环修复流程
+
+```
+┌─────────────────┐
+│   全局编译       │
+└────────┬────────┘
+         ▼
+┌─────────────────┐     失败    ┌─────────────────┐
+│   编译成功？     │──────────▶│   错误解析       │
+└────────┬────────┘            └────────┬────────┘
+    是 │                               │
+       ▼                               ▼
+┌─────────────────┐            ┌─────────────────┐
+│   验证通过      │            │   分类错误       │
+└─────────────────┘            └────────┬────────┘
+                                        ▼
+                               ┌─────────────────┐
+                               │   分配修复任务   │
+                               └────────┬────────┘
+                                        ▼
+                               ┌─────────────────┐
+                               │   并行修复       │
+                               └────────┬────────┘
+                                        │
+                                        └──────────▶ (回到全局编译)
+```
+
+#### 7.7 集成编译报告
+
+```yaml
+# global-compile-report.yaml
+global_compile:
+  timestamp: "2026-05-29 15:00:00"
+  status: "success"  # success / partial / failed
+  
+  compile_info:
+    command: "mvn clean compile -DskipTests"
+    duration: "120s"
+    modules_compiled: 5
+    
+  results:
+    total_errors: 0
+    total_warnings: 5
+    
+  contract_validation:
+    status: "passed"
+    rules_checked:
+      - rule: "R1"
+        name: "方法签名一致性"
+        passed: true
+        violations: 0
+      - rule: "R2"
+        name: "Entity 字段一致性"
+        passed: true
+        violations: 0
+      - rule: "R3"
+        name: "实现完整性"
+        passed: true
+        violations: 0
+      - rule: "R4"
+        name: "依赖调用一致性"
+        passed: true
+        violations: 0
+        
+  iteration_history:
+    - iteration: 1
+      errors_found: 3
+      errors_fixed: 3
+      status: "resolved"
+      
+  final_state:
+    all_subtasks_compiled: true
+    contract_consistency: true
+    ready_for_test: true
+    
+  next_action: "proceed_to_verify"
+```
+
 ## 与 Subagent 通信协议
 
 ### 启动 Subagent 时传递的信息
