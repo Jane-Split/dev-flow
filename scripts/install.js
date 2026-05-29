@@ -1,164 +1,456 @@
 #!/usr/bin/env node
-/**
- * dev-flow 多工具安装脚本
- * 支持: Trae, Cursor, Qoder, Claude Code
- */
 
-import fs from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
+import { appendFileSync, cpSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { resolve, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const ROOT = resolve(__dirname, '..');
 const PROJECT_ROOT = process.cwd();
-const DEV_FLOW_ROOT = path.resolve(__dirname, '..');
 
-// 工具配置
-const TOOLS = {
-  trae: {
-    name: 'Trae',
-    configDir: '.trae/skills',
-    sourceFile: 'trae/SKILL.md',
-    targetName: 'dev-flow.md',
-  },
-  cursor: {
-    name: 'Cursor',
-    configDir: '.cursor/commands',
-    sourceFile: 'cursor/dev-flow.md',
-    targetName: 'dev-flow.md',
-  },
-  qoder: {
-    name: 'Qoder',
-    configDir: '.qoder/commands',
-    sourceFile: 'qoder/dev-flow.md',
-    targetName: 'dev-flow.md',
-  },
-  claude: {
-    name: 'Claude Code',
-    configDir: '.claude/commands',
-    sourceFile: 'claude/dev-flow.md',
-    targetName: 'dev-flow.md',
-  },
+const SKILL_FILES = {
+  trae: { src: 'skill-templates/trae/SKILL.md', dest: '.trae/skills/dev-flow/SKILL.md' },
+  cursor: { src: 'skill-templates/cursor/dev-flow.md', dest: '.cursor/commands/dev-flow.md' },
+  qoder: { src: 'skill-templates/qoder/dev-flow.md', dest: '.qoder/commands/dev-flow.md' },
+  claude: { src: 'skill-templates/claude/dev-flow.md', dest: '.claude/commands/dev-flow.md' },
+  codex: { src: 'skill-templates/codex/AGENTS.md', dest: 'AGENTS.md' },
 };
 
-function ensureDir(dir) {
-  if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true });
-    console.log(`✓ 创建目录: ${dir}`);
-  }
-}
+const CODEX_EXTRA_FILES = [
+  { src: 'skill-templates/codex/skills/dev-flow/SKILL.md', dest: '.agents/skills/dev-flow/SKILL.md' },
+  { src: 'skill-templates/codex/config.toml', dest: '.codex/config.toml', optional: true },
+];
 
-function copySkill(toolKey, tool) {
-  const sourcePath = path.join(DEV_FLOW_ROOT, 'skill-templates', tool.sourceFile);
-  const targetDir = path.join(PROJECT_ROOT, tool.configDir);
-  const targetPath = path.join(targetDir, tool.targetName);
+// Subagent 定义文件（按工具适配安装路径）
+const AGENT_FILES = [
+  'orchestrator.md',
+  'research-expert.md',
+  'analyze-expert.md',
+  'design-expert.md',
+  'develop-expert.md',
+  'verify-expert.md',
+  'task-protocol.md',
+  'dependency-scanner.md',
+  'service-scanner.md',
+  'structure-analyzer.md',
+  'config-analyzer.md',
+  'on-demand-loader.md',
+  'runtime-state-manager.md',
+  'smoke-test.md',
+  'integration-test.md',
+  'delivery.md',
+];
 
-  if (!fs.existsSync(sourcePath)) {
-    console.log(`✗ ${tool.name}: 源文件不存在 ${sourcePath}`);
-    return false;
-  }
+const CODEX_AGENT_FILES = AGENT_FILES.map((file) => file.replace(/\.md$/, '.toml'));
 
-  ensureDir(targetDir);
-  fs.copyFileSync(sourcePath, targetPath);
-  console.log(`✓ ${tool.name}: 已安装到 ${tool.configDir}/${tool.targetName}`);
-  return true;
-}
+const AGENT_DEST_MAP = {
+  trae: '.trae/skills/dev-flow/agents/',
+  cursor: '.cursor/agents/',
+  qoder: '.qoder/agents/',
+  claude: '.claude/agents/',
+  codex: '.codex/agents/',
+};
 
-function installAll() {
-  console.log('🚀 安装 dev-flow 到所有支持的工具...\n');
-  
-  let success = 0;
-  let failed = 0;
+const TOOL_ALIASES = {
+  install: 'all',
+  all: 'all',
+  trae: 'trae',
+  cursor: 'cursor',
+  qoder: 'qoder',
+  claude: 'claude',
+  codex: 'codex',
+};
 
-  for (const [key, tool] of Object.entries(TOOLS)) {
-    if (copySkill(key, tool)) {
-      success++;
-    } else {
-      failed++;
+const MEMORY_FILES = [
+  'project-overview.md',
+  'conventions.md',
+  'modules.md',
+  'apis.md',
+  'models.md',
+  'utils.md',
+  'config.md',
+  'architecture.md',
+  'patterns.md',
+  'mistakes.md',
+  'preferences.md',
+  'decisions.md',
+  // 微服务模式额外记忆文件
+  'service-registry.md',
+  'dependency-graph.md',
+  'common-modules.md',
+];
+
+const MEMORY_TEMPLATES = {
+  'project-overview.md': `# 项目概览
+
+> 由 dev-flow Research 阶段自动填充
+
+## 技术栈
+- 语言：
+- 框架：
+- 数据库：
+- 测试：
+- 构建：
+
+## 目录结构
+
+## 入口文件
+`,
+  'conventions.md': `# 编码规范
+
+> 由 dev-flow Research 阶段自动填充
+
+## 命名规范
+- 类名：PascalCase
+- 方法名/变量名：camelCase
+- 常量：UPPER_SNAKE_CASE
+
+## 代码风格
+- 缩进：4 空格
+- 最大行宽：120
+- 导入组织：按包分组
+
+## 注释规范
+- 类注释：Javadoc 格式
+- 方法注释：参数、返回值、异常说明
+`,
+  'modules.md': `# 已有模块
+
+> 由 dev-flow Research 阶段自动填充
+
+## Entity
+
+## Mapper
+
+## Service
+
+## Controller
+
+## DTO
+
+## Enum
+`,
+  'apis.md': `# 已有 API
+
+> 由 dev-flow Research 阶段自动填充
+
+## 端点列表
+
+`,
+  'models.md': `# 数据模型
+
+> 由 dev-flow Research 阶段自动填充
+
+## Entity
+
+## DTO
+
+## 数据库表
+`,
+  'utils.md': `# 工具类/函数
+
+> 由 dev-flow Research 阶段自动填充
+
+`,
+  'config.md': `# 配置信息
+
+> 由 dev-flow Research 阶段自动填充
+
+## 数据库配置
+
+## Redis 配置
+
+## 中间件配置
+`,
+  'architecture.md': `# 架构决策
+
+> 由 dev-flow Research 阶段自动填充
+
+`,
+  'patterns.md': `# 常见代码模式
+
+> 由 dev-flow 自动学习积累
+
+## 使用说明
+记录项目中反复出现的代码模式，供后续开发复用。
+
+### 模式名称
+\`\`\`java
+// Java 代码示例
+\`\`\`
+- 使用场景：描述何时使用
+- 添加时间：YYYY-MM-DD
+- 使用次数：0
+`,
+  'mistakes.md': `# 常见错误及修复
+
+> 由 dev-flow 自动学习积累
+
+## 使用说明
+记录项目中反复出现的 Bug 及其修复方案。
+
+### 错误名称
+**错误模式**：描述错误代码
+**修复方案**：描述修复后的代码
+**出现次数**：0
+**最后出现**：YYYY-MM-DD
+**预防措施**：如何避免
+`,
+  'preferences.md': `# 用户偏好
+
+> 由 dev-flow 自动学习积累
+
+## 使用说明
+记录用户的编码偏好和习惯，让 AI 越用越懂用户。
+
+## 代码风格
+- 引号：单引号/双引号
+- 分号：必须/可选
+- 缩进：2空格/4空格/Tab
+
+## 架构偏好
+- 状态管理：
+- 样式方案：
+
+## 更新历史
+`,
+  'decisions.md': `# 架构决策记录
+
+> 由 dev-flow 自动记录
+
+## 使用说明
+记录项目中的重要架构决策及其原因。
+
+## ADR-XXX：决策标题
+**日期**：YYYY-MM-DD
+**决策**：描述决策内容
+**原因**：
+- 原因1
+- 原因2
+**影响**：影响的文件/模块
+`,
+  // 微服务模式记忆文件模板
+  'service-registry.md': `# 服务注册表
+
+> 由 dev-flow Research 阶段自动填充（微服务模式）
+
+## 服务列表
+| 服务名 | 目录 | 端口 | 角色 | 子模块 |
+|--------|------|------|------|--------|
+| | | | | |
+
+## 跨服务调用关系
+| 调用方 | Feign Client | 目标服务 | 方法 |
+|--------|-------------|----------|------|
+| | | | |
+`,
+  'dependency-graph.md': `# 服务间依赖图谱
+
+> 由 dev-flow Research 阶段自动填充（微服务模式）
+
+## Maven 依赖关系
+| 服务 | 依赖的服务 | 依赖的公共模块 |
+|------|-----------|--------------|
+| | | |
+
+## Feign 调用关系
+| 调用方服务 | 被调用方服务 | Feign Client 接口 | 调用场景 |
+|-----------|-------------|-----------------|---------|
+| | | | |
+
+## 服务启动顺序
+1.
+`,
+  'common-modules.md': `# 公共模块清单
+
+> 由 dev-flow Research 阶段自动填充（微服务模式）
+
+## 公共模块列表
+| 模块名 | 目录 | 说明 |
+|--------|------|------|
+| | | |
+
+## 通用 Entity
+| 类名 | 包路径 | 说明 | 使用服务 |
+|------|--------|------|---------|
+| | | | |
+
+## 通用 DTO
+| 类名 | 包路径 | 说明 | 使用服务 |
+|------|--------|------|---------|
+| | | | |
+
+## 通用工具类
+| 类名 | 包路径 | 说明 | 使用服务 |
+|------|--------|------|---------|
+| | | | |
+
+## 通用枚举
+| 类名 | 包路径 | 说明 | 使用服务 |
+|------|--------|------|---------|
+| | | | |
+
+## 通用异常类
+| 类名 | 包路径 | 说明 | 使用服务 |
+|------|--------|------|---------|
+| | | | |
+`
+};
+
+function install(target) {
+  target = normalizeTarget(target);
+
+  if (target === 'all' || !target) {
+    for (const key of Object.keys(SKILL_FILES)) {
+      installSkill(key);
+      installAgents(key);
     }
-  }
-
-  console.log(`\n📊 安装完成: ${success} 成功, ${failed} 失败`);
-  console.log('\n使用方法:');
-  console.log('  - Trae: 在输入框输入 /dev-flow <需求描述>');
-  console.log('  - Cursor: 在输入框输入 /dev-flow <需求描述>');
-  console.log('  - Qoder: 在输入框输入 /dev-flow <需求描述>');
-  console.log('  - Claude Code: 在输入框输入 /dev-flow <需求描述>');
-}
-
-function installSingle(toolName) {
-  const tool = TOOLS[toolName.toLowerCase()];
-  if (!tool) {
-    console.error(`✗ 未知工具: ${toolName}`);
-    console.log('支持的工具:', Object.keys(TOOLS).join(', '));
-    process.exit(1);
-  }
-
-  console.log(`🚀 安装 dev-flow 到 ${tool.name}...\n`);
-  
-  if (copySkill(toolName.toLowerCase(), tool)) {
-    console.log(`\n✓ ${tool.name} 安装成功!`);
-    console.log(`使用方法: 在输入框输入 /dev-flow <需求描述>`);
   } else {
-    console.log(`\n✗ ${tool.name} 安装失败`);
+    installSkill(target);
+    installAgents(target);
+  }
+  createMemoryTemplate();
+  console.log('\n✅ dev-flow skill 安装完成！');
+  console.log('   在 AI 编程工具中输入 /dev-flow <需求> 开始使用');
+  console.log('   输入 /dev-flow -subagent <需求> 使用 subagent 并行模式\n');
+}
+
+function installSkill(tool) {
+  const config = SKILL_FILES[tool];
+  if (!config) {
+    console.error(`❌ 不支持的工具: ${tool}`);
+    console.error(`   支持: ${Object.keys(SKILL_FILES).join(', ')}, all`);
     process.exit(1);
   }
+
+  const src = resolve(ROOT, config.src);
+  const dest = resolve(PROJECT_ROOT, config.dest);
+
+  if (!existsSync(src)) {
+    console.error(`❌ 源文件不存在: ${src}`);
+    return;
+  }
+
+  if (tool === 'codex') {
+    installCodexAgentsMd(src, dest);
+    installCodexExtras();
+  } else {
+    mkdirSync(dirname(dest), { recursive: true });
+    cpSync(src, dest);
+    console.log(`✅ ${tool}: ${dest}`);
+  }
 }
 
-function uninstall() {
-  console.log('🗑️  卸载 dev-flow...\n');
-  
-  for (const [key, tool] of Object.entries(TOOLS)) {
-    const targetDir = path.join(PROJECT_ROOT, tool.configDir);
-    const targetPath = path.join(targetDir, tool.targetName);
-    
-    if (fs.existsSync(targetPath)) {
-      fs.unlinkSync(targetPath);
-      console.log(`✓ ${tool.name}: 已卸载`);
+function installAgents(tool) {
+  const destDir = AGENT_DEST_MAP[tool];
+  if (!destDir) return;
+
+  const agentFiles = tool === 'codex' ? CODEX_AGENT_FILES : AGENT_FILES;
+  const agentsSrcDir = resolve(ROOT, `skill-templates/${tool}/agents`);
+  const fallbackAgentsSrcDir = resolve(ROOT, 'skill-templates/trae/agents');
+  let installedCount = 0;
+
+  for (const file of agentFiles) {
+    let src = resolve(agentsSrcDir, file);
+    if (!existsSync(src) && tool !== 'codex') {
+      src = resolve(fallbackAgentsSrcDir, file);
+    }
+
+    const dest = resolve(PROJECT_ROOT, destDir, file);
+
+    if (!existsSync(src)) {
+      console.error(`❌ Agent 文件不存在: ${src}`);
+      continue;
+    }
+
+    mkdirSync(dirname(dest), { recursive: true });
+    cpSync(src, dest);
+    installedCount += 1;
+  }
+
+  console.log(`✅ ${tool} agents: ${destDir} (${installedCount} files)`);
+}
+
+function installCodexAgentsMd(src, dest) {
+  mkdirSync(dirname(dest), { recursive: true });
+
+  if (!existsSync(dest)) {
+    cpSync(src, dest);
+    console.log(`✅ codex: ${dest}`);
+    return;
+  }
+
+  const existing = readFileSync(dest, 'utf-8');
+  if (existing.includes('<!-- dev-flow:start -->')) {
+    console.log(`ℹ️ codex: ${dest} 已包含 dev-flow 指令，跳过追加`);
+    return;
+  }
+
+  const content = readFileSync(src, 'utf-8');
+  appendFileSync(dest, `\n\n<!-- dev-flow:start -->\n${content.trim()}\n<!-- dev-flow:end -->\n`, 'utf-8');
+  console.log(`✅ codex: 已追加 dev-flow 指令到 ${dest}`);
+}
+
+function installCodexExtras() {
+  for (const file of CODEX_EXTRA_FILES) {
+    const src = resolve(ROOT, file.src);
+    const dest = resolve(PROJECT_ROOT, file.dest);
+
+    if (!existsSync(src)) {
+      console.error(`❌ Codex 文件不存在: ${src}`);
+      continue;
+    }
+
+    if (file.optional && existsSync(dest)) {
+      console.log(`ℹ️ codex: ${file.dest} 已存在，保留用户配置`);
+      continue;
+    }
+
+    mkdirSync(dirname(dest), { recursive: true });
+    cpSync(src, dest);
+    console.log(`✅ codex: ${dest}`);
+  }
+}
+
+function normalizeTarget(target) {
+  const normalized = target || 'all';
+  const mapped = TOOL_ALIASES[normalized];
+
+  if (!mapped) {
+    console.error(`❌ 不支持的命令或工具: ${normalized}`);
+    console.error(`   支持: install, ${Object.keys(SKILL_FILES).join(', ')}, all`);
+    process.exit(1);
+  }
+
+  return mapped;
+}
+
+function createMemoryTemplate() {
+  const memoryDir = resolve(PROJECT_ROOT, '.dev-flow/memory');
+  const sessionsDir = resolve(PROJECT_ROOT, '.dev-flow/sessions');
+
+  mkdirSync(memoryDir, { recursive: true });
+  mkdirSync(sessionsDir, { recursive: true });
+
+  for (const file of MEMORY_FILES) {
+    const filePath = resolve(memoryDir, file);
+    if (!existsSync(filePath)) {
+      const content = MEMORY_TEMPLATES[file] || `# ${file.replace('.md', '').replace(/-/g, ' ')}\n\n> 由 dev-flow Research 阶段自动填充\n\n`;
+      writeFileSync(filePath, content, 'utf-8');
     }
   }
-  
-  console.log('\n✓ 卸载完成');
+
+  // 创建 .gitkeep 防止空目录被 git 忽略
+  const gitkeep = resolve(sessionsDir, '.gitkeep');
+  if (!existsSync(gitkeep)) {
+    writeFileSync(gitkeep, '', 'utf-8');
+  }
+
+  console.log(`✅ 记忆目录: .dev-flow/memory/`);
 }
 
-// 主逻辑
+// CLI 解析
 const args = process.argv.slice(2);
-const command = args[0];
+const target = args[0] || 'all';
 
-switch (command) {
-  case 'all':
-    installAll();
-    break;
-  case 'trae':
-  case 'cursor':
-  case 'qoder':
-  case 'claude':
-    installSingle(command);
-    break;
-  case 'uninstall':
-    uninstall();
-    break;
-  case '--help':
-  case '-h':
-  default:
-    console.log(`
-dev-flow 安装脚本
-
-用法:
-  node install.js [命令]
-
-命令:
-  all          安装到所有支持的工具
-  trae         安装到 Trae
-  cursor       安装到 Cursor
-  qoder        安装到 Qoder
-  claude       安装到 Claude Code
-  uninstall    卸载所有安装
-
-示例:
-  node install.js all
-  node install.js cursor
-`);
-    break;
-}
+install(target);

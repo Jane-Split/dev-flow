@@ -1,1 +1,0 @@
-{"version":3,"file":"structure-scanner.d.ts","sourceRoot":"","sources":["../../src/scanners/structure-scanner.ts"],"names":[],"mappings":"AAGA,OAAO,KAAK,EAAE,gBAAgB,EAA4B,MAAM,oBAAoB,CAAC;AAarF,qBAAa,gBAAgB;IAC3B,OAAO,CAAC,WAAW,CAAS;gBAEhB,WAAW,EAAE,MAAM;IAIzB,IAAI,IAAI,OAAO,CAAC,gBAAgB,CAAC;YAazB,eAAe;YA+Cf,cAAc;YAkBd,aAAa;IA0B3B,OAAO,CAAC,WAAW;CAUpB"}

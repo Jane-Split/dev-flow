@@ -1,0 +1,9 @@
+# dev-flow Codex project defaults
+#
+# This file is intentionally conservative. Codex only loads project-scoped
+# .codex/config.toml after the project is trusted, and user/global settings
+# still take precedence where appropriate.
+
+approval_policy = "on-request"
+sandbox_mode = "workspace-write"
+model_reasoning_effort = "high"

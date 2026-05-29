@@ -1,74 +1,87 @@
 # dev-flow
 
-[![license](https://img.shields.io/npm/l/dev-flow.svg)](https://github.com/Jane-Split/dev-flow/blob/main/LICENSE)
 [![node](https://img.shields.io/node/v/dev-flow.svg)](https://nodejs.org)
-[![test](https://img.shields.io/badge/test-94%2F94%20passing-brightgreen)](./COMPREHENSIVE_EVALUATION_REPORT.md)
-[![score](https://img.shields.io/badge/evaluation-96%2F100-blue)](./COMPREHENSIVE_EVALUATION_REPORT.md)
 
-AI 开发全流程自动化 Agent 技能系统，支持 Cursor、Trae、Qoder、Claude Code 等 AI 编程工具。
+AI 开发全流程编排 Skill，适用于 Cursor、Trae、Qoder、Claude Code、OpenAI Codex 等 AI 编程工具。
 
-通过 `/dev-flow` 命令，AI 将自动完成：**架构决策 → 项目调研 → 需求分析 → 详细设计 → 任务拆分 → 多 Agent 并行开发 → 测试验证 → Bug 修复** 的完整开发周期，支持**老旧项目迁移**、**多语言项目**、**断点续传**和**进度可视化**。
+通过 `/dev-flow` 命令，AI 将按照结构化流程逐步执行：**项目调研 → 需求分析 → 详细设计 → 代码开发 → 测试验证 → Bug 修复**，每个阶段完成后暂停等待确认，确保产出质量。
 
-> 📊 **最新评估**: 94项测试全部通过(100%)，五维度评分 **准确性98/稳定性96/效率94/可信度97/适配度96**，综合评分 **96/100**。详见 [COMPREHENSIVE_EVALUATION_REPORT.md](./COMPREHENSIVE_EVALUATION_REPORT.md)
+## 为什么需要 dev-flow？
+
+AI 编程工具（Cursor/Trae/Qoder/Claude Code/Codex）虽然强大，但在处理复杂需求时容易：
+
+- 跳过重要步骤（如先了解项目结构再写代码）
+- 生成与项目风格不一致的代码
+- 遗漏边界情况和错误处理
+- 缺乏系统性的测试验证
+- 不记住用户的偏好和项目的深层知识
+- 大型项目上下文不足，跳过关键扫描步骤
+
+dev-flow 通过**结构化的流程编排 + 项目记忆 + 长期记忆 + 学习能力 + 多 Subagent 并行**解决这些问题，让 AI 编程工具**越用越好用**。
 
 ## 特性
 
-### 核心流程
-- 🏗️ **架构决策** - 自动评估项目规模，生成技术选型、架构模式、分层设计和部署方案
-- 🧠 **项目记忆** - 自动记录项目架构、规范、组件、API，后续开发自动遵守
-- 📋 **需求分析** - 深度理解需求，识别歧义和缺失信息
-- 🎨 **详细设计** - 生成可执行的技术设计文档（数据/接口/组件/逻辑/样式）
-- ✂️ **任务拆分** - 智能拆分任务，DAG 依赖分析，支持并行执行
-- 👥 **多 Agent 执行** - 前端/后端/数据库/测试/算法/Java/Python 专家并行开发
-- 🧪 **测试体系** - 自动生成并执行单元测试、API 测试、E2E 测试（支持 Vitest/Jest/JUnit/pytest）
-- 🔥 **紧急修复** - Hotfix 模式，快速定位并修复线上错误
-- 💾 **断点续传** - 全流程自动保存会话状态，中断后可从断点恢复
-- 📊 **进度可视化** - 实时生成 Markdown 进度报告，含进度条和阶段详情
-- 📚 **学习能力** - 从用户反馈中学习，越用越智能
-- 🔧 **多工具支持** - Cursor、Trae、Qoder、Claude Code
-- 🖥️ **跨平台** - 纯 JavaScript 实现，无需 C++ 编译环境
-
-### 🆕 老旧项目支持
-- 🔍 **老旧项目分析** - 自动识别 10 种老旧技术栈（jQuery/AngularJS/PHP 5.x/Java 6-7/Python 2.x 等）
-- 🔄 **渐进式迁移** - 支持 jQuery→React/Vue、AngularJS→Angular、PHP→Node.js 迁移
-- 🛡️ **安全重构** - 嵌套深度分析、圈复杂度评估、技术债务识别
-- 📋 **迁移模板** - 4 套完整迁移模板，含代码对照表和风险提示
-
-### 🆕 多语言支持
-- ☕ **Java/Spring Boot** - 生成 REST Controller、Service、JPA Entity（Java 17+ 特性）
-- 🐍 **Python/FastAPI** - 生成 APIRouter 路由、Pydantic 模型、服务类（Python 3.10+ 特性）
-- 🦀 **Go/Rust** - 技术栈识别和基础代码生成
-- 🧪 **多语言测试** - 自动生成 JUnit 5（Java）、pytest（Python）、Vitest（TS）测试
+- **结构化流程** - 6 个阶段 + Hotfix 模式，每个阶段有明确的输入/输出和自检步骤
+- **多 Subagent 并行** - 复杂任务拆分为独立 subagent 并行执行，上下文隔离，效率翻倍
+- **智能 Research** - 自动评估项目规模，选择标准模式或 4 subagent 并行扫描
+- **深层依赖扫描** - 自动扫描微服务项目的依赖项目（common-bean、basedata-api 等）
+- **项目记忆** - Research 阶段自动扫描并记录项目结构、组件、API、编码规范（12 个文件）
+- **长期记忆** - 记录常见代码模式、错误修复方案、用户偏好、架构决策（4 个文件），跨会话持久化
+- **学习能力** - 从用户反馈、代码修改、测试 Bug 中自动学习，持续优化代码生成策略
+- **记忆强化** - 模式使用 >3 次标记"高频"优先推荐，>5 次标记"标准"必须遵守
+- **阶段确认** - 每个阶段完成后暂停，展示成果并等待用户确认
+- **断点续传** - 长流程中断后可从上次断点恢复（`.dev-flow/sessions/`）
+- **Markdown 记忆** - 所有记忆使用 Markdown 格式，AI 可直接读写
+- **多工具支持** - Cursor、Trae、Qoder、Claude Code、OpenAI Codex
+- **多语言支持** - Java (Spring Boot/Cloud)、前端 (React/Vue)、Python、Go、Rust 等主流技术栈
+- **零依赖** - 纯 Markdown + 安装脚本，无需编译
 
 ## 安装
-
-### 方式一：通过 GitHub 安装（推荐）
 
 ```bash
 # 1. 安装到项目
 npm install Jane-Split/dev-flow --save-dev
 
-# 2. 执行安装（生成 skill 文件和配置）
+# 2. 执行安装（生成 skill 文件和记忆目录）
 npx dev-flow install
 ```
 
-> **注意**：必须执行 `npx dev-flow install`，它会自动在项目中生成 `.trae/skills/`、`.cursor/commands/` 等 skill 文件。
+安装后会自动在项目中生成：
 
-### 方式二：从源码安装
+| 工具 | 生成的文件 | 触发方式 |
+|------|-----------|---------|
+| Trae | `.trae/skills/dev-flow/SKILL.md` | 输入框输入 `/dev-flow` |
+| Cursor | `.cursor/commands/dev-flow.md` | 输入框输入 `/dev-flow` |
+| Qoder | `.qoder/commands/dev-flow.md` | 输入框输入 `/dev-flow` |
+| Claude Code | `.claude/commands/dev-flow.md` | 输入框输入 `/dev-flow` |
+| OpenAI Codex | `AGENTS.md` + `.agents/skills/dev-flow/SKILL.md` + `.codex/agents/*.toml` | 终端输入 `codex` 后使用自然语言或 `$dev-flow` |
+
+**Subagent 文件**（用于 `-subagent` 模式和 Research 并行扫描；Codex 使用 `.codex/agents/*.toml`）：
+
+| Agent | 文件路径 | 职责 |
+|-------|----------|------|
+| orchestrator | `.codex/agents/orchestrator.toml` / 其他工具的 `agents/orchestrator.md` | 主协调者，任务拆分和调度 |
+| research-expert | `.codex/agents/research-expert.toml` / 其他工具的 `agents/research-expert.md` | 项目研究，调度子 subagent 扫描 |
+| analyze-expert | `.codex/agents/analyze-expert.toml` / 其他工具的 `agents/analyze-expert.md` | 需求分析，影响评估 |
+| design-expert | `.codex/agents/design-expert.toml` / 其他工具的 `agents/design-expert.md` | 详细设计，接口定义 |
+| develop-expert | `.codex/agents/develop-expert.toml` / 其他工具的 `agents/develop-expert.md` | 代码开发（可并行） |
+| verify-expert | `.codex/agents/verify-expert.toml` / 其他工具的 `agents/verify-expert.md` | 代码验证，质量检查 |
+| task-protocol | `.codex/agents/task-protocol.toml` / 其他工具的 `agents/task-protocol.md` | 任务拆分协议定义 |
+| dependency-scanner | `.codex/agents/dependency-scanner.toml` / 其他工具的 `agents/dependency-scanner.md` | 依赖项目深层扫描（Entity/DTO/Enum/Util/Feign Client） |
+| service-scanner | `.codex/agents/service-scanner.toml` / 其他工具的 `agents/service-scanner.md` | 当前服务源码扫描（Entity/Service/Controller/Mapper） |
+| structure-analyzer | `.codex/agents/structure-analyzer.toml` / 其他工具的 `agents/structure-analyzer.md` | 项目结构和依赖关系分析 |
+| config-analyzer | `.codex/agents/config-analyzer.toml` / 其他工具的 `agents/config-analyzer.md` | 配置和编码规范分析 |
+
+同时创建 `.dev-flow/memory/` 目录（12 个 Markdown 记忆模板）和 `.dev-flow/sessions/` 目录（会话记录）。
+
+也可以只安装特定工具的 skill 文件：
 
 ```bash
-git clone https://github.com/Jane-Split/dev-flow.git
-cd dev-flow
-npm install
-npm run build
-npm link
-```
-
-### 方式三：通过 SSH 安装（私有仓库）
-
-```bash
-npm install git+ssh://git@github.com:Jane-Split/dev-flow.git --save-dev
-npx dev-flow install
+npx dev-flow trae     # 仅安装 Trae
+npx dev-flow cursor   # 仅安装 Cursor
+npx dev-flow qoder    # 仅安装 Qoder
+npx dev-flow claude   # 仅安装 Claude Code
+npx dev-flow codex    # 仅安装 OpenAI Codex
 ```
 
 ## 快速开始
@@ -79,15 +92,14 @@ cd your-project
 
 # 2. 安装 dev-flow
 npm install Jane-Split/dev-flow --save-dev
-
-# 3. 执行安装脚本
 npx dev-flow install
-```
 
-安装完成后，在 Cursor / Trae / Qoder / Claude Code 的输入框中输入：
-
-```
+# 3. 在 Cursor / Trae / Qoder / Claude Code 中输入：
 /dev-flow 实现用户登录功能，包含表单验证和记住密码
+
+# 3. 或在 OpenAI Codex 中：
+codex
+> 请使用 $dev-flow 全流程，实现用户登录功能，包含表单验证和记住密码
 ```
 
 AI 将按阶段逐步执行，每个阶段完成后等待你确认。
@@ -100,239 +112,196 @@ AI 将按阶段逐步执行，每个阶段完成后等待你确认。
 /dev-flow <需求描述>
 ```
 
-### 断点续传
-
-```
-/dev-flow --resume              # 从上次中断的会话继续
-```
+执行：Research → Analyze → Design → Develop → Test → Fix
 
 ### 单阶段模式
 
 ```
-/dev-flow -architecture <需求>  # 架构决策（规模评估/技术选型/架构模式）
-/dev-flow -research             # 项目调研
-/dev-flow -analyze <需求>       # 需求分析
-/dev-flow -design               # 详细设计
-/dev-flow -plan                 # 任务拆分
-/dev-flow -develop              # 开发执行（含算法/Java/Python专家）
-/dev-flow -test                 # 测试验证
-/dev-flow -fix                  # Bug修复
-/dev-flow -hotfix <错误描述>    # 紧急修复（独立模式）
-/dev-flow -research --refresh   # 刷新项目记忆
+/dev-flow -research          # 项目调研
+/dev-flow -analyze <需求>    # 需求分析
+/dev-flow -design <需求>     # 详细设计
+/dev-flow -develop <需求>    # 直接开发（跳过设计，适合小需求）
+/dev-flow -test              # 生成测试并执行
+/dev-flow -fix               # 分析并修复 Bug
+/dev-flow -hotfix <错误信息> # 紧急修复线上错误
 ```
 
-### 老旧项目模式
+### Subagent 模式（复杂任务）
 
 ```
-/dev-flow -legacy-analyze       # 分析老旧项目技术债务
-/dev-flow -legacy-migrate       # 执行渐进式代码迁移
-/dev-flow -legacy-refactor      # 安全重构老旧代码
+/dev-flow -subagent <需求描述>  # 使用 subagent 并行模式
 ```
 
-### CLI 命令
+适用于：
+- 需求涉及 2 个以上服务/模块
+- 预计生成 10 个以上文件
+- 项目代码量大（上下文可能不足）
+- 需要并行开发加速
 
-```bash
-npx dev-flow install             # 安装 skill 文件到当前项目
-npx dev-flow run "需求描述"      # 执行全流程
-npx dev-flow run -s research     # 执行指定阶段
-npx dev-flow --help              # 查看帮助
+**架构**：
+```
+用户 ←→ 主 Agent（协调者）
+              │
+              ├── research-expert  → 扫描项目，输出 memory/
+              │     ├── dependency-scanner   → 深层扫描依赖项目
+              │     ├── service-scanner      → 扫描当前服务
+              │     ├── structure-analyzer   → 分析项目结构
+              │     └── config-analyzer      → 分析配置规范
+              ├── analyze-expert   → 分析需求，输出分析文档
+              ├── design-expert    → 详细设计，输出设计文档
+              ├── develop-expert   → 代码开发（可并行多个）
+              └── verify-expert    → 代码验证
+```
+
+### 断点续传
+
+```
+/dev-flow --resume           # 从上次中断处继续
 ```
 
 ## 工作流程
 
 ```
-Architecture → Research → Analyze → Design → Plan → Develop → Test → Fix
-   架构决策  →   调研  →  分析  →  设计  →  拆分  →  开发  → 测试 → 修复
-                                                    ↕
-                                              Hotfix（独立模式）
+Research → Analyze → Design → Develop → Test → Fix
+  调研   →  分析  →  设计  →  开发  → 测试 → 修复
 
-                              Legacy Analyze → Migrate → Refactor
-                                老旧分析    →   迁移   →  重构
+Hotfix（独立模式，随时可用，直接输出无需等待确认）
 ```
 
-| 阶段 | 说明 | 产出 |
-|------|------|------|
-| **Architecture** | 评估项目规模，生成技术选型、架构模式、分层设计、部署方案 | 架构决策文档 |
-| **Research** | 扫描项目结构、技术栈、编码规范、组件库、API | 项目记忆文件 |
-| **Analyze** | 解析需求、关联记忆、识别歧义、评估影响 | 需求理解文档 |
-| **Design** | 数据层、接口层、组件层、业务逻辑、样式设计 | 技术设计文档 |
-| **Plan** | 任务拆分、依赖分析、DAG 排序、并行规划 | 任务列表 |
-| **Develop** | 专家匹配（前端/后端/数据库/算法/Java/Python）、并行执行 | 代码文件 |
-| **Test** | 生成测试、执行测试、生成报告 | 测试报告 |
-| **Fix** | 定位 Bug、生成修复、回归测试 | 修复后的代码 |
-| **Hotfix** | 解析错误类型、搜索文件、分析根因、生成修复方案 | 修复方案 + 验证步骤 |
-| **Legacy Analyze** | 老旧技术栈识别、技术债务分析、迁移风险评估 | 分析报告 |
-| **Legacy Migrate** | 渐进式代码迁移、迁移测试、迁移指南 | 迁移代码 + 文档 |
-| **Legacy Refactor** | 安全重构、嵌套深度优化、圈复杂度降低 | 重构代码 |
+| 阶段 | AI 做什么 | 产出 |
+|------|----------|------|
+| **Research** | 扫描项目文件、识别技术栈、深层扫描依赖项目、提取编码规范 | `.dev-flow/memory/` 12 个记忆文件 |
+| **Analyze** | 解析需求、关联已有代码、识别歧义、评估影响范围 | 需求分析文档 |
+| **Design** | 读取项目记忆、设计数据模型、API 接口、组件树、业务流程 | 设计文档 |
+| **Develop** | 读取项目记忆、按依赖顺序生成完整可运行的代码 | 代码文件 |
+| **Test** | 生成测试用例（覆盖正常/异常/边界）、执行测试、生成报告 | 测试报告 |
+| **Fix** | 分析失败原因、修复代码、回归测试（最多循环 3 次） | 修复后的代码 |
 
-### 专家 Agent 体系
+## Research 智能模式
 
-| 专家 | 职责 | 支持语言 |
-|------|------|----------|
-| **FrontendExpert** | 组件开发、样式编写 | TypeScript/React/Vue/Angular |
-| **BackendExpert** | API 开发、业务逻辑 | TypeScript/Node.js |
-| **JavaExpert** | Spring Boot 开发 | Java 17+（Record/Sealed/Pattern Matching） |
-| **PythonExpert** | FastAPI 开发 | Python 3.10+（Type Hints/Match-Case） |
-| **DBExpert** | 数据库操作、数据模型 | SQL/ORM |
-| **TestExpert** | 测试生成 | Vitest/Jest/JUnit 5/pytest |
-| **AlgorithmExpert** | 算法实现 | TypeScript（21 种内置模板） |
-| **LegacyExpert** | 老旧项目迁移 | jQuery→React/Vue, AngularJS→Angular, PHP→Node.js |
+Research 阶段会自动评估项目规模，选择最优执行模式：
 
-### 算法专家
+| 源码文件数 | 执行模式 | 说明 |
+|-----------|---------|------|
+| < 50 个 | **标准模式** | 单 agent 直接执行检查清单 |
+| 50-200 个 | **分组模式** | 2-3 个 subagent 并行扫描 |
+| > 200 个 | **完整模式** | 4 个 subagent 并行扫描 |
 
-当 Develop 阶段遇到算法任务时，自动匹配 AlgorithmExpert，从 21 个内置模板生成完整的 TypeScript 实现：
+**4 个 Research Subagent**：
 
-| 类别 | 模板 |
-|------|------|
-| 排序 | 冒泡排序、选择排序、插入排序、快速排序、归并排序、堆排序 |
-| 搜索 | 线性搜索、二分搜索、BFS、DFS |
-| 数据结构 | 链表、栈、队列、哈希表、二叉树 |
-| 动态规划 | 斐波那契、0-1背包、最长公共子序列、最长递增子序列 |
-| 其他 | 递归、全排列、N皇后、子集、组合、贪心 |
+| Subagent | 职责 | 输出文件 | 上下文 |
+|----------|------|---------|--------|
+| dependency-scanner | 深层扫描依赖项目 | common-modules.md, utils.md | ~30-50KB |
+| service-scanner | 扫描当前服务 | models.md, apis.md | ~20-40KB |
+| structure-analyzer | 分析项目结构 | project-overview.md, service-registry.md, dependency-graph.md | ~10-20KB |
+| config-analyzer | 分析配置规范 | config.md, conventions.md, patterns.md, decisions.md, mistakes.md | ~10-20KB |
 
-每个模板包含：完整实现 + 测试用例 + 时间/空间复杂度标注。
+**上下文优化效果**：主 Agent 从 ~420KB 降至 ~5KB，降低 98.8%。
 
-### 老旧项目支持
+## 记忆系统
 
-支持识别和迁移 10 种老旧技术栈：
+记忆系统分为两部分：**基础记忆**（12 个文件）和**长期记忆**（4 个文件），共 16 个 Markdown 文件。
 
-| 老旧技术栈 | 迁移目标 | 支持程度 |
-|-----------|----------|----------|
-| jQuery | React / Vue | 完整迁移模板 |
-| AngularJS 1.x | Angular 17+ | 完整迁移模板 |
-| PHP 5.x | Node.js / PHP 8.x | 完整迁移模板 |
-| Java 6/7 | Java 17+ | 完整迁移模板 |
-| Python 2.x | Python 3.x | 完整迁移模板 |
-| Backbone.js | React / Vue | 代码转换 |
-| Knockout.js | React / Vue | 代码转换 |
-| Gulp | 现代 Build 工具 | 识别和建议 |
-| Grunt | 现代 Build 工具 | 识别和建议 |
-| IE 兼容代码 | 现代浏览器标准 | 识别和建议 |
+### 基础记忆（Research 阶段自动填充）
 
-### 断点续传
-
-全流程执行时自动保存会话状态到 `.dev-flow/sessions/{sessionId}.json`：
-
-- 每个阶段完成后自动保存阶段结果
-- 使用 `/dev-flow --resume` 从最近未完成的会话继续
-- 自动跳过已完成的阶段
-
-### 进度可视化
-
-全流程自动生成 Markdown 进度报告，保存到 `.dev-flow/sessions/progress-{sessionId}.md`：
-
-- 总进度百分比和进度条
-- 各阶段状态（等待/执行中/完成/失败/跳过）和耗时
-- 任务详情（状态/负责专家/产出文件）
-- 产出文件清单
-
-## 支持的 AI 工具
-
-执行 `npx dev-flow install` 后，会自动在项目中生成以下 skill 文件：
-
-| 工具 | 生成的文件 | 触发方式 |
-|------|-----------|---------|
-| Trae | `.trae/skills/dev-flow/SKILL.md` | 输入框输入 `/dev-flow` |
-| Cursor | `.cursor/commands/dev-flow.md` | 输入框输入 `/dev-flow` |
-| Qoder | `.qoder/commands/dev-flow.md` | 输入框输入 `/dev-flow` |
-| Claude Code | `.claude/commands/dev-flow.md` | 输入框输入 `/dev-flow` |
-
-手动安装到指定工具：
-
-```bash
-node node_modules/dev-flow/scripts/install.js all      # 安装到所有工具
-node node_modules/dev-flow/scripts/install.js trae     # 仅安装到 Trae
-node node_modules/dev-flow/scripts/install.js cursor   # 仅安装到 Cursor
-```
-
-## 安装后生成的文件结构
+**Spring Cloud 微服务（12 个文件）：**
 
 ```
-your-project/
-├── .trae/skills/dev-flow/SKILL.md  # Trae skill 文件
-├── .cursor/commands/dev-flow.md    # Cursor skill 文件
-├── .qoder/commands/dev-flow.md     # Qoder skill 文件
-├── .claude/commands/dev-flow.md    # Claude Code skill 文件
-├── .dev-flow/                      # dev-flow 工作目录
-│   ├── config.yaml                 # 配置文件
-│   ├── memory/                     # 项目记忆
-│   │   ├── conventions/            # 编码规范
-│   │   ├── components/             # 组件库
-│   │   ├── apis/                   # API 接口
-│   │   ├── utils/                  # 工具函数
-│   │   ├── styles/                 # 样式系统
-│   │   ├── architecture/           # 架构决策记忆
-│   │   └── patterns/               # 学习到的模式
-│   ├── db/                         # SQLite 数据库
-│   └── sessions/                   # 会话记录 + 进度报告
-└── node_modules/dev-flow/          # dev-flow 包
+.dev-flow/memory/
+├── project-overview.md      # 项目概览（技术栈、服务列表、目录结构）
+├── service-registry.md      # 服务注册表（服务名/端口/角色/子模块）
+├── dependency-graph.md      # 服务间依赖图谱（Maven 依赖 + Feign 调用）
+├── common-modules.md        # 公共模块清单（依赖项目的 Entity/DTO/Enum/Util）
+├── conventions.md           # 编码规范（命名、注解、统一响应、异常处理）
+├── config.md                # 配置信息（数据库/Redis/Nacos/中间件）
+├── models.md                # 数据模型（当前服务 + 依赖项目的 Entity 和 DTO）
+├── apis.md                  # API 列表（当前服务 API + Feign Client API）
+├── utils.md                 # 工具类（当前服务 + 依赖项目的工具类）
+├── patterns.md              # 常见代码模式
+├── mistakes.md              # 常见错误及修复
+└── decisions.md             # 架构决策记录
 ```
 
-## 配置
+**前端/Node.js 项目（7 个文件）** 和 **Java 单服务项目（8 个文件）** 见用户操作手册。
 
-编辑 `.dev-flow/config.yaml`：
+### 长期记忆（自动学习积累）
 
-```yaml
-agents:
-  maxParallel: 3        # 最大并行任务数
-  timeout: 300000       # 任务超时（毫秒）
-  retryCount: 2         # 重试次数
-
-memory:
-  autoLearn: true       # 自动学习
-  vectorSearch: true    # 向量搜索
-  maxContextTokens: 100000
-
-test:
-  browser: playwright   # 浏览器测试工具
-  unitTest: vitest      # 单元测试工具
-  coverage: true        # 覆盖率检测
+```
+.dev-flow/memory/
+├── patterns.md              # 常见代码模式（可复用的代码片段、使用场景、使用次数）
+├── mistakes.md              # 常见错误及修复（Bug 模式、修复方案、出现次数、预防措施）
+├── preferences.md           # 用户偏好（代码风格、架构偏好、质量要求）
+└── decisions.md             # 架构决策记录（ADR 格式：日期、决策、原因、影响）
 ```
 
-## 技术栈
+### 记忆强化机制
 
-- **运行时**: Node.js >= 18
-- **语言**: TypeScript
-- **数据库**: sql.js (SQLite WebAssembly，无需原生编译)
-- **测试**: Vitest + Playwright
-- **CLI**: Commander.js
+- 每个模式/错误/偏好记录使用次数
+- 使用次数 > 3 次 → 标记为 **"高频"**，优先推荐
+- 使用次数 > 5 次 → 标记为 **"标准"**，必须遵守
 
-## 开发
+## 学习能力
 
-```bash
-# 安装依赖
-npm install
+dev-flow 具备从用户反馈中学习的能力，通过持续积累项目知识，实现"越用越好用"。
 
-# 开发模式（监听文件变化）
-npm run dev
+| 来源 | 学习内容 | 更新文件 |
+|------|----------|----------|
+| 用户表扬某段代码 | 记录代码模式，标记为"推荐" | patterns.md |
+| 用户修改了 AI 生成的代码 | 分析修改原因，更新偏好或模式 | preferences.md / patterns.md |
+| 测试发现 Bug | 记录错误模式和修复方案 | mistakes.md |
+| 用户明确指定偏好 | 记录偏好设置 | preferences.md |
+| 重大架构决策 | 记录决策和原因 | decisions.md |
 
-# 构建
-npm run build
+## 代码生成规范
 
-# 运行测试
-npm test
+dev-flow 要求 AI 生成的代码必须：
 
-# 代码检查
-npm run lint
+- 完整可运行（禁止 `// TODO` 占位符）
+- 包含完整类型定义和错误处理
+- 遵守项目已有的编码风格
+- 复用已有组件和工具函数
+- 包含 JSDoc 注释（公共方法）
+- 包含 Props 验证和默认值
+- 包含 API 请求验证和错误响应
+
+## 支持的工具
+
+| 工具 | 版本要求 | 触发方式 | Subagent 支持 |
+|------|---------|---------|--------------|
+| Cursor | 最新版 | `/dev-flow` | ✅ 原生支持 |
+| Trae | 最新版 | `/dev-flow` | ✅ 原生支持 |
+| Qoder | 最新版 | `/dev-flow` | ✅ 原生支持 |
+| Claude Code | 最新版 | `/dev-flow` | ✅ 原生支持 |
+| OpenAI Codex | 当前版本 | 自然语言 / `$dev-flow` | ✅ 原生支持（AGENTS.md + Skill + custom agents） |
+
+## 项目结构
+
 ```
-
-## 文档
-
-- [用户使用手册](./USER_GUIDE.md) - 完整的使用指南
-- [综合评估报告](./COMPREHENSIVE_EVALUATION_REPORT.md) - 五维度评分和测试详情
-- [项目适配度报告](./PROJECT_ADAPTABILITY_REPORT.md) - 技术栈/阶段/类型适配度评估
-- [改进计划](./IMPROVEMENT_PLAN.md) - 功能改进路线图
-
-## 项目评估
-
-| 维度 | 评分 | 说明 |
-|------|------|------|
-| 准确性 | 98/100 | 任务匹配100%，代码生成符合规范，技术栈识别准确 |
-| 稳定性 | 96/100 | 空项目/错误处理/并发执行全部正常 |
-| 效率 | 94/100 | 扫描<5秒，代码生成<1秒，内存增长<50MB |
-| 可信度 | 97/100 | TypeScript零错误，94个测试全部通过 |
-| 项目适配度 | 96/100 | Java/Python 95+，开发阶段100%，项目类型100% |
-| **综合** | **96/100** | **94项测试全部通过(100%)** |
+dev-flow/
+├── skill-templates/       # Skill 文件模板
+│   ├── trae/              # Trae 模板
+│   │   ├── SKILL.md       # 主指令文件
+│   │   └── agents/        # 11 个 subagent 定义
+│   ├── cursor/            # Cursor 模板
+│   │   ├── dev-flow.md
+│   │   └── agents/
+│   ├── qoder/             # Qoder 模板
+│   │   ├── dev-flow.md
+│   │   └── agents/
+│   ├── claude/            # Claude Code 模板
+│   │   ├── dev-flow.md
+│   │   └── agents/
+│   └── codex/             # OpenAI Codex 模板
+│       ├── AGENTS.md      # Codex 项目指令文件
+│       ├── config.toml    # Codex 项目配置（安装到 .codex/config.toml）
+│       ├── skills/        # Codex repo skill（安装到 .agents/skills/）
+│       └── agents/        # 11 个 Codex custom agent TOML 定义
+├── scripts/
+│   └── install.js         # 安装脚本（零依赖）
+├── USER_GUIDE.md          # 用户操作手册
+├── README.md
+└── package.json
+```
 
 ## License
 

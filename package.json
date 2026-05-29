@@ -3,18 +3,13 @@
   "version": "0.1.0",
   "description": "AI开发全流程自动化Agent技能系统",
   "type": "module",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
+  "main": "scripts/install.js",
   "bin": {
-    "dev-flow": "./bin/dev-flow.js"
+    "dev-flow": "scripts/install.js"
   },
   "scripts": {
-    "build": "tsc",
-    "dev": "tsc --watch",
-    "test": "vitest run",
-    "test:watch": "vitest",
-    "lint": "eslint src/",
-    "prepublishOnly": "npm run build"
+    "install": "node scripts/install.js",
+    "prepublishOnly": "node scripts/install.js"
   },
   "keywords": [
     "ai",
@@ -24,40 +19,18 @@
     "cursor",
     "trae",
     "qoder",
-    "claude"
+    "claude",
+    "codex"
   ],
   "license": "MIT",
   "engines": {
     "node": ">=18.0.0"
   },
   "files": [
-    "dist",
-    "bin",
     "scripts",
-    "templates",
     "skill-templates",
     "SKILL.md",
-    "README.md"
-  ],
-  "dependencies": {
-    "chalk": "^5.3.0",
-    "chokidar": "^3.5.0",
-    "commander": "^12.0.0",
-    "glob": "^10.3.0",
-    "inquirer": "^9.2.0",
-    "ora": "^8.0.0",
-    "sql.js": "^1.10.3",
-    "yaml": "^2.3.0"
-  },
-  "devDependencies": {
-    "@types/inquirer": "^9.0.9",
-    "@types/node": "^20.11.0",
-    "@types/sql.js": "^1.4.11",
-    "eslint": "^8.57.0",
-    "typescript": "^5.4.0",
-    "vitest": "^1.4.0"
-  },
-  "vitest": {
-    "testTimeout": 60000
-  }
+    "README.md",
+    "USER_GUIDE.md"
+  ]
 }
