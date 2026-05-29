@@ -1029,6 +1029,41 @@ exceptions:
       - code: "USER_ALREADY_EXISTS"
         message: "用户已存在"
         httpStatus: 409
+
+# 跨子任务接口契约定义（方案C新增）
+interfaces:
+  serviceContracts:
+    - name: "UserService"
+      package: "com.xxx.service"
+      methods:
+        - name: "getById"
+          params: ["Long"]
+          returnType: "User"
+          stability: "frozen"  # frozen = 设计确认后不可随意修改
+          description: "根据ID查询用户"
+          
+  eventContracts:
+    - name: "OrderCreatedEvent"
+      topic: "order-events"
+      payload:
+        - name: "orderId"
+          type: "Long"
+        - name: "userId"
+          type: "Long"
+        - name: "totalAmount"
+          type: "BigDecimal"
+      stability: "frozen"
+      
+  dataContracts:
+    - name: "UserSummary"
+      fields:
+        - name: "id"
+          type: "Long"
+        - name: "username"
+          type: "String"
+        - name: "status"
+          type: "UserStatus"
+      stability: "frozen"
 ```
 
 #### 3.3 方法命名规范检查（Design 阶段必须执行）

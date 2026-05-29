@@ -22,87 +22,128 @@ is_background: false
 ## 工作流
 
 ### Step 1: 需求理解
-- 与用户确认需求细节
+- 与用户沟通，明确需求
 - 识别涉及的服务和模块
 - 判断任务复杂度（是否需要拆分）
 
-### Step 2: 任务拆分
-将需求拆分为以下类型的子任务：
+### Step 2: 任务拆分（调用 task-split-expert）
 
+**方案C：智能任务拆分 + 子任务级设计**
+
+对于复杂开发任务，调用 `/task-split-expert` 进行智能拆分：
+
+```
+输入：design-contract.yaml（Design阶段输出）
+输出：
+  - task-dag.yaml          # 任务依赖DAG
+  - subtask-{id}-design.yaml  # 每个子任务的设计文档
+  - interface-registry.yaml   # 接口注册表
+```
+
+**拆分类型**：
 | 子任务类型 | 对应 Subagent | 说明 |
 |-----------|--------------|------|
 | research | research-expert | 项目扫描、架构识别 |
 | analyze | analyze-expert | 需求分析、影响评估 |
-| design | design-expert | 详细设计 |
-| develop | develop-expert | 代码开发（可并行） |
+| design | design-expert | 详细设计（输出 design-contract.yaml）|
+| **task-split** | **task-split-expert** | **智能拆分、生成子任务设计** |
+| develop-subtask | develop-expert | 子任务级代码开发（并行）|
 | verify | verify-expert | 代码验证 |
 
-**拆分原则**：
-- 每个子任务有明确的输入、输出、边界
-- 子任务间依赖关系清晰（DAG）
-- 无依赖的子任务可并行执行
+### Step 3: 构建依赖图（DAG）
 
-### Step 3: 构建依赖图
-使用以下格式记录任务依赖：
+从 task-split-expert 输出的 `task-dag.yaml` 读取依赖图：
 
 ```yaml
-tasks:
-  - id: T1
-    type: research
-    agent: research-expert
-    input: 项目路径
-    output: .dev-flow/memory/
-    dependencies: []
+# task-dag.yaml 结构
+dag:
+  version: "1.0"
+  project: "xxx-service"
   
-  - id: T2
-    type: analyze
-    agent: analyze-expert
-    input: 需求描述 + memory/
-    output: analyze-result.md
-    dependencies: [T1]
+  nodes:
+    - id: "task-001"
+      name: "UserEntity"
+      type: "EntityTask"
+      subtask_design: "subtask-task-001-design.yaml"
+      
+    - id: "task-002"
+      name: "UserMapper"
+      type: "MapperTask"
+      subtask_design: "subtask-task-002-design.yaml"
+      dependencies: ["task-001"]
+      
+    - id: "task-003"
+      name: "UserService"
+      type: "ServiceTask"
+      subtask_design: "subtask-task-003-design.yaml"
+      dependencies: ["task-002"]
+      
+    - id: "task-004"
+      name: "UserController"
+      type: "ControllerTask"
+      subtask_design: "subtask-task-004-design.yaml"
+      dependencies: ["task-003"]
   
-  - id: T3
-    type: design
-    agent: design-expert
-    input: analyze-result.md
-    output: design-result.md
-    dependencies: [T2]
-  
-  - id: T4
-    type: develop
-    agent: develop-expert
-    input: design-result.md
-    output: 代码文件
-    dependencies: [T3]
-    parallel_group: service-a  # 可并行标识
-  
-  - id: T5
-    type: develop
-    agent: develop-expert
-    input: design-result.md
-    output: 代码文件
-    dependencies: [T3]
-    parallel_group: service-b  # 可并行标识
+  batches:
+    - batch: 1
+      tasks: ["task-001"]
+    - batch: 2
+      tasks: ["task-002"]
+    - batch: 3
+      tasks: ["task-003"]
+    - batch: 4
+      tasks: ["task-004"]
 ```
 
-### Step 4: 拓扑排序 + 分批执行
+### Step 4: DAG 调度 + 分批执行
 
+**拓扑排序算法**：
 ```
-批次 1: [T1]                    ← 无依赖，先执行
-批次 2: [T2]                    ← 依赖 T1
-批次 3: [T3]                    ← 依赖 T2
-批次 4: [T4, T5]                ← 依赖 T3，无相互依赖，并行执行
-批次 5: [T6]                    ← 依赖 T4, T5
+1. 找出所有入度为0的节点（无依赖）
+2. 这些节点构成第1批次，并行执行
+3. 移除已执行节点，更新依赖节点的入度
+4. 重复步骤1-3，直到所有节点执行完毕
 ```
 
-**执行命令**：
-- 串行任务：`/research-expert` 或 `/analyze-expert`
-- 并行任务：同时发送多个 `/develop-expert` 调用
+**执行批次示例**：
+```
+批次 1: [task-001, task-005]     ← 无依赖，并行执行
+批次 2: [task-002, task-006]     ← 依赖批次1完成
+批次 3: [task-003]               ← 依赖批次2完成
+批次 4: [task-004, task-007]     ← 依赖批次3完成
+```
 
-### Step 5: 结果验证
-- 检查所有子任务输出是否完整
-- 验证代码可编译性
-- 确认需求满足度
+**启动 Develop Subagent 时传递**：
+```yaml
+# task-context.yaml
+task_id: "task-003"
+task_type: "develop-subtask"
+input_files:
+  - subtask-task-003-design.yaml  # 子任务自己的设计
+  - interface-registry.yaml       # 接口注册表（用于查找依赖）
+dependencies:
+  - task_id: "task-002"
+    interface_contracts:          # 依赖任务提供的接口契约
+      - "UserMapper.selectById"
+      - "UserMapper.insert"
+```
+
+### Step 5: 依赖检查和契约验证
+
+**执行前检查**：
+- [ ] 所有依赖任务的 `provides` 接口已生成
+- [ ] 接口契约标记为 `stability: frozen`
+- [ ] 依赖任务的输出文件存在
+
+**执行后验证**：
+- [ ] 当前任务生成的代码实现了 `ownDesign` 中定义的所有内容
+- [ ] 当前任务提供的接口与 `provides` 声明一致
+- [ ] 代码可编译，无语法错误
+
+### Step 6: 结果整合
+- 收集所有子任务生成的代码文件
+- 验证接口契约一致性
+- 汇总生成最终代码库
 
 ## 与 Subagent 通信协议
 

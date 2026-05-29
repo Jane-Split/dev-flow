@@ -34,6 +34,7 @@ is_background: true
 
 ## 输入
 
+### 方案A/B：传统模式
 从 Orchestrator 接收：
 - `task-context.yaml` - 任务上下文
 - `design-result.md` - 详细设计文档
@@ -42,6 +43,71 @@ is_background: true
 ⭐ **必须读取**：
 - `.dev-flow/docs/{需求简称}-design-contract.yaml` - Design → Develop 标准数据交换格式
 > **🔴 铁律**：此文件包含所有 Entity 字段类型、getter/setter 实际方法名、Service 方法签名、DTO 校验注解、Mapper 方法定义、枚举值定义等关键信息。禁止忽略或跳过。
+
+### 方案C：子任务级开发模式（推荐用于复杂任务）
+从 Orchestrator 接收：
+- `task-context.yaml` - 任务上下文（包含 task_type: develop-subtask）
+- `subtask-{id}-design.yaml` - 子任务专属设计文档
+- `interface-registry.yaml` - 接口注册表（用于查找依赖契约）
+
+⭐ **子任务级输入结构**：
+```yaml
+# subtask-task-003-design.yaml 示例
+subtaskId: "task-003"
+name: "UserService"
+type: "ServiceTask"
+
+ownDesign:
+  service:
+    name: "UserService"
+    package: "com.xxx.service"
+    methods:
+      - name: "getById"
+        params:
+          - name: "userId"
+            type: "Long"
+        returnType: "UserDTO"
+        logic:
+          - step: 1
+            action: "validate"
+            detail: "检查 userId 不为 null，否则抛 BusinessException"
+          - step: 2
+            action: "query"
+            detail: "调用 userMapper.selectById(userId) 查询用户"
+          - step: 3
+            action: "convert"
+            detail: "使用 UserConvertor 将 User 转换为 UserDTO"
+          - step: 4
+            action: "return"
+            detail: "返回 UserDTO"
+
+dependencies:
+  - subtaskId: "task-002"
+    name: "UserMapper"
+    interfaceContract:
+      methods:
+        - name: "selectById"
+          params: ["Long"]
+          returnType: "User"
+    dataContract:
+      entity: "User"
+      fields:
+        - name: "id"
+          type: "Long"
+        - name: "username"
+          type: "String"
+
+provides:
+  - interface: "UserService.getById"
+    stability: "frozen"
+    signature: "UserDTO getById(Long userId)"
+```
+
+> **🔴 铁律（方案C）**：
+> 1. 只实现 `ownDesign` 中定义的内容，不多不少
+> 2. 依赖的接口通过 `dependencies.interfaceContract` 获取，禁止猜测
+> 3. 生成的代码必须满足 `provides` 中声明的接口契约
+> 4. 如果依赖任务的输出不可用，标记为阻塞并返回
 
 ## 输出
 
@@ -52,9 +118,30 @@ is_background: true
 
 ### Step 1: 读取设计文档
 
+#### 方案A/B：读取完整设计文档
 - 理解设计意图
 - 明确接口定义
 - 确认数据模型
+
+#### 方案C：读取子任务级设计
+**读取顺序**：
+1. **读取 `subtask-{id}-design.yaml`** - 获取本任务的 ownDesign、dependencies、provides
+2. **读取 `interface-registry.yaml`** - 获取依赖任务的接口契约
+3. **验证依赖可用性**：
+   - 检查 `dependencies` 中声明的接口是否已在 `interface-registry.yaml` 中注册
+   - 如果依赖任务的接口未注册，标记为 `BLOCKED`，返回等待
+
+**子任务设计理解清单**：
+```markdown
+| 项目 | 内容 | 状态 |
+|------|------|------|
+| 子任务ID | task-003 | ✅ |
+| 子任务名称 | UserService | ✅ |
+| 子任务类型 | ServiceTask | ✅ |
+| ownDesign 方法数 | 3个 | ✅ |
+| 依赖任务数 | 2个 | ✅ |
+| 提供接口数 | 3个 | ✅ |
+```
 
 ### Step 2: 读取已有代码（精准按需）
 
@@ -209,6 +296,7 @@ is_background: true
 
 ### Step 6: 生成结果报告
 
+#### 方案A/B：传统结果报告
 ```yaml
 # develop-result.yaml
 task_id: <任务ID>
@@ -228,6 +316,63 @@ issues:
 compilation_status: success|failed|not_tested
 test_status: passed|failed|not_tested
 ```
+
+#### 方案C：子任务级结果报告
+```yaml
+# develop-result.yaml
+subtask_id: "task-003"
+task_type: "develop-subtask"
+status: success|blocked|failed
+
+# 生成的代码文件
+files_generated:
+  - path: "src/main/java/com/xxx/service/UserService.java"
+    type: "service_interface"
+    description: "用户服务接口"
+  - path: "src/main/java/com/xxx/service/impl/UserServiceImpl.java"
+    type: "service_impl"
+    description: "用户服务实现"
+
+# 实现的接口契约（与 provides 对应）
+interfaces_implemented:
+  - interface: "UserService.getById"
+    signature: "UserDTO getById(Long userId)"
+    status: "implemented"
+  - interface: "UserService.createUser"
+    signature: "UserDTO createUser(UserCreateDTO dto)"
+    status: "implemented"
+
+# 依赖使用情况
+dependencies_used:
+  - subtask_id: "task-002"
+    interface: "UserMapper.selectById"
+    status: "available"  # available | not_found
+
+# 阻塞原因（如果 status 为 blocked）
+blocked_reason: |
+  依赖 task-002 的接口 UserMapper.selectById 未在 interface-registry 中找到
+
+issues:
+  - severity: warning
+    file: "UserServiceImpl.java"
+    message: "缺少用户不存在时的异常处理"
+    suggestion: "添加 BusinessException 抛出"
+
+compilation_status: success
+test_status: not_tested
+```
+
+**方案C特有输出**：
+- `interface-registry-update.yaml` - 更新接口注册表，注册本任务提供的接口
+  ```yaml
+  # 追加到 interface-registry.yaml
+  - subtask_id: "task-003"
+    interfaces:
+      - name: "UserService.getById"
+        signature: "UserDTO getById(Long userId)"
+        stability: "frozen"
+        file: "com.xxx.service.UserService"
+  ```
 
 ## 并行开发注意事项
 
