@@ -242,6 +242,248 @@ provides:
 - 正确处理异常
 - 添加日志记录
 
+### Step 3.5: 复杂业务逻辑实现（🔴 复杂场景必须执行）
+
+> **触发条件**：设计文档中包含以下任一内容时必须执行
+> - 状态机定义（stateMachine）
+> - 工作流定义（workflow）
+> - 复杂算法定义（algorithm）
+> - 并发控制定义（concurrencyControl）
+
+#### 3.5.1 状态机实现
+
+**实现步骤**：
+
+1. **定义状态枚举**：
+```java
+public enum OrderStatus {
+    CREATED("已创建"),
+    PAID("已支付"),
+    SHIPPED("已发货"),
+    COMPLETED("已完成"),
+    CANCELLED("已取消");
+    
+    private final String description;
+    
+    // 判断是否可以转换到目标状态
+    public boolean canTransitionTo(OrderStatus target) {
+        return TransitionRules.getValidTransitions(this).contains(target);
+    }
+}
+```
+
+2. **实现状态转换服务**：
+```java
+@Service
+public class OrderStateService {
+    
+    @Transactional(rollbackFor = Exception.class)
+    public Order transition(Order order, OrderStatus targetStatus, String event) {
+        // 1. 验证状态转换合法性
+        if (!order.getStatus().canTransitionTo(targetStatus)) {
+            throw new IllegalStateException(
+                String.format("无法从 %s 转换到 %s", order.getStatus(), targetStatus)
+            );
+        }
+        
+        // 2. 执行转换前动作
+        executeBeforeAction(order, event);
+        
+        // 3. 更新状态
+        OrderStatus oldStatus = order.getStatus();
+        order.setStatus(targetStatus);
+        order.setUpdateTime(LocalDateTime.now());
+        
+        // 4. 记录状态历史
+        saveStateHistory(order, oldStatus, targetStatus, event);
+        
+        // 5. 执行转换后动作
+        executeAfterAction(order, event);
+        
+        return order;
+    }
+}
+```
+
+#### 3.5.2 工作流实现
+
+**实现步骤**：
+
+1. **定义工作流步骤**：
+```java
+@Data
+public class WorkflowStep {
+    private String stepId;
+    private String stepName;
+    private String assignee;
+    private StepStatus status;
+    private LocalDateTime startTime;
+    private LocalDateTime endTime;
+    private String comment;
+}
+```
+
+2. **实现工作流引擎**：
+```java
+@Service
+public class WorkflowEngine {
+    
+    public void startWorkflow(String workflowType, Long businessId, String initiator) {
+        // 1. 创建工作流实例
+        WorkflowInstance instance = createInstance(workflowType, businessId, initiator);
+        
+        // 2. 执行第一个步骤
+        executeStep(instance, instance.getCurrentStep());
+    }
+    
+    @Transactional(rollbackFor = Exception.class)
+    public void approve(Long instanceId, String approver, boolean approved, String comment) {
+        // 1. 获取工作流实例
+        WorkflowInstance instance = getInstance(instanceId);
+        
+        // 2. 验证审批人权限
+        validateApprover(instance, approver);
+        
+        // 3. 记录审批结果
+        recordApproval(instance, approver, approved, comment);
+        
+        // 4. 决定下一步
+        if (approved) {
+            moveToNextStep(instance);
+        } else {
+            rejectWorkflow(instance);
+        }
+    }
+}
+```
+
+#### 3.5.3 复杂算法实现
+
+**实现步骤**：
+
+1. **按设计文档逐步实现**：
+```java
+@Service
+public class PricingCalculator {
+    
+    public PricingResult calculate(PricingRequest request) {
+        PricingResult result = new PricingResult();
+        
+        // Step 1: 参数校验
+        validateRequest(request);
+        
+        // Step 2: 计算等级折扣
+        BigDecimal levelDiscount = calculateLevelDiscount(request);
+        
+        // Step 3: 计算促销折扣（如果有）
+        BigDecimal promotionDiscount = BigDecimal.ZERO;
+        if (StringUtils.hasText(request.getPromotionCode())) {
+            promotionDiscount = calculatePromotionDiscount(request);
+        }
+        
+        // Step 4: 组合折扣（取最大值）
+        BigDecimal finalDiscount = levelDiscount.max(promotionDiscount);
+        
+        // Step 5: 计算最终价格
+        BigDecimal finalPrice = request.getBasePrice().multiply(
+            BigDecimal.ONE.subtract(finalDiscount)
+        );
+        
+        // Step 6: 边界检查
+        if (finalPrice.compareTo(BigDecimal.ZERO) < 0) {
+            throw new BusinessException("价格计算异常：最终价格为负");
+        }
+        
+        result.setFinalPrice(finalPrice);
+        result.setDiscountRate(finalDiscount);
+        return result;
+    }
+}
+```
+
+2. **每个步骤必须有单元测试**：
+```java
+@Test
+void testCalculateLevelDiscount_VipUser_Returns10Percent() {
+    PricingRequest request = createRequest(UserLevel.VIP, null);
+    BigDecimal discount = calculator.calculateLevelDiscount(request);
+    assertEquals(new BigDecimal("0.10"), discount);
+}
+
+@Test
+void testCalculatePromotionDiscount_ExpiredCode_ReturnsZero() {
+    PricingRequest request = createRequest(UserLevel.NORMAL, "EXPIRED_CODE");
+    BigDecimal discount = calculator.calculatePromotionDiscount(request);
+    assertEquals(BigDecimal.ZERO, discount);
+}
+```
+
+#### 3.5.4 并发控制实现
+
+**乐观锁实现**：
+```java
+@Service
+public class InventoryService {
+    
+    @Transactional(rollbackFor = Exception.class)
+    public boolean deductStock(Long productId, int quantity) {
+        // 1. 读取库存（包含版本号）
+        Inventory inventory = inventoryMapper.selectById(productId);
+        
+        // 2. 检查库存是否充足
+        if (inventory.getQuantity() < quantity) {
+            throw new BusinessException("库存不足");
+        }
+        
+        // 3. 扣减库存（带版本号校验）
+        int affectedRows = inventoryMapper.deductWithVersion(
+            productId, 
+            quantity, 
+            inventory.getVersion()
+        );
+        
+        // 4. 检查是否成功（并发冲突时 affectedRows = 0）
+        if (affectedRows == 0) {
+            throw new BusinessException("并发冲突，请重试");
+        }
+        
+        return true;
+    }
+}
+```
+
+**分布式锁实现**：
+```java
+@Service
+public class InventoryService {
+    
+    @Autowired
+    private RedissonClient redissonClient;
+    
+    public boolean deductStockWithLock(Long productId, int quantity) {
+        String lockKey = "inventory:lock:" + productId;
+        RLock lock = redissonClient.getLock(lockKey);
+        
+        try {
+            // 1. 尝试获取锁
+            boolean locked = lock.tryLock(10, 30, TimeUnit.SECONDS);
+            if (!locked) {
+                throw new BusinessException("系统繁忙，请稍后重试");
+            }
+            
+            // 2. 执行库存扣减
+            return doDeductStock(productId, quantity);
+            
+        } finally {
+            // 3. 释放锁
+            if (lock.isHeldByCurrentThread()) {
+                lock.unlock();
+            }
+        }
+    }
+}
+```
+
 ### Step 4: 依赖处理
 
 **Maven/Gradle 依赖**：
@@ -293,6 +535,169 @@ provides:
 1. **必须修复后才能继续**
 2. 不要声称"开发完成"
 3. 不要进入下一个文件的开发
+
+### Step 5.5: 测试代码生成（🔴 必须执行）
+
+> **铁律**：每个公开方法至少生成3个测试用例（正常、异常、边界）
+
+#### 5.5.1 测试用例生成规则
+
+**按方法类型生成**：
+
+| 方法类型 | 必须生成的测试 | 最少用例数 | 示例 |
+|----------|----------------|------------|------|
+| 简单查询 | 正常返回、空结果、参数校验 | 3 | `testGetById_Success`, `testGetById_NotFound`, `testGetById_NullId` |
+| 创建方法 | 正常创建、参数校验、重复创建、事务回滚 | 4 | `testCreate_Success`, `testCreate_InvalidParam`, `testCreate_Duplicate`, `testCreate_TransactionRollback` |
+| 更新方法 | 正常更新、数据不存在、并发冲突、部分更新 | 4 | `testUpdate_Success`, `testUpdate_NotFound`, `testUpdate_ConcurrentConflict`, `testUpdate_PartialUpdate` |
+| 删除方法 | 正常删除、数据不存在、级联删除、权限校验 | 4 | `testDelete_Success`, `testDelete_NotFound`, `testDelete_Cascade`, `testDelete_NoPermission` |
+| 业务逻辑 | 正常流程、每个分支、边界值、异常处理 | 5+ | 根据分支数确定 |
+| 复杂业务 | 正常流程、所有分支、边界、并发 | 7+ | 完整场景覆盖 |
+
+#### 5.5.2 Java 测试模板
+
+```java
+// ========== 必须使用的测试模板 ==========
+
+/**
+ * 正常场景测试
+ */
+@Test
+@DisplayName("正常场景：{方法名} - {场景描述}")
+void test{MethodName}_{Scenario}_Success() {
+    // Given: 准备测试数据
+    {InputType} input = prepareTestData();
+    when({mockDependency}.{mockMethod}()).thenReturn({mockResult});
+    
+    // When: 执行被测方法
+    {ReturnType} result = {service}.{method}(input);
+    
+    // Then: 验证结果
+    assertNotNull(result);
+    assertEquals(expectedValue, result.get{Field}());
+    verify({mockDependency}).{verifyMethod}();  // 验证依赖调用
+}
+
+/**
+ * 异常场景测试
+ */
+@Test
+@DisplayName("异常场景：{方法名} - {异常描述}")
+void test{MethodName}_{ExceptionCase}_ThrowsException() {
+    // Given: 准备异常触发数据
+    {InputType} input = prepareInvalidData();
+    
+    // When & Then: 验证异常
+    BusinessException exception = assertThrows(
+        BusinessException.class,
+        () -> {service}.{method}(input)
+    );
+    assertEquals("ERROR_CODE", exception.getErrorCode());
+}
+
+/**
+ * 边界场景测试
+ */
+@Test
+@DisplayName("边界场景：{方法名} - {边界描述}")
+void test{MethodName}_{BoundaryCase}_HandlesCorrectly() {
+    // Given: 准备边界数据（null, empty, max, min）
+    {InputType} input = prepareBoundaryData();
+    
+    // When: 执行被测方法
+    {ReturnType} result = {service}.{method}(input);
+    
+    // Then: 验证边界处理
+    assertNotNull(result);
+    // 边界特定断言...
+}
+```
+
+#### 5.5.3 前端测试模板
+
+```typescript
+// ========== 必须使用的测试模板 ==========
+
+describe('{ComponentName}', () => {
+  // 正常渲染测试
+  it('should render correctly with valid props', () => {
+    render(<{ComponentName} {...defaultProps} />);
+    expect(screen.getByText(/expected text/i)).toBeInTheDocument();
+  });
+
+  // 空数据测试
+  it('should handle empty data gracefully', () => {
+    render(<{ComponentName} {...emptyProps} />);
+    expect(screen.getByText(/no data/i)).toBeInTheDocument();
+  });
+
+  // 加载状态测试
+  it('should show loading state', () => {
+    render(<{ComponentName} {...loadingProps} />);
+    expect(screen.getByRole('progressbar')).toBeInTheDocument();
+  });
+
+  // 错误状态测试
+  it('should display error message on failure', () => {
+    render(<{ComponentName} {...errorProps} />);
+    expect(screen.getByText(/error/i)).toBeInTheDocument();
+  });
+
+  // 交互测试
+  it('should call onClick when button clicked', async () => {
+    const onClick = jest.fn();
+    render(<{ComponentName} {...{ ...defaultProps, onClick }} />);
+    await userEvent.click(screen.getByRole('button'));
+    expect(onClick).toHaveBeenCalledTimes(1);
+  });
+});
+```
+
+#### 5.5.4 Mock 策略
+
+**必须 Mock 的依赖**：
+- 数据库访问层（Mapper/Repository）
+- 外部服务调用（Feign Client）
+- 文件系统操作
+- 时间相关操作
+
+**禁止 Mock 的内容**：
+- 被测类本身
+- 纯数据对象（DTO/Entity）
+- 工具类（除非涉及外部资源）
+
+#### 5.5.5 测试数据准备
+
+**使用 Builder 模式或 Factory 方法**：
+
+```java
+// 推荐：使用 Builder 模式
+UserRequest request = UserRequest.builder()
+    .username("testuser")
+    .email("test@example.com")
+    .status(UserStatus.NORMAL)
+    .build();
+
+// 或使用 Factory 方法
+private UserRequest createValidUserRequest() {
+    return new UserRequest("testuser", "test@example.com", UserStatus.NORMAL);
+}
+
+private UserRequest createInvalidUserRequest() {
+    return new UserRequest(null, "invalid-email", null);  // 触发校验失败
+}
+
+private UserRequest createBoundaryUserRequest() {
+    return new UserRequest("a", "a@b.c", null);  // 边界值：最短用户名
+}
+```
+
+#### 5.5.6 测试覆盖率目标
+
+| 指标 | 目标值 | 检查方式 |
+|------|--------|----------|
+| 行覆盖率 | ≥ 90% | JaCoCo / Istanbul |
+| 分支覆盖率 | ≥ 85% | JaCoCo / Istanbul |
+| 方法覆盖率 | ≥ 95% | 检查公开方法都有测试 |
 
 ### Step 6: 生成结果报告
 

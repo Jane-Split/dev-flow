@@ -81,13 +81,117 @@ mvn clean compile -DskipTests
 - 无缺少依赖
 - 无方法未找到
 
-### 5. 测试检查
+### 5. 测试检查（增强版）
+
+#### 5.1 测试覆盖度检查
+
+**强制覆盖矩阵**：
+
+| 方法类型 | 必须覆盖场景 | 最少用例数 | 检查方式 |
+|----------|--------------|------------|----------|
+| 查询方法 | 正常返回、空结果、参数为null | 3 | 检查测试方法名包含对应场景 |
+| 创建方法 | 正常创建、参数校验失败、重复创建 | 3 | 检查异常测试用例 |
+| 更新方法 | 正常更新、数据不存在、并发冲突 | 3 | 检查乐观锁/版本号测试 |
+| 删除方法 | 正常删除、数据不存在、级联删除 | 3 | 检查关联数据处理测试 |
+| 业务逻辑 | 正常流程、每个异常分支、边界值 | 5+ | 检查分支覆盖率 |
+| 复杂业务 | 正常流程、所有分支、边界、并发 | 7+ | 检查完整场景覆盖 |
+
+**覆盖率计算规则**：
+```
+覆盖率 = (已覆盖场景数 / 必须覆盖场景数) × 100%
+
+必须覆盖场景数 = 方法数 × 场景系数
+场景系数：
+- 简单CRUD方法：3（正常、异常、边界）
+- 业务逻辑方法：5（正常、3个异常分支、边界）
+- 复杂业务方法：7+（正常、所有分支、边界、并发）
+```
+
+**覆盖率阈值**：
+- 行覆盖率 ≥ 90%
+- 分支覆盖率 ≥ 85%
+- 方法覆盖率 ≥ 95%
+
+#### 5.2 测试用例质量检查
+
+**断言有效性检查**：
+
+| 检查项 | 标准 | 错误示例 | 正确示例 |
+|--------|------|----------|----------|
+| 禁止无断言 | 每个测试至少1个断言 | `testMethod() { service.call(); }` | `testMethod() { assertNotNull(service.call()); }` |
+| 禁止恒真断言 | 断言必须验证实际结果 | `assertTrue(true)` | `assertEquals(expected, actual)` |
+| 禁止过于宽松 | 断言必须验证关键字段 | `assertNotNull(result)` | `assertEquals(expectedId, result.getId())` |
+| 必须验证异常 | 异常测试必须验证异常类型和消息 | `assertThrows(Exception.class, ...)` | `assertThrows(BusinessException.class, ...) + 验证错误码` |
+
+**测试命名规范检查**：
+
+| 语言 | 命名规范 | 示例 |
+|------|----------|------|
+| Java | `test{MethodName}_{Scenario}_{ExpectedResult}` | `testGetById_UserExists_ReturnsUser` |
+| TypeScript | `should {expectedBehavior} when {condition}` | `should return user when user exists` |
+
+#### 5.3 测试数据检查
 
 | 检查项 | 标准 |
 |--------|------|
-| 单元测试存在 | 关键方法有单元测试 |
-| 测试可运行 | 测试能通过 |
-| 覆盖率 | 核心业务逻辑有覆盖 |
+| 测试数据独立 | 每个测试使用独立数据，不依赖执行顺序 |
+| 边界数据覆盖 | 包含 null、empty、max、min 等边界值 |
+| 异常数据覆盖 | 包含非法参数、格式错误等异常数据 |
+| 数据清理 | 测试后清理数据，不影响其他测试 |
+
+#### 5.4 Mock 使用检查
+
+**必须 Mock 的依赖**：
+- 数据库访问层（Mapper/Repository）
+- 外部服务调用（Feign Client）
+- 文件系统操作
+- 时间相关操作
+
+**禁止 Mock 的内容**：
+- 被测类本身
+- 纯数据对象（DTO/Entity）
+- 工具类（除非涉及外部资源）
+
+#### 5.5 测试报告格式
+
+```yaml
+# test-coverage-report.yaml
+summary:
+  line_coverage: 92%        # 行覆盖率
+  branch_coverage: 88%      # 分支覆盖率
+  method_coverage: 95%      # 方法覆盖率
+  target_coverage: 90%      # 目标覆盖率
+  status: passed            # passed/failed
+
+by_type:
+  service:
+    line_coverage: 95%
+    branch_coverage: 92%
+    methods_tested: 10
+    methods_total: 10
+  controller:
+    line_coverage: 90%
+    branch_coverage: 85%
+    methods_tested: 8
+    methods_total: 8
+
+missing_coverage:
+  - file: "UserServiceImpl.java"
+    method: "complexBusinessLogic"
+    missing_branches:
+      - "line 45: 并发冲突处理"
+      - "line 67: 超时重试"
+    suggestion: "需要增加并发场景测试"
+
+test_quality:
+  no_assertion_tests: []      # 无断言测试列表
+  weak_assertion_tests: []    # 弱断言测试列表
+  naming_violations: []       # 命名违规列表
+
+recommendations:
+  - "UserServiceImpl.complexBusinessLogic 需要增加并发场景测试"
+  - "OrderController 需要增加权限校验测试"
+```
 
 ## 问题分级
 

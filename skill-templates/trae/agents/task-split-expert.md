@@ -205,6 +205,100 @@ changelog:
     interface: "UserService.getById"
     change: "created"
     reason: "初始设计"
+
+# 传递依赖分析（新增）
+transitive_dependencies:
+  - from_task: "task-004"
+    to_task: "task-001"
+    via: "task-003 -> task-002"
+    reason: "OrderService 通过 UserService -> UserMapper 间接依赖 UserEntity"
+    depth: 3
+```
+
+### Step 5.5: 传递依赖分析（🔴 复杂项目必须执行）
+
+> **触发条件**：
+> - 依赖链深度 > 2
+> - 存在跨服务调用
+> - 共享模块被多个服务依赖
+
+#### 5.5.1 传递依赖识别
+
+**识别规则**：
+
+```
+如果 A 依赖 B，B 依赖 C，则 A 传递依赖 C
+
+传递依赖类型：
+1. 数据传递：A 使用 B 返回的数据，该数据包含 C 的字段
+2. 接口传递：A 调用 B 的方法，B 内部调用 C
+3. 事件传递：A 发布事件，B 监听并处理，B 处理时调用 C
+```
+
+#### 5.5.2 传递依赖处理
+
+**在 subtask-design.yaml 中增加传递依赖声明**：
+
+```yaml
+subtaskId: "task-004"
+name: "OrderService"
+
+dependencies:
+  # 直接依赖
+  direct:
+    - subtaskId: "task-003"
+      name: "UserService"
+      interfaceContract:
+        methods: [...]
+        
+  # 传递依赖（间接依赖）
+  transitive:
+    - subtaskId: "task-002"
+      name: "UserMapper"
+      via: "task-003"  # 通过 UserService 间接依赖
+      reason: "UserService.getById 内部调用 UserMapper.selectById"
+      interfaceContract:
+        methods:
+          - name: "selectById"
+            params: ["Long"]
+            returnType: "User"
+            
+    - subtaskId: "task-001"
+      name: "UserEntity"
+      via: "task-003 -> task-002"
+      reason: "UserMapper 返回 User 对象"
+      dataContract:
+        entity: "User"
+        fields: [...]
+            
+dependency_depth: 3  # 依赖深度
+```
+
+#### 5.5.3 依赖变更预警
+
+**在 interface-registry.yaml 中增加变更预警**：
+
+```yaml
+registry:
+  - subtaskId: "task-005"
+    interface: "ProductService.getById"
+    signature: "Product getById(Long productId)"
+    status: "available"
+    
+    # 新增：依赖此接口的下游任务
+    downstream:
+      - subtaskId: "task-002"
+        usage: "OrderMapper.selectWithProduct 返回包含 Product"
+        impact: "如果 ProductService.getById 签名变更，task-002 需要更新"
+      - subtaskId: "task-003"
+        usage: "通过 task-002 传递依赖"
+        impact: "间接影响，需要检查是否使用 Product 字段"
+        
+    # 新增：上游依赖
+    upstream:
+      - subtaskId: "task-006"
+        interface: "ProductMapper.selectById"
+        reason: "ProductService.getById 内部调用"
 ```
 
 ## 拆分原则

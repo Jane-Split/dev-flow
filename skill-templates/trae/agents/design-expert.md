@@ -97,6 +97,236 @@ ReturnType methodName(ParamType param);
 - 核心步骤
 - 复杂度分析
 
+### Step 3.5: 复杂业务逻辑设计（🔴 复杂场景必须执行）
+
+> **触发条件**：业务逻辑涉及以下任一场景时必须执行
+> - 状态转换（状态机）
+> - 多步骤流程（工作流）
+> - 复杂计算/算法
+> - 并发控制
+> - 分布式事务
+
+#### 3.5.1 状态机设计模板
+
+**状态机定义**：
+
+```yaml
+stateMachine:
+  name: "OrderStateMachine"
+  entity: "Order"
+  stateField: "status"
+  
+  states:
+    - name: "CREATED"
+      description: "已创建"
+      initial: true
+    - name: "PAID"
+      description: "已支付"
+    - name: "SHIPPED"
+      description: "已发货"
+    - name: "COMPLETED"
+      description: "已完成"
+      final: true
+    - name: "CANCELLED"
+      description: "已取消"
+      final: true
+      
+  transitions:
+    - from: "CREATED"
+      to: "PAID"
+      event: "pay"
+      guard: "paymentAmount >= orderTotal"
+      action: "updatePaymentInfo"
+      
+    - from: "CREATED"
+      to: "CANCELLED"
+      event: "cancel"
+      guard: "true"
+      action: "releaseInventory"
+      
+    - from: "PAID"
+      to: "SHIPPED"
+      event: "ship"
+      guard: "inventoryAvailable"
+      action: "createShipment"
+      
+    - from: "SHIPPED"
+      to: "COMPLETED"
+      event: "confirm"
+      guard: "true"
+      action: "updateCompletionTime"
+```
+
+**状态机实现要点**：
+1. 使用状态模式或状态机框架（如 Spring StateMachine）
+2. 每个状态转换必须有明确的触发事件
+3. 每个转换可以有前置条件（guard）和后置动作（action）
+4. 记录状态转换历史，支持审计
+
+#### 3.5.2 工作流设计模板
+
+**工作流定义**：
+
+```yaml
+workflow:
+  name: "ApprovalWorkflow"
+  trigger: "submitForApproval"
+  
+  steps:
+    - id: "submit"
+      name: "提交审批"
+      type: "start"
+      assignee: "currentUser"
+      next: "manager_approve"
+      
+    - id: "manager_approve"
+      name: "经理审批"
+      type: "approval"
+      assignee: "manager"
+      timeout: "3d"
+      actions:
+        - name: "approve"
+          next: "director_approve"
+        - name: "reject"
+          next: "end_rejected"
+          
+    - id: "director_approve"
+      name: "总监审批"
+      type: "approval"
+      assignee: "director"
+      condition: "amount > 10000"
+      timeout: "5d"
+      actions:
+        - name: "approve"
+          next: "end_approved"
+        - name: "reject"
+          next: "end_rejected"
+          
+    - id: "end_approved"
+      name: "审批通过"
+      type: "end"
+      status: "APPROVED"
+      
+    - id: "end_rejected"
+      name: "审批拒绝"
+      type: "end"
+      status: "REJECTED"
+```
+
+**工作流实现要点**：
+1. 每个步骤有明确的执行人和超时设置
+2. 支持条件分支（condition）
+3. 支持并行步骤（parallel）
+4. 记录审批历史和意见
+
+#### 3.5.3 复杂算法设计模板
+
+**算法定义**：
+
+```yaml
+algorithm:
+  name: "PricingCalculator"
+  description: "价格计算算法"
+  
+  inputs:
+    - name: "basePrice"
+      type: "BigDecimal"
+      description: "基础价格"
+    - name: "userLevel"
+      type: "UserLevel"
+      description: "用户等级"
+    - name: "promotionCode"
+      type: "String"
+      description: "促销代码"
+      required: false
+      
+  outputs:
+    - name: "finalPrice"
+      type: "BigDecimal"
+      description: "最终价格"
+    - name: "discountDetails"
+      type: "List<DiscountDetail>"
+      description: "折扣明细"
+      
+  steps:
+    - id: "validate"
+      description: "参数校验"
+      logic: |
+        1. basePrice > 0
+        2. userLevel 不为 null
+        3. 如果 promotionCode 不为空，验证有效性
+        
+    - id: "calc_level_discount"
+      description: "计算等级折扣"
+      logic: |
+        根据 userLevel 确定折扣率：
+        - VIP: 10%
+        - GOLD: 8%
+        - SILVER: 5%
+        - NORMAL: 0%
+        
+    - id: "calc_promotion_discount"
+      description: "计算促销折扣"
+      condition: "promotionCode 不为空"
+      logic: |
+        1. 查询促销规则
+        2. 验证促销条件（如满减门槛）
+        3. 计算促销折扣
+        
+    - id: "combine_discounts"
+      description: "组合折扣"
+      logic: |
+        折扣叠加规则：
+        1. 等级折扣和促销折扣取最大值（不叠加）
+        2. 计算最终价格
+        3. 记录折扣明细
+        
+  edgeCases:
+    - condition: "促销代码过期"
+      handling: "忽略促销折扣，仅应用等级折扣"
+    - condition: "折扣后价格为负"
+      handling: "返回错误，不允许负价格"
+    - condition: "并发计算"
+      handling: "使用乐观锁，版本号校验"
+```
+
+#### 3.5.4 并发控制设计
+
+**并发场景识别**：
+
+| 场景 | 风险 | 解决方案 |
+|------|------|----------|
+| 库存扣减 | 超卖 | 乐观锁 + 版本号 / 分布式锁 |
+| 余额操作 | 余额不一致 | 数据库行锁 / 事务隔离 |
+| 订单状态变更 | 状态不一致 | 状态机 + CAS |
+| 计数器更新 | 计数不准 | Redis 原子操作 |
+
+**并发控制设计模板**：
+
+```yaml
+concurrencyControl:
+  scenario: "库存扣减"
+  risk: "超卖"
+  
+  strategy:
+    type: "optimistic_lock"  # 或 pessimistic_lock, distributed_lock
+    implementation:
+      - step: "读取库存"
+        action: "SELECT quantity, version FROM inventory WHERE id = ?"
+      - step: "检查库存"
+        condition: "quantity >= requestQuantity"
+      - step: "扣减库存"
+        action: "UPDATE inventory SET quantity = quantity - ?, version = version + 1 WHERE id = ? AND version = ?"
+      - step: "检查更新结果"
+        condition: "affectedRows > 0"
+        onFailure: "重试或返回库存不足"
+        
+  retry:
+    maxAttempts: 3
+    backoff: "exponential"
+    initialDelay: "100ms"
+```
+
 ### Step 4: 数据库设计
 
 **表结构变更**：
