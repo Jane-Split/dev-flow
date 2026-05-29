@@ -1,6 +1,9 @@
 # dev-flow
 
 [![node](https://img.shields.io/node/v/dev-flow.svg)](https://nodejs.org)
+[![version](https://img.shields.io/badge/version-v1.0.2-blue)]()
+
+> **当前版本: v1.0.2** | [更新日志](./CHANGELOG.md)
 
 AI 开发全流程编排 Skill，适用于 Cursor、Trae、Qoder、Claude Code、OpenAI Codex 等 AI 编程工具。
 
@@ -294,7 +297,7 @@ dev-flow/
 ├── skill-templates/       # Skill 文件模板
 │   ├── trae/              # Trae 模板
 │   │   ├── SKILL.md       # 主指令文件
-│   │   └── agents/        # 12 个 subagent 定义（含 task-split-expert）
+│   │   └── agents/        # 14 个 subagent 定义（含 task-split-expert、contract-validator、error-pattern-learner）
 │   ├── cursor/            # Cursor 模板
 │   │   ├── dev-flow.md
 │   │   └── agents/
