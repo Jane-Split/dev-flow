@@ -39,6 +39,10 @@ is_background: true
 - `design-result.md` - 详细设计文档
 - `task-assignment.yaml` - 分配给本 subagent 的具体任务
 
+⭐ **必须读取**：
+- `.dev-flow/docs/{需求简称}-design-contract.yaml` - Design → Develop 标准数据交换格式
+> **🔴 铁律**：此文件包含所有 Entity 字段类型、getter/setter 实际方法名、Service 方法签名、DTO 校验注解、Mapper 方法定义、枚举值定义等关键信息。禁止忽略或跳过。
+
 ## 输出
 
 - 生成的代码文件

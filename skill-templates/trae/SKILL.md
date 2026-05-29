@@ -980,6 +980,55 @@ feignClients:
       - name: "getById"
         path: "/api/roles/{id}"
         returnType: "RoleDTO"
+
+# 枚举定义
+enums:
+  - name: "UserStatus"
+    package: "com.xxx.enums"
+    values:
+      - name: "NORMAL"
+        code: 0
+        description: "正常"
+      - name: "DISABLED"
+        code: 1
+        description: "禁用"
+    methods:
+      - name: "getCode"
+        returnType: "int"
+      - name: "fromCode"
+        params: ["int"]
+        returnType: "UserStatus"
+
+# Mapper 定义
+mappers:
+  - name: "UserMapper"
+    package: "com.xxx.mapper"
+    entity: "User"
+    extends: "BaseMapper<User>"
+    customMethods:
+      - name: "selectByCondition"
+        params: ["UserQueryDTO"]
+        returnType: "List<User>"
+        sqlType: "XML"           # XML / Annotation
+        description: "条件查询"
+      - name: "checkExistsByName"
+        params: ["String"]
+        returnType: "boolean"
+        sqlType: "Annotation"    # @Select
+        description: "检查名称是否存在"
+
+# 异常类定义
+exceptions:
+  - name: "UserException"
+    package: "com.xxx.exception"
+    parentException: "BusinessException"
+    errorCodes:
+      - code: "USER_NOT_FOUND"
+        message: "用户不存在"
+        httpStatus: 404
+      - code: "USER_ALREADY_EXISTS"
+        message: "用户已存在"
+        httpStatus: 409
 ```
 
 #### 3.3 方法命名规范检查（Design 阶段必须执行）
@@ -2127,6 +2176,42 @@ Task Split 阶段输出（极端模式）：
   - 跨服务 DTO 转换是否完整（字段映射无遗漏）
   - 服务间依赖顺序是否正确（被依赖的服务先开发）
   - 是否有循环依赖（A 调 B，B 调 A）
+
+### 🔴 Step 4: 实际编译验证（强烈建议执行）
+
+> 自检通过后，强烈建议执行实际编译验证，因为 AI 自检可能遗漏泛型类型、隐式转换等问题。
+
+**Java 项目**：
+```bash
+# 单服务
+mvn compile -pl {module-name} -am -q
+
+# 多服务（仅编译当前服务）
+mvn compile -pl {service-module} -am -q
+```
+
+**前端项目**：
+```bash
+npm run build 2>&1 | head -50
+# 或
+npx tsc --noEmit
+```
+
+**编译结果处理**：
+| 结果 | 操作 |
+|------|------|
+| ✅ 编译通过 | 继续下一个文件 |
+| ❌ 编译失败 | 1. 读取错误信息 2. 修复编译错误 3. 重新编译验证 |
+| ⚠️ 警告 | 评估是否需要修复（类型安全警告建议修复） |
+
+### 🔴 失败恢复策略
+
+如果代码生成过程中遇到无法解决的问题：
+
+1. **保存当前进度**：将已完成的文件写入磁盘，不要丢弃
+2. **记录失败信息**：在 `develop-result.yaml` 中标记 `compilation_status: failed`，记录具体错误
+3. **通知 Orchestrator**：通过 `task-result.yaml` 报告失败，包含失败原因和建议的修复方向
+4. **不要静默跳过**：禁止跳过编译错误继续开发下一个文件
 
 ---
 

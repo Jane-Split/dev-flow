@@ -36,6 +36,9 @@ const AGENT_FILES = [
   'config-analyzer.md',
   'on-demand-loader.md',
   'runtime-state-manager.md',
+  'smoke-test.md',
+  'integration-test.md',
+  'delivery.md',
 ];
 
 const CODEX_AGENT_FILES = AGENT_FILES.map((file) => file.replace(/\.md$/, '.toml'));

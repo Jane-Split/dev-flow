@@ -33,6 +33,9 @@ is_background: false
 - `api-spec.yaml` - API 接口规范
 - `db-schema.sql` - 数据库变更脚本（如需要）
 
+⭐ **写入 `.dev-flow/docs/{需求简称}-design-contract.yaml` - Design → Develop 标准数据交换格式（必须生成）**
+> **🔴 铁律**：此文件是 Develop 阶段读取设计信息的唯一标准来源。必须包含完整的 entities、dtos、enums、mappers、services、controllers、feignClients、exceptions 定义。
+
 ## 工作流
 
 ### Step 1: 数据模型设计
@@ -128,6 +131,30 @@ ReturnType methodName(ParamType param);
 - 业务流程说明
 - 数据库变更脚本
 - 异常处理策略
+
+### 🔴 Step 7: 生成 design-contract.yaml（必须执行）
+
+> **🔴 铁律**：此步骤不可跳过。design-contract.yaml 是 Design → Develop 的唯一标准数据交换格式。
+
+根据 Step 1-5 的设计结果，生成结构化的 `.dev-flow/docs/{需求简称}-design-contract.yaml`，必须包含以下所有部分：
+
+```yaml
+contract_version: "1.0"
+demand_name: "{需求名称}"
+generated_at: "{生成时间}"
+generated_by: "Design Expert"
+
+entities:     # Entity 定义（字段、类型、getter/setter 实际方法名）
+dtos:         # DTO 定义（字段、校验注解）
+enums:        # 枚举定义（枚举值名称、构造参数、枚举方法）
+mappers:      # Mapper 定义（方法签名、SQL 类型、是否需要 XML）
+services:     # Service 定义（方法签名、参数类型、返回类型、事务属性）
+controllers:  # Controller 定义（API 端点、HTTP 方法、参数绑定）
+feignClients: # Feign Client 定义（目标服务、接口方法）
+exceptions:   # 异常类定义（类名、错误码、使用场景）
+```
+
+**生成后自检**：确认以上 8 个部分均已填写，无遗漏。
 
 ## 设计原则
 

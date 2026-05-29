@@ -59,6 +59,22 @@ Use Research when memory is missing, outdated, or requested directly.
    - 50 to 200: grouped Research with 2-3 subagents,
    - more than 200: full parallel Research.
 
+### 🔴 Layered Scanning Strategy (Prevent Context Overflow)
+
+For large projects, use three-layer scanning to avoid context overflow:
+
+1. **Quick Scan**: Count files per module, identify key entry points, estimate complexity
+2. **Smart Sampling**: Read 10-20 core files (main entities, key services) instead of all files
+3. **On-Demand Loading**: Only read additional files when specific information is needed during Design/Develop
+
+### 🔴 Context Monitoring
+
+Monitor context usage during long sessions:
+- < 70%: Safe, continue normally
+- 70-85%: Warning, reduce file reads, save checkpoint
+- 85-95%: Critical, save checkpoint and clean context
+- > 95%: Overflow risk, must save and resume with `/dev-flow --resume`
+
 For large Research tasks, spawn Codex subagents when available:
 
 - `dependency-scanner`: scan internal dependencies and shared modules.
@@ -106,6 +122,29 @@ Design should include:
 - test strategy,
 - migration or compatibility notes,
 - files expected to change.
+
+### 🔴 Design Output Requirements (Must Follow)
+
+All Design outputs must follow structured formats for Develop stage to parse correctly.
+
+**Entity design must include**: className, package, tableName, fields (name, type, column, javaTypeNote), getterSetterMethods (actual getter/setter method names).
+
+**⚠️ Type conventions (prevent compilation errors)**: Long (wrapper, nullable), long (primitive), byte (primitive, cast required), Integer (wrapper), String, LocalDateTime.
+
+**⚠️ Method naming**: Must read existing Entity to confirm actual method names. Common pattern: `get{ClassName}{Field}()` not `get{Field}()`.
+
+### 🔴 Method Naming Check (Step 0.5 - Must Execute)
+
+Before finalizing Design, read existing Entity definitions and verify method names match actual code.
+
+| Design Guess | Actual Method | Cause |
+|-------------|--------------|-------|
+| getStatus() | getUserStatus() | Entity methods include class name prefix |
+| getId() | getInspectionBatchId() | Entity methods include business prefix |
+
+### Design Contract Output
+
+After Design, generate `.dev-flow/docs/{requirement-name}-design-contract.yaml` containing: entities, dtos, enums, mappers, services, controllers, feignClients, exceptions.
 
 Pause for confirmation before Develop.
 
