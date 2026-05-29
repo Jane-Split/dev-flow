@@ -125,6 +125,18 @@ Before starting development, estimate the number of files involved:
 
 **If file count > 10**: Prompt user to use `/dev-flow -subagent` instead.
 
+### 🔴 Step 1: Read Task Split and Design Contract
+
+Read the following files before implementation:
+
+1. **Read `.dev-flow/docs/{requirement-name}-task-split.md`** (if exists)
+2. ⭐ **Read `.dev-flow/docs/{requirement-name}-design-contract.yaml`** - Design → Develop standard data exchange format
+   - Must understand: API interface definitions, DTO field specifications, method naming conventions, input/output types
+   - **Forbidden**: Ignore or override any definition in this contract
+3. Read `.dev-flow/memory/conventions.md` - Follow coding standards
+4. Read `.dev-flow/memory/patterns.md` - Reuse existing code patterns
+5. Read `.dev-flow/memory/mistakes.md` - Avoid historical mistakes
+
 ### 🔴 Step 2.5: Mandatory Read Verification (Must Execute)
 
 > **⚠️ Iron Rule**: Before generating any code, you MUST read the actual definitions of all dependency classes.

@@ -1565,8 +1565,11 @@ Task Split 阶段输出（极端模式）：
 
 ### 执行步骤
 
-**Step 1: 读取任务拆分文档和项目记忆**
+**Step 1: 读取任务拆分文档、设计契约和项目记忆**
 - 读取 `.dev-flow/docs/{需求简称}-任务拆分.md`（如有）
+- ⭐ **读取 `.dev-flow/docs/{需求简称}-design-contract.yaml` - Design → Develop 标准数据交换格式**
+  - 必须理解：API 接口定义、DTO 字段规范、方法命名约定、输入输出类型
+  - 禁止忽略或覆盖此契约中的任何定义
 - 读取 `.dev-flow/memory/conventions.md` - 遵守编码规范
 - 读取 `.dev-flow/memory/patterns.md` - 复用已有代码模式
 - 读取 `.dev-flow/memory/mistakes.md` - 避免历史错误
