@@ -34,6 +34,8 @@ const AGENT_FILES = [
   'service-scanner.md',
   'structure-analyzer.md',
   'config-analyzer.md',
+  'on-demand-loader.md',
+  'runtime-state-manager.md',
 ];
 
 const CODEX_AGENT_FILES = AGENT_FILES.map((file) => file.replace(/\.md$/, '.toml'));

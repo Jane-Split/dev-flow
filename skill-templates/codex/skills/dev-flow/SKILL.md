@@ -113,6 +113,103 @@ Pause for confirmation before Develop.
 
 Implement in dependency order. For Java, prefer Enum/Entity/DTO/Mapper/Service/Controller/Config order unless the project shows another pattern. For frontend projects, follow the local component, state, routing, and API organization.
 
+### 🔴 Step 0: Check Demand Scale (Must Execute)
+
+Before starting development, estimate the number of files involved:
+
+| File Count | Action |
+|------------|--------|
+| ≤ 5 files | ✅ Standard mode allowed |
+| 6-10 files | ⚠️ Warning: recommend Subagent mode |
+| > 10 files | 🚨 Must use Subagent mode |
+
+**If file count > 10**: Prompt user to use `/dev-flow -subagent` instead.
+
+### 🔴 Step 2.5: Mandatory Read Verification (Must Execute)
+
+> **⚠️ Iron Rule**: Before generating any code, you MUST read the actual definitions of all dependency classes.
+> **Forbidden**: Guessing method names, types, or import paths based on naming conventions.
+
+#### Step 2.5.1: Read Dependency Class Definitions
+
+| Class Type | Read Method | Verify Content |
+|------------|-------------|----------------|
+| Entity | `Read {EntityPath}.java` | Field names, types, getter/setter method names |
+| DTO | `Read {DTOPath}.java` | Field names, validation annotations |
+| Enum | `Read {EnumPath}.java` | Enum value names, enum methods |
+| Service | `Read {ServicePath}.java` | Method signatures, parameter types, return types |
+| Mapper | `Read {MapperPath}.java` | Method signatures, SQL annotations |
+| Feign Client | `Read {FeignPath}.java` | Interface methods, paths, parameters |
+
+**Output Dependency Confirmation Table**:
+```markdown
+| Class | Read Status | Key Finding | Confirmed |
+|-------|-------------|-------------|-----------|
+| QmsInspectionBatch | ✅ Read | status field is byte, method is getInspectionBatchStatus() | ✅ |
+```
+
+#### Step 2.5.2: Import Path Verification
+
+For each import statement:
+1. **Search to confirm location**: `Grep "class Xxx" --glob="**/*.java"`
+2. **Read to confirm**: If multiple found, read each to confirm which is correct
+3. **Record actual path**
+
+#### Step 2.5.3: Method Signature Verification
+
+For each method call:
+1. **Read target class definition**
+2. **Extract actual method list**
+3. **Match call**: Method name, parameter count, parameter types must all match
+
+#### Step 2.5.4: Type Matching
+
+For each field assignment:
+1. **Read field's actual type**
+2. **Type conversion check**: If types don't match, explicit conversion is required
+
+### 🔴 Prohibited Actions
+
+| Prohibited Behavior | Consequence | Correct Approach |
+|---------------------|-------------|------------------|
+| Generate `// TODO: implement` | Incomplete code | Must implement full logic |
+| Generate `{/* description */}` placeholder | Incomplete frontend | Must implement full component |
+| Generate `data: null` hardcoded return | Non-functional API | Must return real data |
+| Generate `return null;` empty implementation | Non-functional method | Must implement full logic |
+| Guess method names/types/imports | Compilation errors | Must read actual definitions first |
+| Skip Step 2.5 verification | High compilation error risk | Must execute verification |
+
+### 🔴 Step 5: Pre-Compilation Self-Check (Must Execute)
+
+**Mandatory Check Items**:
+
+| Check Item | Check Method | Pass Standard |
+|------------|--------------|---------------|
+| **Import paths** | Each import confirmed via Grep | ✅ All paths searchable |
+| **Method calls** | Each call matches Step 2.5 read results | ✅ Method name, param count, param types all match |
+| **Type compatibility** | Each field assignment is type-compatible | ✅ No implicit conversion, or explicit conversion declared |
+| **Field references** | Each field reference matches Step 2.5 read results | ✅ Field name and type match |
+
+**Output Pre-Compilation Check Report**:
+```markdown
+### Pre-Compilation Check Report
+
+| Check Item | Status | Details |
+|------------|--------|---------|
+| Import paths | ✅ All confirmed | 12 imports, all verified via Grep |
+| Method calls | ✅ All matched | 8 calls, all match Step 2.5 results |
+| Type compatibility | ⚠️ 1 warning | `status = 1` → actual type is byte, needs explicit conversion |
+| Field references | ✅ All matched | 5 field references, all match Entity definition |
+
+**Issues to fix**:
+1. `status = 1` → change to `status = (byte) 1`
+```
+
+**If any check item fails**:
+1. **Must fix before continuing**
+2. Do not claim "development complete"
+3. Do not proceed to next file
+
 When a task is independent and large, use `develop-expert` subagents in parallel only after boundaries are clear and shared-file conflicts are avoided.
 
 After editing:

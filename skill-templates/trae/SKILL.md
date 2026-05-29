@@ -58,7 +58,9 @@ dev-flow 支持两种运行模式：
               ├── /design-expert    → 详细设计，输出设计文档
               ├── /task-split       → 任务拆分，输出任务清单（DAG）
               ├── /develop-expert   → 代码开发（可并行多个）
-              │     └── 开发中汇报机制 → 向主 Agent 汇报进度
+              │     ├── 开发中汇报机制 → 向主 Agent 汇报进度
+              │     ├── @on-demand-loader → 按需加载未扫描的类
+              │     └── @runtime-state-manager → 状态持久化、断点续传
               ├── /verify-expert    → 单元测试，输出测试报告
               ├── /smoke-test       → 冒烟测试，输出冒烟测试报告
               ├── /integration-test → 集成测试，输出集成测试报告
@@ -466,14 +468,15 @@ Step 0: 检测需求规模
 | 2 | `service-registry.md` | 服务列表表格（服务名/目录/端口/角色/子模块/启动类）+ 跨服务调用关系表格 | ✅ |
 | 3 | `dependency-graph.md` | Maven 依赖关系表格 + Feign 调用关系表格 + 依赖链路图（如 `quality → common-bean`） | ✅ |
 | 4 | `common-modules.md` | **从 Step 2 深层扫描的结果**：每个依赖项目的 Entity/DTO/Enum/Util/Feign Client 表格，含完整类路径 | ✅ |
-| 5 | `conventions.md` | 命名规范、注解使用、统一响应、异常处理、DTO 转换方式 | ✅ |
-| 6 | `config.md` | 数据库/Redis/Nacos/中间件配置（从 application.yml 提取） | ✅ |
-| 7 | `models.md` | 当前服务的 Entity 表格 + 依赖项目的 Entity 表格（从 Step 2 获取）+ DTO 表格 | ✅ |
-| 8 | `apis.md` | 当前服务的 Controller API 表格 + 依赖服务的 Feign Client API 表格 | ✅ |
-| 9 | `utils.md` | 当前服务工具类 + 依赖项目工具类（从 Step 2 获取） | ✅ |
-| 10 | `decisions.md` | 架构决策表格（无则写"暂无已识别的架构决策，后续开发中持续记录"） | ✅ |
-| 11 | `mistakes.md` | 常见错误（初始写"暂无记录，在 Fix 阶段和开发过程中持续积累"） | ✅ |
-| 12 | `patterns.md` | 代码模式表格（无则写"暂无已识别的代码模式，后续开发中持续记录"） | ✅ |
+| 5 | `architecture.md` | 架构模式（微服务/单体）、服务角色（网关/业务服务/基础服务）、分层架构（Controller/Service/Mapper）、技术选型理由 | ✅ |
+| 6 | `conventions.md` | 命名规范、注解使用、统一响应、异常处理、DTO 转换方式 | ✅ |
+| 7 | `config.md` | 数据库/Redis/Nacos/中间件配置（从 application.yml 提取） | ✅ |
+| 8 | `models.md` | 当前服务的 Entity 表格 + 依赖项目的 Entity 表格（从 Step 2 获取）+ DTO 表格 | ✅ |
+| 9 | `apis.md` | 当前服务的 Controller API 表格 + 依赖服务的 Feign Client API 表格 | ✅ |
+| 10 | `utils.md` | 当前服务工具类 + 依赖项目工具类（从 Step 2 获取） | ✅ |
+| 11 | `decisions.md` | 架构决策表格（无则写"暂无已识别的架构决策，后续开发中持续记录"） | ✅ |
+| 12 | `mistakes.md` | 常见错误（初始写"暂无记录，在 Fix 阶段和开发过程中持续积累"） | ✅ |
+| 13 | `patterns.md` | 代码模式表格（无则写"暂无已识别的代码模式，后续开发中持续记录"） | ✅ |
 
 **每个文件的格式要求**（以 common-modules.md 为例）：
 ```markdown
