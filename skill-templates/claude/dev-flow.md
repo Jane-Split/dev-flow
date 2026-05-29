@@ -854,6 +854,179 @@ Step 0: 检测需求规模
 - 全流程模式（Analyze 确认后）
 - 用户输入 `/dev-flow -design <需求>`
 
+> **Design 阶段的所有输出必须遵循以下规范，否则 Develop 阶段无法正确解析。**
+
+#### Design 输出 JSON Schema
+
+Design 阶段输出的所有设计必须包含以下结构化字段，用于 Develop 阶段自动解析：
+
+**Entity 设计必须包含**：
+```yaml
+entity:
+  className: "User"                    # 类名（必填）
+  package: "com.xxx.entity"            # 包路径（必填）
+  tableName: "t_user"                 # 数据库表名（必填）
+  fields:
+    - name: "id"                     # 字段名（必填）
+      type: "Long"                   # Java 类型（必填，如 Long/String/byte/Integer）
+      column: "id"                   # 数据库列名
+      javaTypeNote: "使用包装类型 Long（可null），不用基本类型 long"  # 类型说明
+    - name: "status"
+      type: "byte"                   # ⚠️ 特殊类型必须标注
+      javaTypeNote: "使用基本类型 byte，0=正常 1=禁用"
+  getterSetterMethods:                 # ⚠️ 必须标注 getter/setter 方法名
+    getId: "getUserId"               # 实际 getter 方法名
+    getStatus: "getUserStatus"        # 实际 getter 方法名（含类名前缀）
+    setStatus: "setUserStatus"        # 实际 setter 方法名
+```
+
+**⚠️ 字段类型规范（防止编译错误）**：
+| Design 类型 | Java 类型 | 说明 |
+|-------------|-----------|------|
+| Long | `Long` | 包装类型，可为 null |
+| long | `long` | 基本类型，不可为 null |
+| byte | `byte` | 基本类型，赋值需 `(byte) 1` |
+| Integer | `Integer` | 包装类型 |
+| String | `String` | 字符串 |
+| LocalDateTime | `LocalDateTime` | 日期时间 |
+
+**⚠️ 方法命名规范（必须遵循项目实际命名）**：
+- 必须通过读取已有 Entity 确认实际方法名
+- 常见命名模式：`get{ClassName}{Field}()` 而非 `get{Field}()`
+- 示例：`getUserStatus()` 而非 `getStatus()`
+
+#### Design → Develop 数据交换格式
+
+Design 阶段完成后，生成标准交换文件 `.dev-flow/docs/{需求简称}-design-contract.yaml`：
+
+```yaml
+# Design Contract（设计契约）
+# 此文件是 Design → Develop 的标准数据交换格式
+# Develop 阶段必须读取此文件
+
+contract_version: "1.0"
+demand_name: "用户管理模块"
+generated_at: "2026-05-29 14:00:00"
+generated_by: "Design Expert"
+
+# Entity 定义
+entities:
+  - name: "User"
+    package: "com.xxx.entity"
+    table: "t_user"
+    fields:
+      - name: "id"
+        type: "Long"
+        getter: "getUserId"
+        setter: "setUserId"
+      - name: "status"
+        type: "byte"
+        getter: "getUserStatus"
+        setter: "setUserStatus"
+        typeNote: "基本类型，赋值需 (byte) 转换"
+    primaryKey: "id"
+    
+  - name: "Role"
+    package: "com.xxx.entity"
+    table: "t_role"
+    fields:
+      - name: "id"
+        type: "Long"
+        getter: "getRoleId"
+        setter: "setRoleId"
+    primaryKey: "id"
+
+# DTO 定义
+dtos:
+  - name: "UserRequestDTO"
+    package: "com.xxx.dto"
+    fields:
+      - name: "username"
+        type: "String"
+        validation: "@NotBlank"
+      - name: "status"
+        type: "byte"
+        typeNote: "对应 Entity 的 byte 类型"
+
+# Service 定义
+services:
+  - name: "UserService"
+    package: "com.xxx.service"
+    methods:
+      - name: "create"
+        params: ["UserRequestDTO", "Long"]  # DTO + userId
+        returnType: "User"
+        throws: ["BusinessException"]
+
+# Controller 定义
+controllers:
+  - name: "UserController"
+    package: "com.xxx.controller"
+    apis:
+      - method: "POST"
+        path: "/api/users"
+        paramType: "UserRequestDTO"
+        returnType: "ApiResponse<User>"
+
+# Feign Client 定义（微服务）
+feignClients:
+  - name: "RoleApi"
+    targetService: "role-service"
+    methods:
+      - name: "getById"
+        path: "/api/roles/{id}"
+        returnType: "RoleDTO"
+```
+
+#### 方法命名规范检查（Design 阶段必须执行）
+
+**Step 0.5: 方法命名规范检查（🔴 必须执行）**
+
+> **目的**：确保 Design 阶段输出的方法名与实际代码一致，防止 Develop 阶段生成错误的调用代码。
+
+**检查流程**：
+
+```
+1. 读取已有 Entity 定义
+   Read: {EntityPath}.java
+   
+2. 提取实际 getter/setter 方法名
+   实际方法：
+   - getUserId() / setUserId()
+   - getUserStatus() / setUserStatus()
+   
+3. 对比 Design 输出
+   Design 输出：getStatus()
+   实际方法：getUserStatus()
+   是否一致：❌ 不一致
+   
+4. 修正 Design 输出
+   Design 输出：getUserStatus()
+   是否一致：✅ 一致
+```
+
+**常见错误模式**：
+
+| Design 猜测 | 实际方法名 | 原因 |
+|-------------|-----------|------|
+| getStatus() | getUserStatus() | Entity 方法名包含类名前缀 |
+| getId() | getInspectionBatchId() | Entity 方法名包含业务前缀 |
+| setName() | setUserName() | Entity 方法名包含类名前缀 |
+
+**输出方法命名检查表**：
+
+```markdown
+### 方法命名规范检查
+
+| Entity | Design 方法名 | 实际方法名 | 一致性 | 修正后 |
+|--------|-------------|-----------|--------|--------|
+| User | getId() | getUserId() | ❌ | getUserId() |
+| User | getStatus() | getUserStatus() | ❌ | getUserStatus() |
+| Role | getId() | getRoleId() | ❌ | getRoleId() |
+```
+
+---
+
 ### 执行步骤
 
 **Step 0: 读取项目记忆**
