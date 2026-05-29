@@ -1572,6 +1572,221 @@ Task Split 阶段输出（极端模式）：
   - `.dev-flow/memory/dependency-graph.md` - 了解服务间依赖顺序
   - `.dev-flow/memory/common-modules.md` - 了解可复用的公共类
 
+---
+
+**Step 1.5: 🔴 强制读取依赖定义（必须执行，禁止跳过）**
+
+> **⚠️ 铁律**：在生成任何代码之前，必须先读取所有依赖类的**实际定义**。
+> **禁止行为**：根据命名习惯猜测方法名、类型、import 路径。
+
+**为什么必须执行此步骤？**
+
+| 错误模式 | 后果 | 示例 |
+|---------|------|------|
+| 猜测方法名 | 编译错误：方法不存在 | `getStatus()` → 实际是 `getInspectionBatchStatus()` |
+| 猜测类型 | 编译错误：类型不兼容 | `Integer` → 实际是 `byte` |
+| 猜测 import 路径 | 编译错误：找不到类 | `service.rework.Xxx` → 实际在 `service.Xxx` |
+| 猜测参数 | 编译错误：参数不匹配 | 缺少第4个参数 |
+
+**必须读取的类清单**：
+
+| 类类型 | 读取方法 | 验证内容 |
+|--------|---------|---------|
+| Entity | `Read {EntityPath}.java` | 字段名、字段类型、getter/setter 方法名 |
+| DTO | `Read {DTOPath}.java` | 字段名、校验注解、嵌套 DTO |
+| Enum | `Read {EnumPath}.java` | 枚举值名称、枚举方法 |
+| Service | `Read {ServicePath}.java` | 方法签名、参数类型、返回类型 |
+| Mapper | `Read {MapperPath}.java` | 方法签名、SQL 注解 |
+| Feign Client | `Read {FeignPath}.java` | 接口方法、路径、参数 |
+| Util | `Read {UtilPath}.java` | 方法签名、参数类型 |
+
+**读取后必须输出确认表**：
+
+```markdown
+### 依赖类确认表
+
+| 类名 | 读取状态 | 关键发现 | 是否确认 |
+|------|---------|---------|---------|
+| QmsInspectionBatch | ✅ 已读取 | status 字段类型为 byte，方法名为 getInspectionBatchStatus() | ✅ 确认 |
+| QmsReworkSopRegisterBaseService | ✅ 已读取 | 包路径为 com.transsion.qms.quality.core.service（非 rework 子包） | ✅ 确认 |
+| QmsBusinessException | ✅ 已读取 | 包路径为 com.transsion.qms.common.i18n（非 exception 包） | ✅ 确认 |
+| XxxDTO | ⏳ 待读取 | - | - |
+```
+
+**如果类在项目记忆中标记为"未采样（按需加载）"**：
+1. 触发 On-Demand Loader 加载该类
+2. 等待加载完成后再继续
+
+**如果无法找到类**：
+1. 使用 `Grep "class Xxx"` 搜索类定义
+2. 如果仍找不到，标记为"类不存在，可能需要创建"
+3. **不要猜测路径**
+
+**禁止的猜测行为**：
+```
+❌ 错误：根据命名习惯，假设有 getStatus() 方法
+❌ 错误：通常在 rework 包下，所以 import service.rework.Xxx
+❌ 错误：status 字段通常是 Integer 类型
+❌ 错误：根据方法名猜测参数
+
+✅ 正确：Read Entity 定义 → 确认实际方法名为 getInspectionBatchStatus()
+✅ 正确：Grep 搜索类位置 → 确认实际包路径
+✅ 正确：Read Entity 定义 → 确认字段类型为 byte
+✅ 正确：Read Service 定义 → 确认方法签名和参数
+```
+
+---
+
+**Step 1.6: Import 路径验证（🔴 必须执行）**
+
+> **目的**：确保每个 import 语句都指向实际存在的类，避免编译错误。
+
+**验证流程**：
+
+```
+对于每个需要 import 的类：
+
+1. 搜索确认位置
+   Grep "class QmsBusinessException" --glob="**/*.java"
+   
+2. 如果找到多个，读取每个文件确认哪个是正确的
+   Read path/to/QmsBusinessException.java（前 30 行）
+   
+3. 记录实际路径
+   | 类名 | 猜测路径 | 实际路径 | 状态 |
+   |------|---------|---------|------|
+   | QmsBusinessException | common.exception | common.i18n | ✅ 已修正 |
+   | QmsReworkSopRegisterBaseService | service.rework | service | ✅ 已修正 |
+```
+
+**常见错误模式**：
+
+| 错误猜测 | 实际路径 | 原因 |
+|---------|---------|------|
+| `service.rework.XxxService` | `service.XxxService` | 假设 rework 是子包 |
+| `common.exception.QmsBusinessException` | `common.i18n.QmsBusinessException` | 根据类名猜测包名 |
+| `entity.Xxx` | `domain.Xxx` | 项目使用 domain 而非 entity |
+
+**验证输出**：
+
+```markdown
+### Import 路径验证结果
+
+| 类名 | import 语句 | 验证方法 | 状态 |
+|------|------------|---------|------|
+| QmsBusinessException | import com.transsion.qms.common.i18n.QmsBusinessException; | Grep 搜索确认 | ✅ 正确 |
+| QmsReworkSopRegisterBaseService | import com.transsion.qms.quality.core.service.QmsReworkSopRegisterBaseService; | Grep 搜索确认 | ✅ 正确 |
+| XxxDTO | import com.xxx.XxxDTO; | Grep 未找到 | ⚠️ 需要创建 |
+```
+
+---
+
+**Step 1.7: 方法签名验证（🔴 必须执行）**
+
+> **目的**：确保每个方法调用的方法名、参数个数、参数类型都与实际定义一致。
+
+**验证流程**：
+
+```
+对于每个方法调用：
+
+1. 读取目标类定义
+   Read: src/main/java/.../entity/QmsInspectionBatch.java
+   
+2. 提取实际方法列表
+   实际方法：
+   - getInspectionBatchId(): Long
+   - getInspectionBatchStatus(): byte
+   - getBatchNo(): String
+   
+3. 匹配调用
+   需要调用：getStatus()
+   实际存在：getInspectionBatchStatus()
+   生成代码：getInspectionBatchStatus() ✅
+   
+4. 如果不存在
+   标记为"方法不存在，需要确认"
+   不要生成调用
+```
+
+**常见错误模式**：
+
+| 错误调用 | 实际方法 | 原因 |
+|---------|---------|------|
+| `batch.getStatus()` | `batch.getInspectionBatchStatus()` | 根据字段名猜测方法名 |
+| `service.save(dto)` | `service.save(dto, userId)` | 未读取方法签名，缺少参数 |
+| `list.get(0).getId()` | `list.get(0).getXxxId()` | 假设 getId() 通用 |
+
+**验证输出**：
+
+```markdown
+### 方法签名验证结果
+
+| 调用位置 | 调用代码 | 目标类 | 实际方法 | 状态 |
+|---------|---------|--------|---------|------|
+| ServiceImpl:45 | batch.getStatus() | QmsInspectionBatch | ❌ 不存在 | 需改为 getInspectionBatchStatus() |
+| ServiceImpl:50 | service.save(dto) | XxxService | save(dto, userId) | ⚠️ 缺少参数 |
+| ServiceImpl:55 | entity.getId() | XxxEntity | getXxxId() | ❌ 不存在 |
+```
+
+---
+
+**Step 1.8: 类型强制匹配（🔴 必须执行）**
+
+> **目的**：确保每个字段赋值都类型兼容，避免隐式类型转换导致的编译错误。
+
+**验证流程**：
+
+```
+对于每个字段赋值：
+
+1. 读取字段实际类型
+   Read Entity 定义：
+   - status: byte (不是 Integer!)
+   - count: Integer
+   - name: String
+   
+2. 类型转换检查
+   赋值：status = 1
+   实际类型：byte
+   生成：status = (byte) 1 或 status = Byte.valueOf("1")
+   
+3. 如果类型不匹配，必须显式转换
+```
+
+**常见错误模式**：
+
+| 错误赋值 | 实际类型 | 正确写法 |
+|---------|---------|---------|
+| `status = 1` | `byte` | `status = (byte) 1` |
+| `type = "A"` | `Integer` | `type = 1` 或 `Integer.parseInt("1")` |
+| `flag = true` | `Integer` | `flag = 1` |
+| `count = null` | `int` | `count = 0` 或改为 `Integer` |
+
+**类型转换规则**：
+
+| 源类型 | 目标类型 | 转换方式 |
+|--------|---------|---------|
+| `int` | `byte` | `(byte) value` |
+| `Integer` | `byte` | `value.byteValue()` |
+| `String` | `Integer` | `Integer.valueOf(value)` |
+| `String` | `Long` | `Long.valueOf(value)` |
+| `int` | `String` | `String.valueOf(value)` |
+
+**验证输出**：
+
+```markdown
+### 类型匹配验证结果
+
+| 赋值位置 | 赋值代码 | 字段名 | 实际类型 | 状态 |
+|---------|---------|--------|---------|------|
+| ServiceImpl:30 | status = 1 | status | byte | ⚠️ 需要显式转换 |
+| ServiceImpl:35 | count = 0 | count | Integer | ✅ 自动装箱 |
+| ServiceImpl:40 | name = "test" | name | String | ✅ 类型匹配 |
+```
+
+---
+
 **Step 2: 按依赖顺序开发（按项目类型）**
 
 **如果是 Java 微服务（多服务模式），按以下顺序开发：**
@@ -1681,15 +1896,49 @@ Task Split 阶段输出（极端模式）：
 - 遵守项目已有的编码风格
 - 每个文件生成后，简要说明实现思路
 
-**Step 4: 自检**
-每个文件生成后，AI 自行检查：
+**Step 4: 自检（🔴 编译前必须执行）**
+
+每个文件生成后，AI 自行检查以下项目：
+
+**基础检查**：
 - 是否有编译错误（Java 语法、类型匹配）
 - 是否有未处理的边界情况（空指针、数组越界）
 - 是否与已有代码风格一致（命名、注释、格式）
 - 是否有安全漏洞（SQL 注入、XSS、敏感信息泄露）
 - 是否正确使用事务（查询方法不加 `@Transactional`）
 - 是否正确处理异常（自定义异常 vs 运行时异常）
-- **多服务模式额外检查**：
+
+**🔴 强制检查项（必须通过）**：
+
+| 检查项 | 检查方法 | 通过标准 |
+|--------|---------|---------|
+| **Import 路径** | 每个 import 都通过 Grep 确认存在 | ✅ 全部路径可搜索到 |
+| **方法调用** | 每个方法调用都对应 Step 1.5 读取到的实际方法 | ✅ 方法名、参数个数、参数类型完全匹配 |
+| **类型兼容** | 每个字段赋值都类型兼容 | ✅ 无隐式类型转换，或显式声明转换 |
+| **字段引用** | 每个字段引用都对应 Step 1.5 读取到的实际字段 | ✅ 字段名、字段类型完全匹配 |
+
+**输出检查报告**：
+
+```markdown
+### 编译前自检报告
+
+| 检查项 | 状态 | 详情 |
+|--------|------|------|
+| Import 路径 | ✅ 全部确认 | 共 12 个 import，全部通过 Grep 验证 |
+| 方法调用 | ✅ 全部匹配 | 共 8 个方法调用，全部与 Step 1.5 读取结果一致 |
+| 类型兼容 | ⚠️ 1 处警告 | `status = 1` → 实际类型为 byte，需要显式转换 |
+| 字段引用 | ✅ 全部匹配 | 共 5 个字段引用，全部与 Entity 定义一致 |
+
+**需要修复的问题**：
+1. `status = 1` → 修改为 `status = (byte) 1` 或 `Byte.valueOf("1")`
+```
+
+**如果有任何检查项失败**：
+1. **必须修复后才能继续**
+2. 不要声称"开发完成"
+3. 不要进入下一个文件的开发
+
+**多服务模式额外检查**：
   - Feign Client 接口是否与目标服务 Controller 端点匹配（路径、参数、返回值）
   - 公共模块的类是否被正确引用（包名、类名）
   - 跨服务 DTO 转换是否完整（字段映射无遗漏）
@@ -2963,6 +3212,44 @@ public void process(Order order) {
 **出现次数**：3
 **最后出现**：2026-05-24
 **预防措施**：避免同类方法调用、使用构造器注入自身
+
+## 🔴 编译错误：未读取定义就生成代码（高频！）
+
+**错误模式**：根据命名习惯猜测方法名、类型、import 路径，而不是读取实际定义。
+
+**具体表现**：
+
+| 错误类型 | 错误示例 | 实际定义 |
+|---------|---------|---------|
+| 方法名错误 | `batch.getStatus()` | `batch.getInspectionBatchStatus()` |
+| 类型错误 | `status = 1`（Integer） | `status = (byte) 1`（byte） |
+| import 路径错误 | `import ...service.rework.Xxx` | `import ...service.Xxx` |
+| 参数错误 | `service.save(dto)` | `service.save(dto, userId)` |
+
+**根本原因**：未执行 Step 1.5-1.8 的强制读取验证流程。
+
+**修复方案**：
+
+```markdown
+1. 在生成代码前，必须执行 Step 1.5：强制读取依赖定义
+   - Read Entity 定义 → 确认字段名、类型、方法名
+   - Read Service 定义 → 确认方法签名、参数
+   - Grep 搜索类位置 → 确认 import 路径
+
+2. 在生成代码后，必须执行 Step 4：编译前自检
+   - 每个 import 都通过 Grep 确认存在
+   - 每个方法调用都与 Step 1.5 读取结果一致
+   - 每个字段赋值都类型兼容
+
+3. 输出检查报告，确认所有检查项通过
+```
+
+**出现次数**：10+
+**最后出现**：2026-05-26
+**预防措施**：
+- 严格执行 Step 1.5-1.8 的强制读取验证流程
+- 禁止根据命名习惯猜测
+- 每个文件生成后必须输出检查报告
 
 ## 并发问题：非线程安全的 SimpleDateFormat
 **错误模式**：静态 SimpleDateFormat 被多线程使用
