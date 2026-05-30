@@ -225,6 +225,53 @@ provides:
 
 ---
 
+### Step 2.5.9: 强制验证（🔴 新增 - 强制执行）
+
+> **目的**：验证 Step 2.5 强制读取验证是否真正完成，防止跳过
+
+**调用 step-enforcer 进行验证**：
+
+```yaml
+verification_request:
+  step_id: "develop.step_2_5"
+  session_id: "{current_session_id}"
+  required_outputs:
+    - file: "entity-verification-table.md"
+      must_contain: 
+        - "Entity类名"
+        - "读取状态"
+        - "关键发现"
+      min_entries: 1
+      
+    - file: "method-signature-check.yaml"
+      must_contain:
+        - "方法名"
+        - "参数类型"
+        - "返回类型"
+      must_have_field: "confirmed: true"
+```
+
+**验证执行**：
+1. 检查 `entity-verification-table.md` 是否存在且有内容
+2. 检查 `method-signature-check.yaml` 是否存在且标记 `confirmed: true`
+3. 如验证失败，读取 `step-enforcer` 返回的阻塞消息
+4. 根据阻塞消息返回 Step 2.5 重新执行
+
+**验证结果处理**：
+
+| 结果 | 状态 | 下一步 |
+|------|------|--------|
+| ✅ 通过 | 所有检查通过 | 继续执行 Step 2.6 |
+| ❌ 失败 | 缺少文件或标记 | 返回 Step 2.5 重新执行 |
+| ❌ 失败3次 | 重试次数耗尽 | 升级到 orchestrator 人工处理 |
+
+**注意**：
+- 此验证**无法跳过**，必须通过后才能继续
+- 如被阻塞，请严格按照阻塞消息指引修复
+- 不要尝试欺骗验证器，必须真正完成读取和确认
+
+---
+
 ### Step 2.6: 读取结构化业务逻辑（🔴 方案1优化 - 必须执行）
 
 > **触发条件**：当 `subtask-{id}-design.yaml` 或 `design-contract.yaml` 中包含 `logic` 字段时必须执行
