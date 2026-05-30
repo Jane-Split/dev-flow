@@ -403,14 +403,141 @@ guidance_updates:
       4. 状态转换必须定义允许的前置状态
 ```
 
-### Step 6: 知识库更新
+### Step 6: 自动应用策略（🔴 新增 - AI 自动执行）
 
-#### 6.1 更新错误模式知识库
+#### 6.1 策略自动应用决策
+
+**自动应用条件**：
+
+| 条件 | 阈值 | 操作 |
+|------|------|------|
+| 模式出现次数 | >= 2 次 | 自动更新 Agent 警告提示 |
+| 模式出现次数 | >= 5 次 | 自动升级为强制检查项 |
+| 策略应用后成功率 | > 95% | 自动标记为标准规范 |
+| 策略应用后成功率 | < 50% | 自动调整策略内容 |
+
+**自动应用流程**：
+
+```
+生成预防策略
+  │
+  ▼
+评估应用条件
+  │
+  ├── 满足自动应用条件
+  │     │
+  │     ▼
+  │  自动更新 Agent 文件
+  │     ├── 读取当前 Agent 定义
+  │     ├── 定位插入位置
+  │     ├── 添加策略内容
+  │     └── 保存更新
+  │     │
+  │     ▼
+  │  记录应用日志
+  │     └── auto-application-log.yaml
+  │     │
+  │     ▼
+  │  下次开发自动生效
+  │
+  └── 不满足自动应用条件
+        │
+        ▼
+     标记为待审核
+        └── 人工确认后应用
+```
+
+#### 6.2 自动更新 Agent 指导
+
+**自动更新规则**：
+
+```yaml
+auto_update_rules:
+  - pattern_id: "P001"
+    name: "Entity getter 方法名不匹配"
+    
+    auto_update_conditions:
+      occurrences: ">= 2"
+      
+    target_files:
+      - file: "develop-expert.md"
+        location: "Step 2.5.1"
+        action: "append_warning"
+        content_template: |
+          #### 🔴 历史错误提醒（自动添加）
+          
+          > **模式 P001**: Entity getter 方法名猜测错误
+          > **发生次数**: {occurrences}
+          > **影响项目**: {affected_projects}
+          
+          **常见错误**：
+          - 猜测 `getStatus()`，实际为 `getInspectionBatchStatus()`
+          
+          **预防措施**：
+          1. 必须读取 Entity 实际定义
+          2. 不要根据字段名猜测 getter 方法名
+          3. 使用 Grep 确认方法存在
+      
+      - file: "conventions.md"
+        location: "auto_learned_naming"
+        action: "append_entry"
+        content_template: |
+          | {entity_name} | {field_name} | {expected_getter} | {actual_getter} | {timestamp} |
+```
+
+**自动更新执行**：
+
+```bash
+# 1. 读取当前 develop-expert.md
+cat develop-expert.md
+
+# 2. 定位 Step 2.5.1 位置
+# 3. 插入警告提示
+# 4. 保存更新
+```
+
+#### 6.3 策略效果追踪
+
+**自动追踪机制**：
+
+```yaml
+# strategy-effectiveness-tracker.yaml
+tracking:
+  strategy_id: "S001"
+  pattern_id: "P001"
+  
+  application_history:
+    - date: "2026-05-29"
+      action: "auto_applied"
+      target: "develop-expert.md"
+      
+  effectiveness_monitoring:
+    period: "7天"
+    metrics:
+      - metric: "同类错误发生次数"
+        before: 5
+        after: 0
+        trend: "下降100%"
+      
+      - metric: "编译成功率"
+        before: "65%"
+        after: "92%"
+        trend: "上升27%"
+  
+  auto_decisions:
+    - condition: "after == 0 且持续 7 天"
+      decision: "标记为标准规范，推广到所有项目"
+      
+    - condition: "after >= before"
+      decision: "策略无效，重新分析根因"
+```
+
+#### 6.4 知识库更新
 
 ```yaml
 # error-pattern-db.yaml (更新后)
 database_info:
-  version: "1.0.2"
+  version: "1.0.3"
   last_updated: "2026-05-29"
   total_patterns: 8
   
@@ -419,9 +546,12 @@ error_patterns:
     name: "Entity 字段 getter 方法名不匹配"
     # ... 原有内容 ...
     prevention_strategies_applied: ["S001"]
+    auto_applied: true           # 🔴 新增：自动应用标记
+    auto_apply_date: "2026-05-29" # 🔴 新增：自动应用时间
     effectiveness:
-      before: 5  # 应用策略前发生次数
-      after: 0   # 应用策略后发生次数
+      before: 5
+      after: 0
+      monitoring_period: "7d"    # 🔴 新增：监控周期
       
   # 新增模式
   - pattern_id: "P009"
@@ -433,7 +563,7 @@ error_patterns:
     # ...
 ```
 
-#### 6.2 生成学习报告
+#### 6.5 生成学习报告
 
 ```yaml
 # learning-report.yaml
@@ -456,9 +586,26 @@ learning_session:
       target_pattern: "P001"
       status: "active"
       
+  # 🔴 新增：自动应用记录
+  auto_applications:
+    - pattern_id: "P001"
+      strategy_id: "S001"
+      applied_to: "develop-expert.md"
+      applied_at: "2026-05-29 16:05:00"
+      applied_by: "auto"
+      status: "success"
+      
+    - pattern_id: "P003"
+      strategy_id: "S003"
+      applied_to: "develop-expert.md"
+      applied_at: "2026-05-29 16:06:00"
+      status: "pending_review"  # 需要人工确认
+      
   agent_guidance_updates:
     - agent: "develop-expert"
       updates_count: 3
+      auto_updates: 2            # 🔴 新增：自动更新数
+      manual_updates: 1
       
   recommendations:
     - recommendation: "在所有 Agent 中添加错误模式检查"

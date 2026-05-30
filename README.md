@@ -1,9 +1,9 @@
 # dev-flow
 
 [![node](https://img.shields.io/node/v/dev-flow.svg)](https://nodejs.org)
-[![version](https://img.shields.io/badge/version-v1.0.2-blue)]()
+[![version](https://img.shields.io/badge/version-v1.0.3-blue)]()
 
-> **当前版本: v1.0.2** | [更新日志](./CHANGELOG.md)
+> **当前版本: v1.0.3** | [更新日志](./CHANGELOG.md)
 
 AI 开发全流程编排 Skill，适用于 Cursor、Trae、Qoder、Claude Code、OpenAI Codex 等 AI 编程工具。
 
@@ -37,6 +37,8 @@ dev-flow 通过**结构化的流程编排 + 项目记忆 + 长期记忆 + 学习
 - **契约一致性校验** - contract-validator 自动验证方法签名、Entity 字段、实现完整性、依赖调用一致性
 - **全局集成编译** - 所有子任务完成后全局编译 + 契约验证 + 错误分类 + 循环修复
 - **错误经验学习** - 从编译错误、契约违反、测试失败中提取模式，生成预防策略，持续改进
+- **步骤强制执行** (v1.0.3) - Step Enforcer 验证关键步骤完成质量，防止 AI "偷懒" 跳过，无法跳过必须完成
+- **错误模式自动应用** (v1.0.3) - Error Pattern Learner 自动将学习到的模式应用到 Agent 指导，无需人工更新
 - **学习能力** - 从用户反馈、代码修改、测试 Bug 中自动学习，持续优化代码生成策略
 - **记忆强化** - 模式使用 >3 次标记"高频"优先推荐，>5 次标记"标准"必须遵守
 - **阶段确认** - 每个阶段完成后暂停，展示成果并等待用户确认
@@ -84,6 +86,7 @@ npx dev-flow install
 | config-analyzer | `.codex/agents/config-analyzer.toml` / 其他工具的 `agents/config-analyzer.md` | 配置和编码规范分析 |
 | **contract-validator** | `.codex/agents/contract-validator.toml` / 其他工具的 `agents/contract-validator.md` | **契约一致性校验（方法签名/字段/实现/依赖）** |
 | **error-pattern-learner** | `.codex/agents/error-pattern-learner.toml` / 其他工具的 `agents/error-pattern-learner.md` | **错误模式学习与预防策略生成** |
+| **step-enforcer** | `.codex/agents/step-enforcer.toml` / 其他工具的 `agents/step-enforcer.md` | **步骤强制执行验证器（防止跳过关键步骤）** |
 
 同时创建 `.dev-flow/memory/` 目录（12 个 Markdown 记忆模板）和 `.dev-flow/sessions/` 目录（会话记录）。
 
@@ -297,7 +300,7 @@ dev-flow/
 ├── skill-templates/       # Skill 文件模板
 │   ├── trae/              # Trae 模板
 │   │   ├── SKILL.md       # 主指令文件
-│   │   └── agents/        # 14 个 subagent 定义（含 task-split-expert、contract-validator、error-pattern-learner）
+│   │   └── agents/        # 15 个 subagent 定义（含 task-split-expert、contract-validator、error-pattern-learner、step-enforcer）
 │   ├── cursor/            # Cursor 模板
 │   │   ├── dev-flow.md
 │   │   └── agents/
