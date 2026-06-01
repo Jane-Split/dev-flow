@@ -182,19 +182,51 @@ provides:
 | XxxDTO | ⏳ 待读取 | - | - |
 ```
 
-#### Step 2.5.2: Import 路径验证
+#### Step 2.5.2: Import 路径验证（🔴 强化 - 禁止猜测）
 
+> **⚠️ 铁律**：在生成任何 import 语句前，必须先通过 Grep 搜索确认类的实际位置。
+> **禁止行为**：根据类名猜测包路径（如看到 ReworkSop 就猜测有 rework 子包）。
+
+**验证流程（必须严格执行）**：
+
+```
 对于每个需要 import 的类：
+  1. 提取类名（如 ReworkSopRegister）
+  2. 执行 Grep 搜索：
+     Grep "class ReworkSopRegister" --glob="**/*.java"
+  3. 分析搜索结果：
+     - 找到 0 个 → 标记为"类不存在，需要创建"
+     - 找到 1 个 → 读取该文件，提取完整包路径
+     - 找到多个 → 读取每个文件，根据上下文确认正确的类
+  4. 记录到 import-verification-table.md
+  5. 使用实际路径生成 import 语句
+```
 
-1. **搜索确认位置**：`Grep "class Xxx" --glob="**/*.java"`
-2. **读取确认**：如果找到多个，读取每个文件确认哪个是正确的
-3. **记录实际路径**：
+**输出格式 - import-verification-table.md（必须生成）**：
 
 ```markdown
-| 类名 | import 语句 | 验证方法 | 状态 |
-|------|------------|---------|------|
-| QmsBusinessException | import com.xxx.common.i18n.QmsBusinessException; | Grep 搜索确认 | ✅ 正确 |
+### Import 路径验证表
+
+| 类名 | 猜测路径 | 实际路径 | Grep 搜索结果 | 验证状态 |
+|------|---------|---------|--------------|---------|
+| ReworkSopRegister | com.xxx.entity.rework.ReworkSopRegister | com.xxx.entity.entity.ReworkSopRegister | 找到 1 个 | ✅ 已修正 |
+| QmsBusinessException | com.xxx.common.exception.QmsBusinessException | com.xxx.common.i18n.QmsBusinessException | 找到 1 个 | ✅ 已修正 |
+| UserService | com.xxx.service.UserService | com.xxx.service.UserService | 找到 1 个 | ✅ 正确 |
 ```
+
+**常见错误模式（必须避免）**：
+
+| 错误猜测 | 实际路径 | 错误原因 |
+|---------|---------|---------|
+| `entity.rework.Xxx` | `entity.entity.Xxx` | 根据类名中的 Rework 猜测子包 |
+| `common.exception.Xxx` | `common.i18n.Xxx` | 根据类名猜测包名 |
+| `service.rework.XxxService` | `service.XxxService` | 假设 rework 是子包 |
+
+**验证检查清单**：
+- [ ] 所有需要 import 的类都已通过 Grep 搜索确认
+- [ ] import-verification-table.md 已生成且包含所有类
+- [ ] 所有 import 状态为 ✅（无 ❌ 或 ⏳）
+- [ ] 没有根据命名习惯猜测的路径
 
 #### Step 2.5.3: 方法签名验证
 
@@ -249,13 +281,23 @@ verification_request:
         - "参数类型"
         - "返回类型"
       must_have_field: "confirmed: true"
+      
+    - file: "import-verification-table.md"  # 🔴 新增
+      must_contain:
+        - "类名"
+        - "猜测路径"
+        - "实际路径"
+        - "验证状态"
+      min_entries: 1
+      all_verified: true  # 所有 import 必须标记为 ✅
 ```
 
 **验证执行**：
 1. 检查 `entity-verification-table.md` 是否存在且有内容
 2. 检查 `method-signature-check.yaml` 是否存在且标记 `confirmed: true`
-3. 如验证失败，读取 `step-enforcer` 返回的阻塞消息
-4. 根据阻塞消息返回 Step 2.5 重新执行
+3. 🔴 **检查 `import-verification-table.md` 是否存在且全部验证通过（无 ❌）**
+4. 如验证失败，读取 `step-enforcer` 返回的阻塞消息
+5. 根据阻塞消息返回 Step 2.5 重新执行
 
 **验证结果处理**：
 
