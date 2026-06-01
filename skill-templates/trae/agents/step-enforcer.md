@@ -51,6 +51,15 @@ required_outputs:
       - "参数类型"
       - "返回类型"
     confirmed: true  # 必须有 confirmed: true 标记
+    
+  - file: "import-verification-table.md"  # 🔴 新增 - Import 路径验证
+    must_contain:
+      - "类名"
+      - "猜测路径"
+      - "实际路径"
+      - "验证状态"
+    min_entries: 1  # 至少验证1个import
+    all_verified: true  # 所有import必须标记为✅
 ```
 
 **验证命令**：
@@ -63,6 +72,12 @@ required_outputs:
 # 验证2: 方法签名检查存在且已确认
 [ -f method-signature-check.yaml ] && \
   grep -q "confirmed: true" method-signature-check.yaml
+
+# 验证3: 🔴 Import路径验证表存在且全部验证通过
+[ -f import-verification-table.md ] && \
+  grep -q "类名" import-verification-table.md && \
+  ! grep -q "❌" import-verification-table.md && \
+  grep -c "✅" import-verification-table.md | [ $(cat) -ge 1 ]
 ```
 
 **失败处理**：
@@ -75,6 +90,10 @@ block_message: |
   2. 记录方法签名到 method-signature-check.yaml
   3. 确认字段类型和 getter 方法名
   4. 在文件中标记 confirmed: true
+  5. 🔴 **验证所有 import 路径**（新增）
+     - 对每个需要 import 的类，使用 Grep 搜索实际位置
+     - 记录猜测路径 vs 实际路径到 import-verification-table.md
+     - 确保所有 import 标记为 ✅ 才能生成代码
   
   未完成这些检查，无法进入代码生成阶段。
   

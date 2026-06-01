@@ -183,7 +183,37 @@ error_patterns:
     name: "Import 路径错误"
     category: "compile_errors.import_error"
     severity: medium
-    prevention_priority: medium
+    prevention_priority: high  # 🔴 提升优先级（从 medium 改为 high）
+    
+    # 🔴 新增：自动修复策略
+    auto_fix:
+      enabled: true
+      trigger: "编译错误：找不到符号: 类 Xxx"
+      steps:
+        - step: 1
+          action: "extract_class_name"
+          description: "从错误信息中提取类名"
+        - step: 2
+          action: "grep_search"
+          command: "Grep 'class {ClassName}' --glob='**/*.java'"
+          description: "搜索类定义的实际位置"
+        - step: 3
+          action: "analyze_results"
+          description: "分析搜索结果，确定正确包路径"
+        - step: 4
+          action: "auto_fix_import"
+          description: "自动修正 import 语句"
+        - step: 5
+          action: "record_to_verification_table"
+          description: "记录到 import-verification-table.md"
+      
+    # 🔴 新增：预防策略
+    prevention:
+      strategy_id: "S005"
+      name: "Import 路径强制验证"
+      target_agent: "develop-expert"
+      location: "Step 2.5.2"
+      rule: "禁止根据类名猜测包路径，必须通过 Grep 搜索确认"
     
   - pattern_id: "P006"
     name: "空指针风险 - 未检查 null"
@@ -352,6 +382,65 @@ prevention_strategy:
       - [ ] 返回类型与 Mapper 接口一致
       - [ ] SQL 注解与数据库字段匹配
       - [ ] 已验证 resultType 指向正确的 Entity
+```
+
+**针对 P005 (Import 路径错误) - 🔴 新增详细策略**：
+
+```yaml
+prevention_strategy:
+  strategy_id: "S005"
+  name: "Import 路径强制验证"
+  target_pattern: "P005"
+  target_agent: "develop-expert"
+  
+  strategy_type: "process_enhancement"
+  
+  implementation:
+    location: "Step 2.5.2 Import 路径验证"
+    enhancement: |
+      #### 🔴 Import 路径验证（错误模式 P005 预防）
+      
+      > **历史错误**：曾发生多次因猜测 import 路径导致的编译错误
+      > **典型场景**：
+      > - 类名含 ReworkSop → 猜测路径 entity.rework → 实际 entity.entity
+      > - 类名含 Exception → 猜测路径 common.exception → 实际 common.i18n
+      
+      **禁止行为**：
+      - ❌ 根据类名中的关键词猜测子包（如 ReworkSop → rework 子包）
+      - ❌ 根据类名语义猜测包名（如 Exception → exception 包）
+      - ❌ 根据命名习惯猜测路径（如 XxxService → service.xxx 子包）
+      
+      **强制步骤**：
+      1. 提取需要 import 的类名
+      2. 执行 Grep 搜索：`Grep "class {ClassName}" --glob="**/*.java"`
+      3. 读取搜索结果中的文件，提取完整包路径
+      4. 记录猜测路径 vs 实际路径到 import-verification-table.md
+      5. 使用实际路径生成 import 语句
+      
+      **验证输出**：
+      ```markdown
+      | 类名 | 猜测路径 | 实际路径 | Grep 结果 | 状态 |
+      |------|---------|---------|----------|------|
+      | ReworkSopRegister | entity.rework | entity.entity | 找到 1 个 | ✅ 已修正 |
+      ```
+      
+      **常见错误模式对照表**：
+      | 类名特征 | 错误猜测 | 实际路径示例 | 验证结果 |
+      |---------|---------|-------------|---------|
+      | ReworkSopXxx | entity.rework.Xxx | entity.entity.Xxx | 必须通过 Grep 确认 |
+      | XxxException | common.exception.Xxx | common.i18n.Xxx | 必须通过 Grep 确认 |
+      | XxxService | service.xxx.XxxService | service.XxxService | 必须通过 Grep 确认 |
+  
+  validation:
+    - check: "import-verification-table.md 已生成"
+    - check: "所有 import 都通过 Grep 搜索确认"
+    - check: "无根据类名猜测的路径"
+    
+  effectiveness_metrics:
+    - metric: "P005 发生率"
+      target: "降低 95%"
+    - metric: "Import 猜测错误"
+      target: "0 次"
 ```
 
 ### Step 5: Agent 指导更新
