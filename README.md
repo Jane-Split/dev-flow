@@ -89,6 +89,7 @@ npx dev-flow install
 | **contract-validator** | `.codex/agents/contract-validator.toml` / 其他工具的 `agents/contract-validator.md` | **契约一致性校验（方法签名/字段/实现/依赖）** |
 | **error-pattern-learner** | `.codex/agents/error-pattern-learner.toml` / 其他工具的 `agents/error-pattern-learner.md` | **错误模式学习与预防策略生成** |
 | **step-enforcer** | `.codex/agents/step-enforcer.toml` / 其他工具的 `agents/step-enforcer.md` | **步骤强制执行验证器（防止跳过关键步骤）** |
+| **context-manager** | `.codex/agents/context-manager.toml` / 其他工具的 `agents/context-manager.md` | **上下文管理器（智能分配上下文、执行模式决策）** |
 
 同时创建 `.dev-flow/memory/` 目录（12 个 Markdown 记忆模板）和 `.dev-flow/sessions/` 目录（会话记录）。
 
