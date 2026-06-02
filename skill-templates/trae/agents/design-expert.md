@@ -1,7 +1,7 @@
 ---
 name: design-expert
 description: dev-flow 设计专家，负责详细设计、接口定义、数据模型设计。Use when detailed technical design is needed before implementation.
-tools: Read, Write
+tools: Read, Write, Grep, Glob
 model: inherit
 readonly: false
 is_background: false
@@ -187,6 +187,90 @@ logic:
 | `return` | 返回结果 | 返回DTO |
 | `call` | 调用方法 | 调用其他Service |
 | `branch` | 条件分支 | if-else分支 |
+
+#### 🔴 3.4.2.1 condition 形式化语法（v1.0.4_opt_v2 - 必须执行）
+
+> **目的**：定义 condition 字段的形式化语法，确保可被 develop-expert 正确翻译为目标代码
+
+**支持的语法元素**：
+
+| 操作符 | Java 翻译 | 示例 |
+|--------|----------|------|
+| `!= null` | `obj != null` | `userId != null` |
+| `== null` | `obj == null` | `result == null` |
+| `> n` / `< n` / `>= n` / `<= n` | 数值比较 | `amount > 0` |
+| `== value` | `.equals(value)` 或 `==` | `status == ACTIVE` |
+| `!= value` | `!.equals(value)` 或 `!=` | `status != DELETED` |
+| `contains(str)` | `.contains(str)` | `name.contains("test")` |
+| `isEmpty()` | `.isEmpty()` | `list.isEmpty()` |
+| `isNotEmpty()` | `!.isEmpty()` | `list.isNotEmpty()` |
+| `StringUtils.isBlank(str)` | `StringUtils.isBlank(str)` | `StringUtils.isBlank(name)` |
+| `StringUtils.isNotBlank(str)` | `StringUtils.isNotBlank(str)` | `StringUtils.isNotBlank(name)` |
+
+**多条件组合语法**：
+
+```yaml
+# AND 组合（所有条件必须满足）
+condition:
+  operator: "AND"
+  conditions:
+    - "userId != null"
+    - "userId > 0"
+    - "StringUtils.isNotBlank(username)"
+
+# OR 组合（任一条件满足）
+condition:
+  operator: "OR"
+  conditions:
+    - "status == ACTIVE"
+    - "status == PENDING"
+
+# NOT 组合（条件不满足）
+condition:
+  operator: "NOT"
+  conditions:
+    - "isDeleted"
+
+# 嵌套组合
+condition:
+  operator: "AND"
+  conditions:
+    - "userId != null"
+    - condition:
+        operator: "OR"
+        conditions:
+          - "role == ADMIN"
+          - "role == SUPER_ADMIN"
+```
+
+**范围条件语法**：
+
+```yaml
+# 数值范围
+condition:
+  type: "range"
+  field: "age"
+  min: 18
+  max: 65
+
+# 集合包含
+condition:
+  type: "in"
+  field: "status"
+  values: ["ACTIVE", "PENDING", "SUSPENDED"]
+
+# 字符串匹配
+condition:
+  type: "matches"
+  field: "email"
+  pattern: "^[\\w-]+@[\\w-]+\\.[\\w]+$"
+```
+
+**语法约束**：
+1. 所有 condition 必须使用上述形式化语法，禁止纯自然语言描述
+2. 复杂条件必须使用组合语法（operator + conditions）
+3. 每个条件表达式必须是可翻译为 Java 代码的布尔表达式
+4. 变量引用必须与 design-contract.yaml 中定义的变量名一致
 
 **🔴 call 类型 Action 强制要求（防止日志占位）**：
 
@@ -547,6 +631,87 @@ exceptions:   # 异常类定义（类名、错误码、使用场景）
 ```
 
 **生成后自检**：确认以上 8 个部分均已填写，无遗漏。
+
+#### 🔴 Step 7.1: design-contract.yaml 独立验证（v1.0.4_opt_v2 - 必须执行）
+
+> **目的**：不依赖 AI 自我声明，而是通过客观检查验证 design-contract.yaml 的完整性
+
+**验证流程**：
+
+```yaml
+design_contract_validation:
+  validation_steps:
+    - step: 1
+      action: "check_sections_exist"
+      description: "验证 8 个必需部分都存在"
+      check_command: |
+        for section in entities dtos enums mappers services controllers feignClients exceptions; do
+          grep -q "^${section}:" {design-contract.yaml} || echo "MISSING_SECTION:${section}"
+        done
+      pass_condition: "无 MISSING_SECTION 输出"
+      
+    - step: 2
+      action: "check_section_content"
+      description: "验证每个部分至少有 1 个条目（非空）"
+      check_command: |
+        for section in entities dtos enums mappers services controllers feignClients exceptions; do
+          count=$(grep -A5 "^${section}:" {design-contract.yaml} | grep -c "name:")
+          [ "$count" -lt 1 ] && echo "EMPTY_SECTION:${section}"
+        done
+      pass_condition: "无 EMPTY_SECTION 输出"
+      
+    - step: 3
+      action: "check_entity_completeness"
+      description: "验证每个 Entity 都有字段定义（fields）"
+      check: "每个 entities 下的条目都包含 fields 列表"
+      
+    - step: 4
+      action: "check_service_completeness"
+      description: "验证每个 Service 都有方法签名定义"
+      check: "每个 services 下的条目都包含 methods 列表"
+      
+    - step: 5
+      action: "check_logic_completeness"
+      description: "验证包含 logic 字段的 Service 方法都有结构化逻辑定义"
+      check: "logic 字段包含 step、action、condition 等必需元素"
+```
+
+**验证报告格式**：
+```yaml
+# design-contract-validation.yaml
+validation:
+  timestamp: "2026-06-02T10:00:00Z"
+  status: "passed"  # passed / failed
+  
+  section_checks:
+    - section: "entities"
+      exists: true
+      entry_count: 3
+      status: "passed"
+    - section: "services"
+      exists: true
+      entry_count: 5
+      status: "passed"
+      
+  completeness_checks:
+    - check: "Entity 字段完整性"
+      status: "passed"
+    - check: "Service 方法签名完整性"
+      status: "passed"
+    - check: "逻辑定义完整性"
+      status: "passed"
+      
+  issues: []
+  
+  next_action: "proceed_to_develop"  # passed → 继续, failed → 修复后重新验证
+```
+
+**验证失败处理**：
+- 任何部分缺失 → 补充该部分
+- 任何部分为空 → 填写内容
+- Entity 缺少字段 → 补充字段定义
+- Service 缺少方法 → 补充方法签名
+- 修复后重新验证，直到通过
 
 ## 设计原则
 

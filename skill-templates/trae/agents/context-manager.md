@@ -56,6 +56,60 @@ minimum_safe_context_allocation:
       message: "Step 2.5 后剩余上下文不足，触发分段执行"
 ```
 
+### 🔴 基于模型的动态阈值（v1.0.4_opt_v2 - 新增）
+
+> **目的**：不固定 50KB，而是根据当前使用的模型上下文窗口动态计算
+
+```yaml
+model_adaptive_thresholds:
+  # 模型上下文窗口映射表
+  model_context_windows:
+    - model_pattern: "claude-3-5-sonnet|claude-3-opus"
+      context_window: "200KB"
+      safe_minimum: "50KB"
+      warning_threshold: "70%"
+      critical_threshold: "85%"
+    - model_pattern: "gpt-4|gpt-4-turbo"
+      context_window: "128KB"
+      safe_minimum: "32KB"
+      warning_threshold: "70%"
+      critical_threshold: "85%"
+    - model_pattern: "gpt-3.5|default"
+      context_window: "16KB"
+      safe_minimum: "8KB"
+      warning_threshold: "75%"
+      critical_threshold: "90%"
+    - model_pattern: "deepseek|qwen"
+      context_window: "128KB"
+      safe_minimum: "32KB"
+      warning_threshold: "70%"
+      critical_threshold: "85%"
+      
+  # 动态计算规则
+  calculation:
+    step_1: "识别当前使用的模型（从环境变量或配置获取）"
+    step_2: "查找匹配的 context_window 配置"
+    step_3: "计算 safe_minimum = context_window * 25%"
+    step_4: "计算 warning_threshold = context_window * 70%"
+    step_5: "计算 critical_threshold = context_window * 85%"
+    
+  # 上下文使用率可操作化计算
+  context_usage_calculation:
+    method: "estimated_token_count"
+    formula: |
+      estimated_usage = (
+        system_prompt_size +           # 系统提示词大小
+        design_doc_size +              # 设计文档大小
+        code_read_size +               # 读取的代码大小
+        code_generated_size +          # 已生成的代码大小
+        conversation_history_size      # 对话历史大小
+      )
+      usage_rate = estimated_usage / model_context_window
+    estimation_commands:
+      - "统计已读取文件的总大小: find .dev-flow -name '*.md' -o -name '*.yaml' -o -name '*.java' | xargs wc -c | tail -1"
+      - "统计已生成代码的大小: find src -name '*.java' -newer .dev-flow/session-start | xargs wc -c | tail -1"
+```
+
 ### 动态上下文分配
 
 ```yaml
@@ -75,6 +129,44 @@ dynamic_allocation:
   enforcement:
     - 无论任务多简单，不得低于 40KB
     - 无论任务多复杂，优先拆分而非增加上下文
+```
+
+### 🔴 预读取预算机制（v1.0.4_opt_v2 - 新增）
+
+> **目的**：在 Step 2 读取已有代码时，定义最大读取预算，防止读取膨胀
+
+```yaml
+read_budget:
+  max_total_read_size: "20KB"  # Step 2 读取已有代码的最大总大小
+  per_file_limit: "5KB"        # 单个文件最大读取大小
+  
+  priority_reading:
+    priority_1_critical:  # 必须读取（不占用预算）
+      - "design-contract.yaml"
+      - "subtask-{id}-design.yaml"
+      - "interface-registry.yaml"
+    priority_2_essential:  # 核心依赖（优先读取）
+      - "当前任务直接依赖的 Entity/DTO/Enum 定义"
+      - "当前任务直接调用的 Service/Mapper 接口"
+      budget_allocation: "10KB"
+    priority_3_reference:  # 参考文件（按需读取）
+      - "同类型已有实现（1个参考）"
+      - "基类/接口定义"
+      budget_allocation: "5KB"
+    priority_4_optional:  # 可选文件（预算充足时读取）
+      - "工具类方法签名"
+      - "编码规范详细说明"
+      budget_allocation: "5KB"
+      
+  enforcement:
+    - rule: "budget_exceeded"
+      condition: "total_read_size > max_total_read_size"
+      action: "STOP_READING"
+      message: "读取预算已用尽（{used}/{max}），停止读取非关键文件"
+    - rule: "per_file_exceeded"
+      condition: "single_file_size > per_file_limit"
+      action: "READ_PARTIAL"
+      message: "文件 {file} 超过单文件限制，只读取关键部分（类定义+方法签名）"
 ```
 
 ## 执行模式决策

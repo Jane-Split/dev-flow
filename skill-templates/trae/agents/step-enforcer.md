@@ -193,6 +193,142 @@ validation_rules:
         severity: "critical"
         action: "block"
     fail_action: "block"
+    
+  # 🔴 新增 - 交叉验证机制（v1.0.4_opt_v2）
+  - rule_id: "R3-2-1"
+    name: "验证文件内容交叉校验"
+    description: "不依赖文件存在性，而是读取验证文件内容与 design-contract.yaml 进行交叉比对"
+    check_method: "cross_validate_content"
+    validation_steps:
+      - step: 1
+        action: "read_verification_file"
+        description: "读取 entity-verification-table.md 的完整内容"
+      - step: 2
+        action: "read_design_contract"
+        description: "读取 design-contract.yaml 中的 entities 定义"
+      - step: 3
+        action: "compare_entity_fields"
+        description: "逐字段比对：验证表中的字段名、字段类型是否与 design-contract.yaml 一致"
+        check: "每个 Entity 的字段数量 >= design-contract.yaml 中定义的字段数量"
+      - step: 4
+        action: "compare_method_signatures"
+        description: "比对 method-signature-check.yaml 中的方法签名与 design-contract.yaml 中的 services 定义"
+        check: "每个 Service 方法都有对应的签名验证记录"
+      - step: 5
+        action: "validate_import_paths"
+        description: "验证 import-verification-table.md 中的实际路径是否真实存在"
+        command: "for each path in import-verification-table.md: [ -f {actual_path}.java ]"
+    detection_rules:
+      - rule: "field_count_mismatch"
+        condition: "验证表中的字段数 < design-contract.yaml 中的字段数"
+        severity: "critical"
+        action: "block"
+        message: "Entity 验证不完整：design-contract.yaml 定义了 {expected} 个字段，验证表只记录了 {actual} 个"
+      - rule: "method_missing"
+        condition: "design-contract.yaml 中的 Service 方法在 method-signature-check.yaml 中无对应记录"
+        severity: "critical"
+        action: "block"
+        message: "方法签名验证缺失：{method_name} 未在 method-signature-check.yaml 中记录"
+      - rule: "import_path_invalid"
+        condition: "import-verification-table.md 中的实际路径对应的文件不存在"
+        severity: "critical"
+        action: "block"
+        message: "Import 路径验证造假：声称 {path} 存在但实际文件不存在"
+    fail_action: "block"
+
+  # 🔴 新增 - 禁止事项自动化扫描（v1.0.4_opt_v2）
+  - rule_id: "R3-3-1"
+    name: "禁止事项自动化扫描"
+    description: "自动化扫描生成的代码，检测7条禁止事项是否被违反"
+    check_method: "prohibited_patterns_scan"
+    scan_patterns:
+      - pattern: "TODO.*实现.*业务逻辑"
+        severity: "critical"
+        message: "检测到 TODO 占位符：禁止生成 TODO 代替业务逻辑实现"
+      - pattern: "return null;"
+        severity: "critical"
+        message: "检测到空返回：禁止 return null 代替业务逻辑实现"
+      - pattern: "data:\\s*null"
+        severity: "critical"
+        message: "检测到 data: null 硬编码返回"
+      - pattern: "\\{\\/\\*.*描述.*\\*\\/\\}"
+        severity: "critical"
+        message: "检测到占位符注释：禁止用注释占位代替实际实现"
+    scan_command: |
+      # 对每个生成的代码文件执行扫描
+      for file in $(find . -name "*.java" -newer design-contract.yaml); do
+        # 检查 TODO 占位
+        grep -n "TODO.*实现" "$file" && echo "VIOLATION:TODO_PLACEHOLDER:$file"
+        # 检查空返回
+        grep -n "return null;" "$file" | grep -v "// " && echo "VIOLATION:NULL_RETURN:$file"
+        # 检查日志占位（方法体只有日志）
+        grep -A2 "public.*{" "$file" | grep -q "log\." && echo "CHECK:LOG_ONLY:$file"
+      done
+    fail_action: "block"
+
+  # 🔴 新增 - 逻辑覆盖率验证（v1.0.4_opt_v2）
+  - rule_id: "R3-4-1"
+    name: "逻辑步骤覆盖率验证"
+    description: "验证 design-contract.yaml 中定义的每个 logic step 都在代码中有对应实现"
+    check_method: "logic_step_coverage_check"
+    validation_steps:
+      - step: 1
+        action: "extract_logic_steps"
+        description: "从 design-contract.yaml 提取所有 logic steps（step 编号 + action 类型）"
+        output: "logic_steps_list"
+      - step: 2
+        action: "extract_code_implementations"
+        description: "从生成的代码中提取所有实现标记（如 // Step 1:、// Step 2: 等注释或代码结构）"
+        output: "code_implementations_list"
+      - step: 3
+        action: "compare_coverage"
+        description: "比对 logic_steps_list 与 code_implementations_list"
+        check: "code_implementations_list 覆盖 logic_steps_list 的 100%"
+      - step: 4
+        action: "check_action_types"
+        description: "验证每个 action 类型的实现特征（validate→if, query→mapper调用, call→service调用等）"
+    detection_rules:
+      - rule: "step_not_implemented"
+        condition: "design 中的 logic step 在代码中无对应实现"
+        severity: "critical"
+        action: "block"
+        message: "逻辑步骤 {step_number} ({action_type}) 未在代码中实现"
+      - rule: "action_type_mismatch"
+        condition: "step 实现的代码特征与 action 类型不匹配"
+        severity: "warning"
+        action: "warn_and_verify"
+        message: "步骤 {step_number} 声明为 {action_type} 但代码中未检测到对应特征"
+    coverage_threshold: 100  # 必须 100% 覆盖
+    fail_action: "block"
+
+  # 🔴 新增 - 条件分支全覆盖验证（v1.0.4_opt_v2）
+  - rule_id: "R3-4-2"
+    name: "条件分支全覆盖验证"
+    description: "验证结构化逻辑决策表中的每个 condition 分支在代码中都有对应的 if/else/case"
+    check_method: "condition_branch_coverage_check"
+    validation_steps:
+      - step: 1
+        action: "extract_conditions"
+        description: "从 design-contract.yaml 提取所有 condition 字段和 onFail/onSuccess 分支"
+      - step: 2
+        action: "extract_code_branches"
+        description: "从生成的代码中提取所有 if/else if/else 和 switch/case 结构"
+      - step: 3
+        action: "compare_branches"
+        description: "比对每个 condition 是否在代码中有对应的分支处理"
+        check: "每个 condition 都有 if 分支 + onFail 有 else/throw 分支"
+    detection_rules:
+      - rule: "condition_missing"
+        condition: "design 中的 condition 在代码中无对应 if 判断"
+        severity: "critical"
+        action: "block"
+        message: "条件分支缺失：{condition} 未在代码中实现"
+      - rule: "onfail_missing"
+        condition: "design 中定义了 onFail 但代码中无对应异常处理"
+        severity: "critical"
+        action: "block"
+        message: "失败处理缺失：{condition} 的 onFail 分支未实现"
+    fail_action: "block"
 ```
 
 **失败处理**：

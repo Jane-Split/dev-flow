@@ -221,6 +221,50 @@ context_decision:
 | 总任务数 > 3 | 混合模式 |
 | 上下文总量不足 | 强制串行 |
 
+#### 🔴 文件级冲突检测（v1.0.4_opt_v2 - 新增）
+
+> **目的**：在调度前检测多个任务是否会修改同一文件，防止并行覆盖
+
+```yaml
+file_conflict_detection:
+  trigger: "execution_mode == parallel OR execution_mode == hybrid"
+  
+  detection_steps:
+    - step: 1
+      action: "collect_file_lists"
+      description: "收集所有待执行任务的预估修改文件列表"
+      source: "subtask-{id}-design.yaml 中的 ownDesign"
+      
+    - step: 2
+      action: "build_file_task_map"
+      description: "构建 文件→任务 映射表"
+      example:
+        "Application.java": ["task-003", "task-007"]
+        "pom.xml": ["task-001", "task-005"]
+        
+    - step: 3
+      action: "detect_conflicts"
+      description: "检查是否有文件被多个任务声明修改"
+      check: "file_task_map 中任何文件的 task 数量 > 1"
+      
+    - step: 4
+      action: "resolve_conflicts"
+      description: "对冲突文件采取串行策略"
+      strategy:
+        - "将冲突任务从并行批次中移除"
+        - "按依赖顺序放入串行批次"
+        - "在 task-dag.yaml 中标记冲突关系"
+        
+  conflict_report:
+    format: |
+      # file-conflict-report.yaml
+      conflicts:
+        - file: "Application.java"
+          tasks: ["task-003", "task-007"]
+          resolution: "串行执行：task-003 先于 task-007"
+      resolved: true
+```
+
 **执行批次示例**：
 ```
 批次 1: [task-001, task-005]     ← 无依赖，并行执行
@@ -402,6 +446,31 @@ fix_assignment:
                                └────────┬────────┘
                                         │
                                         └──────────▶ (回到全局编译)
+```
+
+#### 🔴 7.6.1 编译循环上限（v1.0.4_opt_v2 - 新增）
+
+> **目的**：防止全局集成编译的循环修复无限执行
+
+```yaml
+global_compile_loop_limits:
+  max_iterations: 5  # 全局编译最多循环 5 次
+  per_category_limits:
+    category_a_single_task_error: 2  # 单任务内部错误最多修复 2 轮
+    category_b_cross_task_error: 3    # 跨任务接口错误最多修复 3 轮
+    category_c_design_deviation: 1    # 设计偏差最多修复 1 轮（回退到 design-expert）
+    category_d_dependency_conflict: 2 # 依赖冲突最多修复 2 轮
+    
+  escalation_rules:
+    - condition: "max_iterations reached AND errors remain"
+      action: "ESCALATE_TO_HUMAN"
+      message: "全局编译循环已达上限（{iterations}/{max}），剩余 {error_count} 个错误需人工处理"
+    - condition: "same_error_appears_3_times"
+      action: "ESCALATE_TO_HUMAN"
+      message: "相同错误反复出现 3 次，自动修复无效，需人工介入"
+    - condition: "category_c_design_deviation detected"
+      action: "ESCALATE_TO_DESIGN_EXPERT"
+      message: "检测到设计偏差，回退到 design-expert 重新设计"
 ```
 
 #### 7.7 集成编译报告
