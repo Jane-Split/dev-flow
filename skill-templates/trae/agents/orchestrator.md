@@ -116,6 +116,62 @@ dag:
 
 ### Step 4: DAG 调度 + 分批执行
 
+**🔴 阻塞检查机制（新增 - 技术级强制执行）**：
+
+在调度每个 subagent 前，必须检查阻塞状态：
+
+```yaml
+# 阻塞检查流程
+pre_dispatch_check:
+  - step: 1
+    action: "check_blocked_file"
+    description: "检查 .dev-flow/blocked 文件是否存在"
+    command: "[ -f .dev-flow/blocked ] && cat .dev-flow/blocked"
+    
+  - step: 2
+    action: "parse_blocked_info"
+    description: "如存在阻塞文件，解析阻塞信息"
+    fields:
+      - "blocked_step"
+      - "blocked_reason"
+      - "retry_count"
+      - "suggested_action"
+      
+  - step: 3
+    action: "handle_blocked"
+    description: "根据阻塞信息决定下一步操作"
+    actions:
+      - condition: "retry_count < 3"
+        action: "返回被阻塞的步骤重新执行"
+      - condition: "retry_count >= 3"
+        action: "升级到人工处理，暂停自动调度"
+```
+
+**阻塞文件格式**（`.dev-flow/blocked`）：
+```yaml
+blocked: true
+blocked_step: "develop.step_2_5"
+blocked_reason: "entity-verification-table.md 不存在"
+retry_count: 1
+suggested_action: "返回 Step 2.5 重新执行强制读取验证"
+blocked_at: "2026-06-02T10:30:00Z"
+```
+
+**调度阻塞处理**：
+| 阻塞状态 | 处理方式 |
+|---------|---------|
+| 无阻塞文件 | 正常调度下一个 subagent |
+| 阻塞 + retry < 3 | 返回被阻塞步骤重新执行 |
+| 阻塞 + retry >= 3 | 暂停调度，通知人工处理 |
+
+**清除阻塞**：
+```yaml
+# 当步骤验证通过后，清除阻塞标记
+clear_blocked:
+  condition: "step_validation_passed"
+  action: "rm .dev-flow/blocked"
+```
+
 **拓扑排序算法**：
 ```
 1. 找出所有入度为0的节点（无依赖）
@@ -123,6 +179,47 @@ dag:
 3. 移除已执行节点，更新依赖节点的入度
 4. 重复步骤1-3，直到所有节点执行完毕
 ```
+
+**🔴 Context-Manager 上下文评估（新增 - 必须执行）**：
+
+在 DAG 调度前，必须先调用 context-manager 进行上下文评估：
+
+```yaml
+context_evaluation_request:
+  session_id: "{current_session_id}"
+  tasks:
+    - task_id: "task-001"
+      estimated_complexity: "medium"
+      estimated_context: "50KB"
+    - task_id: "task-002"
+      estimated_complexity: "high"
+      estimated_context: "70KB"
+  available_context: "200KB"  # 根据模型动态获取
+```
+
+**context-manager 返回决策**：
+```yaml
+context_decision:
+  execution_mode: "serial"  # parallel | serial | hybrid
+  reason: "task_complexity_high_with_context_constraints"
+  task_allocation:
+    - task_id: "task-001"
+      allocated_context: "60KB"
+      execution_order: 1
+    - task_id: "task-002"
+      allocated_context: "70KB"
+      execution_order: 2
+  warnings:
+    - "task-002 预估上下文 > 50KB，建议串行执行"
+```
+
+**执行模式决策表**：
+| 条件 | 执行模式 |
+|------|---------|
+| 所有任务 <= 50KB 且总数 <= 3 | 并行模式 |
+| 任一任务 > 50KB | 串行模式 |
+| 总任务数 > 3 | 混合模式 |
+| 上下文总量不足 | 强制串行 |
 
 **执行批次示例**：
 ```

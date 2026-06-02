@@ -157,6 +157,42 @@ validation_rules:
     description: "验证所有外部服务调用（Feign Client、Service 等）都有实际实现"
     check_method: "verify_external_calls"
     fail_action: "block"
+    
+  # 🔴 新增 - 语义级日志占位检测
+  - rule_id: "R3-1-4"
+    name: "语义级日志占位检测（强化）"
+    description: "对比设计文档中的 call action 与代码中的实际外部调用，确保业务逻辑完整"
+    check_method: "semantic_log_placeholder_detection"
+    detection_steps:
+      - step: 1
+        action: "extract_call_actions"
+        description: "从 design-contract.yaml 中提取所有 call action（target + method）"
+      - step: 2
+        action: "extract_actual_calls"
+        description: "从生成的代码中提取所有外部调用（Feign Client、Service、MQ 等）"
+      - step: 3
+        action: "compare_calls"
+        description: "对比 call action 列表与实际调用列表，识别缺失的调用"
+      - step: 4
+        action: "check_complexity"
+        description: "检查方法圈复杂度：设计标记为复杂但复杂度 < 2 视为可疑"
+      - step: 5
+        action: "check_external_features"
+        description: "检查外部调用特征：Feign Client、RocketMQTemplate、KafkaTemplate、RedisTemplate 等"
+    detection_rules:
+      - rule: "call_action_missing"
+        condition: "design 中的 call action 在代码中无对应调用"
+        severity: "critical"
+        action: "block"
+      - rule: "low_complexity"
+        condition: "设计标记为复杂操作但方法圈复杂度 < 2"
+        severity: "warning"
+        action: "warn_and_verify"
+      - rule: "no_external_features"
+        condition: "设计有外部调用但代码无 Feign/MQ/Redis 等特征"
+        severity: "critical"
+        action: "block"
+    fail_action: "block"
 ```
 
 **失败处理**：
@@ -279,6 +315,18 @@ block_record:
   retry_count: 1  # 当前重试次数
   max_retries: 3
   retry_action: "return_to_step_2_5"
+
+# 🔴 新增 - 写入技术级阻塞文件
+# 同时写入 .dev-flow/blocked 文件，供 orchestrator 技术级检查
+write_blocked_file:
+  path: ".dev-flow/blocked"
+  content: |
+    blocked: true
+    blocked_step: "develop.step_2_5"
+    blocked_reason: "method-signature-check.yaml 缺少 confirmed: true 标记"
+    retry_count: 1
+    suggested_action: "返回 Step 2.5 重新执行强制读取验证"
+    blocked_at: "2026-05-29T14:30:00Z"
 ```
 
 ### Step 5: 阻塞或放行

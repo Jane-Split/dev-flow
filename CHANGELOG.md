@@ -2,6 +2,43 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.0.4_opt] - 2026-06-02
+
+### 新增
+
+- **上下文智能管理（Context Manager）**
+  - 新增 `context-manager.md` Agent，实现上下文智能管理
+  - 50KB 最小安全上下文硬约束，每个 develop-expert subagent 至少分配 50KB
+  - 三级动态监控：70% 警告、85% 强制分段、95% 紧急停止
+  - 分段执行机制：Step 2.5 后剩余上下文 < 20KB 时自动分段
+  - 串行执行兜底：上下文不足时自动降级为串行模式
+  - 执行模式自动决策：parallel/serial/hybrid 三种模式智能切换
+
+- **技术级阻塞机制**
+  - 新增 `.dev-flow/blocked` 标记文件机制
+  - step-enforcer 验证失败时写入阻塞文件
+  - orchestrator 调度前检查阻塞文件，实现技术级强制阻塞
+  - 防止 AI 通过忽略验证结果绕过验证
+
+- **语义级日志占位检测**
+  - 新增 R3-1-4 验证规则：语义级日志占位检测（强化）
+  - 对比设计文档中的 call action 与代码中的实际外部调用
+  - 检测方法圈复杂度：设计标记为复杂但复杂度 < 2 视为可疑
+  - 检查外部调用特征：Feign Client、RocketMQTemplate、KafkaTemplate、RedisTemplate 等
+
+### 改进
+
+- orchestrator.md Step 4 新增阻塞检查机制
+- step-enforcer.md 新增写入阻塞文件逻辑
+
+### 目标达成
+
+| 目标 | 优化措施 | 预期效果 |
+|------|---------|---------|
+| 上下文不超限 | context-manager 50KB 硬约束 + 分段执行 + 串行兜底 | ✅ 防止上下文超限 |
+| 代码正确率 100% | 技术级阻塞机制 + Step 2.5.9 集成 | ✅ 强制验证，无法绕过 |
+| 代码完整度 100% | 语义级日志占位检测 + call action 对比 | ✅ 检测日志占位 |
+
 ## [1.0.4] - 2026-06-02
 
 ### 新增
