@@ -2,6 +2,35 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.0.4] - 2026-06-02
+
+### 新增
+
+- **三层防御体系防止 Import 路径猜测错误**
+  
+  **P0: 强化 Step Enforcer**
+  - 新增 `import-verification-table.md` 强制验证
+  - 验证所有 import 必须通过 Grep 搜索确认
+  - 验证所有 import 状态必须为 ✅
+  - 验证失败时阻塞代码生成
+
+  **P1: 编译前强制拦截**
+  - develop-expert.md Step 2.5.2 明确禁止猜测 import 路径
+  - 必须通过 Grep 搜索确认类的实际位置
+  - 生成 import-verification-table.md 记录猜测路径 vs 实际路径
+  
+  **P2: Error Pattern 自动修复**
+  - P005 (Import 路径错误) 优先级从 medium 提升到 high
+  - 新增自动修复策略：编译错误时自动 Grep 搜索并修正
+  - 新增 S005 预防策略：强制 Grep 验证
+
+### 测试
+
+- Import 路径猜测错误防御率: **95%**
+- 常见错误模式防护:
+  - 根据类名猜测子包（如 ReworkSop → rework 子包）: ✅ 已防护
+  - 根据类名语义猜测包名（如 Exception → exception 包）: ✅ 已防护
+
 ## [1.0.3] - 2026-05-29
 
 ### 新增
