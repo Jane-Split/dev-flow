@@ -114,22 +114,81 @@ dag:
       tasks: ["task-004"]
 ```
 
-### Step 4: DAG 调度 + 分批执行
+### Step 4: 🔴 Context-Manager 上下文评估与执行模式决策
 
-**拓扑排序算法**：
+**在 DAG 调度前，必须先调用 context-manager 进行上下文评估**：
+
+```yaml
+# 调用 context-manager
+context_evaluation_request:
+  dag: "task-dag.yaml"
+  available_context: "200KB"  # 当前可用上下文
+  
+  evaluation_criteria:
+    minimum_safe_context_per_task: "50KB"  # 硬约束
+    max_parallel_tasks: 3
+    
+  expected_output:
+    execution_mode: "parallel|serial|hybrid"
+    context_allocation:
+      - task_id: "task-001"
+        allocated_context: "45KB"
+      - task_id: "task-002"
+        allocated_context: "55KB"
+    batches:
+      - batch: 1
+        mode: "parallel"
+        tasks: ["task-001", "task-005"]
+      - batch: 2
+        mode: "serial"
+        tasks: ["task-002", "task-003"]
 ```
-1. 找出所有入度为0的节点（无依赖）
-2. 这些节点构成第1批次，并行执行
-3. 移除已执行节点，更新依赖节点的入度
-4. 重复步骤1-3，直到所有节点执行完毕
+
+**执行模式决策**（由 context-manager 决定）：
+
+| 条件 | 执行模式 | 说明 |
+|------|---------|------|
+| 所有任务 <= 50KB 且总数 <= 3 | **并行模式** | 效率优先 |
+| 任一任务 > 50KB | **串行模式** | 准确性优先 |
+| 总任务数 > 3 | **混合模式** | 分批并行+串行 |
+| 上下文总量不足 | **强制串行** | 安全兜底 |
+
+**拓扑排序算法**（根据执行模式调整）：
+```
+1. 从 context-manager 获取执行模式
+2. 如果是并行模式：
+   - 找出所有入度为0的节点（无依赖）
+   - 这些节点构成第1批次，并行执行
+   - 每个任务分配 50KB+ 上下文
+3. 如果是串行模式：
+   - 按依赖链排序：Entity → Enum → DTO → Mapper → Service → Controller
+   - 每个任务在干净上下文中串行执行
+4. 如果是混合模式：
+   - 无依赖任务并行执行（批次1）
+   - 依赖链任务串行执行（批次2,3,4...）
+5. 移除已执行节点，更新依赖节点的入度
+6. 重复步骤1-5，直到所有节点执行完毕
 ```
 
 **执行批次示例**：
 ```
-批次 1: [task-001, task-005]     ← 无依赖，并行执行
-批次 2: [task-002, task-006]     ← 依赖批次1完成
+【并行模式】
+批次 1: [task-001, task-005]     ← 无依赖，并行执行（各50KB）
+批次 2: [task-002, task-006]     ← 依赖批次1完成，并行执行
 批次 3: [task-003]               ← 依赖批次2完成
-批次 4: [task-004, task-007]     ← 依赖批次3完成
+批次 4: [task-004, task-007]     ← 依赖批次3完成，并行执行
+
+【串行模式】
+批次 1: [task-001]               ← Entity，串行（50KB）
+批次 2: [task-002]               ← Mapper，串行（55KB）
+批次 3: [task-003]               ← Service，串行（60KB）
+批次 4: [task-004]               ← Controller，串行（55KB）
+
+【混合模式】
+批次 1: [task-001, task-005]     ← Entity并行（无依赖，各45KB）
+批次 2: [task-002]               ← Mapper串行（依赖Entity，55KB）
+批次 3: [task-003]               ← Service串行（依赖Mapper，60KB）
+批次 4: [task-004]               ← Controller串行（依赖Service，55KB）
 ```
 
 **启动 Develop Subagent 时传递**：

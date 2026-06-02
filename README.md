@@ -1,9 +1,9 @@
 # dev-flow
 
 [![node](https://img.shields.io/node/v/dev-flow.svg)](https://nodejs.org)
-[![version](https://img.shields.io/badge/version-v1.0.4-blue)]()
+[![version](https://img.shields.io/badge/version-v1.0.5-blue)]()
 
-> **当前版本: v1.0.4** | [更新日志](./CHANGELOG.md)
+> **当前版本: v1.0.5** | [更新日志](./CHANGELOG.md)
 
 AI 开发全流程编排 Skill，适用于 Cursor、Trae、Qoder、Claude Code、OpenAI Codex 等 AI 编程工具。
 
@@ -40,6 +40,7 @@ dev-flow 通过**结构化的流程编排 + 项目记忆 + 长期记忆 + 学习
 - **步骤强制执行** (v1.0.3) - Step Enforcer 验证关键步骤完成质量，防止 AI "偷懒" 跳过，无法跳过必须完成
 - **错误模式自动应用** (v1.0.3) - Error Pattern Learner 自动将学习到的模式应用到 Agent 指导，无需人工更新
 - **三层防御体系** (v1.0.4) - 防止 Import 路径猜测错误，代码生成前 Grep 强制验证 + 编译前阻塞 + 编译后自动修复
+- **上下文智能管理** (v1.0.5) - 解决"上下文限制导致敷衍生成"问题，最小安全上下文阈值（50KB 硬约束）+ 智能任务拆分 + 动态执行模式决策，宁可串行也不生成错误代码
 - **学习能力** - 从用户反馈、代码修改、测试 Bug 中自动学习，持续优化代码生成策略
 - **记忆强化** - 模式使用 >3 次标记"高频"优先推荐，>5 次标记"标准"必须遵守
 - **阶段确认** - 每个阶段完成后暂停，展示成果并等待用户确认
