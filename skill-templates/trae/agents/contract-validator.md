@@ -158,6 +158,27 @@ validation_rules:
         operator: "min_length"
         min_lines: 3
         required: true
+        
+      - check_id: "R3-5"
+        item: "无日志占位替代业务逻辑"
+        operator: "not_only_log"
+        description: "方法体不能仅包含日志调用，必须有实质性业务操作（如 SAP 推送、消息发送、数据库操作等）"
+        required: true
+        examples:
+          - invalid: |
+              public void pushToSap(OrderDTO order) {
+                  log.info("推送订单到SAP: {}", order);
+              }
+            reason: "仅包含日志，无实际 SAP 推送调用"
+          - valid: |
+              public void pushToSap(OrderDTO order) {
+                  log.info("推送订单到SAP: {}", order);
+                  SapResponse response = sapFeignClient.pushOrder(order);
+                  if (!response.isSuccess()) {
+                      throw new BusinessException("SAP推送失败");
+                  }
+              }
+            reason: "包含日志和实际业务调用"
 ```
 
 **校验方法**：

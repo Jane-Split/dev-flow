@@ -188,6 +188,41 @@ logic:
 | `call` | 调用方法 | 调用其他Service |
 | `branch` | 条件分支 | if-else分支 |
 
+**🔴 call 类型 Action 强制要求（防止日志占位）**：
+
+当 `action: "call"` 时，必须提供以下字段，不能只使用 `detail` 自然语言描述：
+
+```yaml
+# ❌ 错误示例：仅使用自然语言描述，develop-expert 可能用日志占位
+- step: 5
+  action: "call"
+  detail: "推送订单到 SAP 系统"
+
+# ✅ 正确示例：提供完整的调用信息
+- step: 5
+  action: "call"
+  target: "SapFeignClient"           # 调用目标（类名）
+  method: "pushOrder"                # 调用方法
+  params:
+    - name: "order"
+      value: "orderDTO"
+      type: "OrderDTO"
+  onSuccess: "goto_step_6"
+  onFail:
+    action: "throw"
+    exception: "BusinessException"
+    message: "SAP推送失败"
+```
+
+**call 类型字段要求**：
+| 字段 | 说明 | 必填 |
+|------|------|------|
+| `target` | 调用目标类/服务名 | ✅ |
+| `method` | 调用的方法名 | ✅ |
+| `params` | 方法参数列表 | ✅ |
+| `onSuccess` | 成功后的下一步 | 可选 |
+| `onFail` | 失败处理 | 可选 |
+
 #### 3.4.3 复杂条件处理
 
 **多条件组合**：
