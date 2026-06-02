@@ -103,7 +103,7 @@ retry_action: "return_to_step_2_5"
 max_retries: 3  # 最多重试3次
 ```
 
-### Step 3.1: 结构化业务逻辑实现验证
+### Step 3.1: 结构化业务逻辑实现验证（🔴 强化 - 防止日志占位）
 
 **必须输出**：
 ```yaml
@@ -118,6 +118,61 @@ required_outputs:
     must_contain:
       - "步骤编号"
       - "生成的代码"
+      
+  - file: "business-substance-check.yaml"  # 🔴 新增 - 业务实质验证
+    must_contain:
+      - "call_actions"
+      - "implementation_status"
+    check: "all_call_actions_implemented == true"
+    
+  - file: "code-content-analysis.yaml"  # 🔴 新增 - 代码内容分析
+    must_contain:
+      - "methods_analyzed"
+      - "log_placeholder_detected"
+    check: "log_placeholder_count == 0"
+```
+
+**代码内容验证规则**：
+
+```yaml
+validation_rules:
+  - rule_id: "R3-1-1"
+    name: "Call Action 实现验证"
+    description: "验证设计文档中的每个 call action 都有对应的实际调用"
+    check_method: "compare_design_vs_implementation"
+    fail_action: "block"
+    
+  - rule_id: "R3-1-2"
+    name: "日志占位检测"
+    description: "检测方法体是否仅包含日志调用而无实质性业务操作"
+    check_method: "detect_log_placeholder"
+    patterns:
+      - "方法体仅包含 log.info/log.warn/log.debug"
+      - "设计有外部调用，实现只有日志"
+      - "方法注释描述业务操作，实现只有日志"
+    fail_action: "block"
+    
+  - rule_id: "R3-1-3"
+    name: "外部服务调用验证"
+    description: "验证所有外部服务调用（Feign Client、Service 等）都有实际实现"
+    check_method: "verify_external_calls"
+    fail_action: "block"
+```
+
+**失败处理**：
+```yaml
+block_message: |
+  ❌ Step 3.1 验证失败：检测到日志占位或业务逻辑缺失
+  
+  必须修复以下问题：
+  1. 所有设计文档中的 call action 必须有对应的实际调用
+  2. 方法体不能仅包含日志调用（log.info/log.warn/log.debug）
+  3. 所有外部服务调用（SAP推送、消息发送等）必须有实质性实现
+  
+  请返回 Step 3.1 重新执行，确保业务逻辑完整实现。
+
+retry_action: "return_to_step_3_1"
+max_retries: 3
 ```
 
 ### Step 5.7: 编译验证闭环
