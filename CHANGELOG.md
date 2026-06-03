@@ -2,6 +2,37 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.0.4_opt_v3] - 2026-06-03
+
+### 核心变化：取消固定50KB限制，改为任务驱动动态预算
+
+- **任务驱动动态上下文预算** - 不再固定50KB，根据任务实际需要动态计算最小上下文
+  - 4级上下文优先级：Step 2.5(最高) > design-doc > 代码生成 > 编码规范
+  - 动态预算计算流程：扫描依赖 → 计算最小上下文 → 检查可行性 → 分配剩余
+  - 4条铁律：Step 2.5不可跳过、不允许压缩依赖、分段而非跳过、拆分而非压缩
+
+- **Step 2.5 优先级保障机制** - 替代预读取预算限制
+  - Step 2.5 不受任何上下文预算限制，需要多少读多少
+  - 完成后根据剩余上下文决定：正常执行(>=15KB) / 分段执行(5-15KB) / 保存并继续(<5KB)
+  - 分段执行状态文件：.dev-flow/segment-state.yaml
+
+- **design-contract.yaml implementation_detail 强制要求** - 解决 TODO 占位根因
+  - 每个 call action 必须包含 implementation_detail（参数构建、调用配置、结果处理、原代码参考）
+  - 5项必填检查：param_construction、call_config、success处理、failure处理、source_reference
+  - design-expert 必须从原代码提取真实逻辑，不允许简略描述
+
+- **串行触发条件升级** - 从固定50KB改为动态阈值
+  - 触发条件：minimum_context > model_context_window * 80%
+  - 动作：FORCE_SERIAL_OR_SPLIT（可拆分则拆分，不可拆分则串行）
+
+### 目标达成
+
+| 目标 | 优化措施 | 预期效果 |
+|------|---------|---------|
+| 上下文不超限 | 动态预算 + 分段执行 + 任务拆分 | ✅ 不再固定限制，按需分配 |
+| 代码正确率 100% | Step 2.5 不可跳过 + 不可压缩 | ✅ 验证完整性保障 |
+| 代码完整度 100% | implementation_detail 必填 + 分段执行 | ✅ 消除 TODO 占位根因 |
+
 ## [1.0.4_opt] - 2026-06-02
 
 ### 新增

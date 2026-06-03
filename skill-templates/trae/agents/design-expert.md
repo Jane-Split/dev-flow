@@ -272,6 +272,121 @@ condition:
 3. 每个条件表达式必须是可翻译为 Java 代码的布尔表达式
 4. 变量引用必须与 design-contract.yaml 中定义的变量名一致
 
+#### 🔴 3.4.3 implementation_detail 强制要求（v1.0.4_opt_v3 - 必须执行）
+
+> **目的**：确保每个 call action 都有足够的实现细节，避免 develop-expert 因信息不足而生成 TODO 占位
+> **触发条件**：当 logic 中包含 action: "call" 时必须执行
+
+**implementation_detail 必填规范**：
+
+每个 `action: "call"` 的 step 必须包含 `implementation_detail` 字段，详细描述具体的实现逻辑：
+
+```yaml
+logic:
+  - step: 5
+    action: "call"
+    target: "sapFeignClient"
+    method: "pushOrder"
+    # 🔴 以下 implementation_detail 为必填项
+    implementation_detail:
+      # 1. 参数构建：如何构建调用参数
+      param_construction:
+        - param: "request"
+          type: "SapOrderRequest"
+          fields:
+            - field: "orderId"
+              source: "entity.getId()"
+            - field: "status"
+              source: "targetStatus.getCode()"
+            - field: "operator"
+              source: "ctx.getOperator()"
+      # 2. 调用方式：同步/异步/重试
+      call_config:
+        type: "sync"  # sync / async / retry
+        timeout: "30s"
+        retry_count: 0
+      # 3. 结果处理：成功和失败的分支
+      result_handling:
+        success:
+          action: "assign"
+          description: "记录 SAP 单号到 entity"
+          code: "entity.setSapOrderNo(result.getOrderNo())"
+        failure:
+          action: "throw"
+          exception: "BusinessException"
+          error_code: "SAP_PUSH_FAILED"
+          message: "SAP推送失败: {result.errorMessage}"
+      # 4. 原代码参考：从哪里提取的真实逻辑
+      source_reference: "原代码 QmsV2InspectRawMaterialsManagementServiceImpl.edit() 第 850-920 行"
+```
+
+**implementation_detail 必填检查清单**：
+
+| 检查项 | 说明 | 必填 |
+|--------|------|------|
+| param_construction | 调用参数如何构建（字段映射关系） | ✅ |
+| call_config | 调用方式（同步/异步/超时/重试） | ✅ |
+| result_handling.success | 成功时的处理逻辑 | ✅ |
+| result_handling.failure | 失败时的处理逻辑 | ✅ |
+| source_reference | 原代码参考位置 | ✅ |
+
+**不允许的 call action 格式**（会导致 TODO 占位）：
+
+```yaml
+# ❌ 错误：缺少 implementation_detail
+- step: 5
+  action: "call"
+  target: "sapFeignClient"
+  method: "pushOrder"
+  # 缺少 implementation_detail → develop-expert 无法实现 → 生成 TODO
+
+# ❌ 错误：implementation_detail 过于简略
+- step: 5
+  action: "call"
+  target: "sapFeignClient"
+  method: "pushOrder"
+  implementation_detail:
+    description: "调用SAP推送订单"  # 太简略，无法指导代码生成
+```
+
+**正确的 call action 格式**：
+
+```yaml
+# ✅ 正确：包含完整的 implementation_detail
+- step: 5
+  action: "call"
+  target: "sapFeignClient"
+  method: "pushOrder"
+  implementation_detail:
+    param_construction:
+      - param: "request"
+        type: "SapOrderRequest"
+        fields:
+          - field: "orderId"
+            source: "entity.getId()"
+          - field: "status"
+            source: "targetStatus.getCode()"
+    call_config:
+      type: "sync"
+      timeout: "30s"
+    result_handling:
+      success:
+        action: "assign"
+        description: "记录 SAP 单号"
+        code: "entity.setSapOrderNo(result.getOrderNo())"
+      failure:
+        action: "throw"
+        exception: "BusinessException"
+        error_code: "SAP_PUSH_FAILED"
+    source_reference: "原代码 XxxServiceImpl.edit() 第 850-920 行"
+```
+
+**design-expert 职责**：
+1. 从原代码中提取真实的业务逻辑（不是编造）
+2. 将提取的逻辑结构化为 implementation_detail
+3. 如果原代码中该调用不存在，标记为 `status: "new_implementation"` 并在 detail 中描述预期行为
+4. 确保 develop-expert 仅凭 implementation_detail 就能生成完整代码，无需猜测
+
 **🔴 call 类型 Action 强制要求（防止日志占位）**：
 
 当 `action: "call"` 时，必须提供以下字段，不能只使用 `detail` 自然语言描述：

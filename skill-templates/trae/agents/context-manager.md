@@ -30,30 +30,74 @@ context_management_principles:
 
 ## 上下文分配策略
 
-### 最小安全上下文配置（不可压缩）
+### 🔴 任务驱动动态上下文预算（v1.0.4_opt_v3 - 替代固定50KB）
+
+> **核心原则：验证不可跳过，代码可以分段**
+> **不再使用固定50KB限制，改为根据任务实际需要动态计算上下文预算**
 
 ```yaml
-minimum_safe_context_allocation:
-  develop_expert:
-    total: "50KB"  # 硬约束，不可低于此值
-    breakdown:
-      system_prompt: "10KB"       # develop-expert.md 指令
-      conventions: "5KB"          # 编码规范
-      design_doc: "15KB"          # 子任务设计文档
-      dependencies: "15KB"        # Step 2.5 强制读取的依赖类
-      code_generation: "10KB"     # 代码生成空间
-      buffer: "5KB"               # 应急缓冲
-
-  enforcement:
-    - rule: "minimum_context_check"
-      condition: "available_context < 50KB"
-      action: "BLOCK_PARALLEL"
-      message: "上下文不足以保证准确性，强制切换为串行执行"
+task_driven_context_budget:
+  # ===== 核心原则 =====
+  core_principle: "验证不可跳过，代码可以分段"
+  
+  # ===== 上下文优先级（从高到低，高优先级不可压缩）=====
+  context_priority:
+    priority_1_highest: "Step 2.5 依赖类读取验证"  # 绝对不可压缩、不可跳过
+    priority_2_high: "design-contract.yaml 设计文档" # 不可压缩
+    priority_3_medium: "代码生成"                     # 可分段执行
+    priority_4_low: "编码规范详细说明"                 # 可延迟加载
+  
+  # ===== 动态预算计算流程 =====
+  budget_calculation_flow:
+    step_1_scan_requirements:
+      action: "扫描任务需要读取的依赖类数量和大小"
+      method: |
+        1. 从 subtask-{id}-design.yaml 的 dependencies 列出所有依赖类
+        2. 从 design-contract.yaml 的 entities/dtos/enums/services 列出所有定义
+        3. 用 Grep/Glob 搜索这些类的实际文件
+        4. 用 wc -c 统计每个文件的大小
+        5. 汇总得到 actual_dependencies_size
+      output: "dependency_size_report.yaml"
       
-    - rule: "step_2_5_protection"
-      condition: "context_after_step_2_5 < 20KB"
-      action: "TRIGGER_SEGMENTATION"
-      message: "Step 2.5 后剩余上下文不足，触发分段执行"
+    step_2_calculate_minimum:
+      action: "计算最小必需上下文"
+      formula: |
+        minimum_context = 
+          system_prompt_size +          # develop-expert.md 指令（约 10KB）
+          design_doc_size +             # 子任务设计文档（实际大小）
+          actual_dependencies_size +     # Step 2.5 实际需要读取的依赖类（动态）
+          min_code_space                # 最小代码生成空间（5KB）
+      note: "这个值就是任务的最小安全上下文，不再固定为 50KB"
+      
+    step_3_check_feasibility:
+      action: "检查模型上下文是否足够"
+      check: "minimum_context <= model_context_window * 80%"
+      pass_action: "proceed_to_develop"
+      fail_action: "split_task"  # 不是压缩验证，而是拆分任务
+      
+    step_4_allocate_remaining:
+      action: "将剩余上下文分配给代码生成"
+      formula: |
+        code_generation_budget = model_context_window * 80% - minimum_context
+      note: "如果 code_generation_budget < 5KB，触发分段执行"
+  
+  # ===== 关键约束（铁律）=====
+  iron_rules:
+    - rule: "step_2_5_never_skip"
+      description: "Step 2.5 依赖类读取验证绝对不可跳过"
+      enforcement: "即使上下文不够，也不能跳过验证，必须拆分任务或分段执行"
+      
+    - rule: "never_compress_dependencies"
+      description: "不允许压缩 dependencies 读取来腾出代码生成空间"
+      enforcement: "dependencies 必须完整读取，代码生成空间不足时触发分段执行"
+      
+    - rule: "segment_not_skip"
+      description: "代码生成空间不足时，分段执行而非跳过任何代码"
+      enforcement: "每个 segment 生成一部分代码，通过文件系统传递状态继续下一 segment"
+      
+    - rule: "task_split_not_compress"
+      description: "任务过大时拆分任务，而不是压缩任何验证步骤"
+      enforcement: "当 minimum_context > model_context_window * 80% 时，拆分为多个子任务"
 ```
 
 ### 🔴 基于模型的动态阈值（v1.0.4_opt_v2 - 新增）
@@ -131,42 +175,66 @@ dynamic_allocation:
     - 无论任务多复杂，优先拆分而非增加上下文
 ```
 
-### 🔴 预读取预算机制（v1.0.4_opt_v2 - 新增）
+### 🔴 Step 2.5 优先级保障机制（v1.0.4_opt_v3 - 替代预读取预算）
 
-> **目的**：在 Step 2 读取已有代码时，定义最大读取预算，防止读取膨胀
+> **核心变化**：不再限制 Step 2.5 的读取预算，改为"需要多少读多少，不够就分段"
+> **旧方案问题**：预读取预算 20KB 限制导致复杂任务无法完整读取所有依赖类
+> **新方案**：Step 2.5 必须完整读取所有依赖类，代码生成空间不足时触发分段执行
 
 ```yaml
-read_budget:
-  max_total_read_size: "20KB"  # Step 2 读取已有代码的最大总大小
-  per_file_limit: "5KB"        # 单个文件最大读取大小
-  
-  priority_reading:
-    priority_1_critical:  # 必须读取（不占用预算）
-      - "design-contract.yaml"
-      - "subtask-{id}-design.yaml"
-      - "interface-registry.yaml"
-    priority_2_essential:  # 核心依赖（优先读取）
-      - "当前任务直接依赖的 Entity/DTO/Enum 定义"
-      - "当前任务直接调用的 Service/Mapper 接口"
-      budget_allocation: "10KB"
-    priority_3_reference:  # 参考文件（按需读取）
-      - "同类型已有实现（1个参考）"
-      - "基类/接口定义"
-      budget_allocation: "5KB"
-    priority_4_optional:  # 可选文件（预算充足时读取）
-      - "工具类方法签名"
-      - "编码规范详细说明"
-      budget_allocation: "5KB"
-      
-  enforcement:
-    - rule: "budget_exceeded"
-      condition: "total_read_size > max_total_read_size"
-      action: "STOP_READING"
-      message: "读取预算已用尽（{used}/{max}），停止读取非关键文件"
-    - rule: "per_file_exceeded"
-      condition: "single_file_size > per_file_limit"
-      action: "READ_PARTIAL"
-      message: "文件 {file} 超过单文件限制，只读取关键部分（类定义+方法签名）"
+step_2_5_priority_guarantee:
+  # Step 2.5 必须完整执行，不受任何预算限制
+  execution_guarantee:
+    must_read_all: true  # 必须读取所有依赖类
+    no_budget_limit: true  # 不设读取预算上限
+    no_skip_allowed: true  # 不允许跳过任何依赖类
+    
+  # Step 2.5 完成后的上下文检查
+  post_step_2_5_check:
+    step_1: "计算剩余可用上下文"
+    formula: "remaining = model_context_window * 80% - system_prompt - design_doc - dependencies_read"
+    
+    step_2: "根据剩余上下文决定执行策略"
+    decision_tree:
+      - condition: "remaining >= 15KB"
+        action: "NORMAL_EXECUTION"
+        description: "正常生成代码"
+        
+      - condition: "remaining >= 5KB AND remaining < 15KB"
+        action: "SEGMENTED_EXECUTION"
+        description: "分段执行：先生成核心代码，再生成辅助代码"
+        segments:
+          - segment_1: "生成核心业务逻辑代码（Service 方法实现）"
+          - segment_2: "生成辅助代码（DTO、常量、工具方法）"
+          - segment_3: "生成测试代码"
+        state_passing: "通过 .dev-flow/segment-state.yaml 传递状态"
+        
+      - condition: "remaining < 5KB"
+        action: "SAVE_AND_CONTINUE"
+        description: "保存当前状态，启动新的干净上下文继续"
+        steps:
+          - "保存 Step 2.5 的验证结果到文件"
+          - "保存已读取的依赖类摘要到文件"
+          - "创建 continuation task"
+          - "新任务从文件恢复状态，继续代码生成"
+          
+  # 分段执行状态文件格式
+  segment_state:
+    file: ".dev-flow/segment-state.yaml"
+    format: |
+      segment_id: "seg-1"
+      task_id: "task-003"
+      step_2_5_completed: true
+      dependencies_read: true
+      verification_passed: true
+      code_generated_so_far:
+        - "UserService.java (核心方法)"
+      remaining_code_to_generate:
+        - "UserServiceImpl.java (完整实现)"
+        - "UserServiceImplTest.java"
+      context_snapshot:
+        design_doc_summary: "UserService 3个方法的签名和逻辑"
+        key_types: "User(Long,String), UserDTO(Long,String)"
 ```
 
 ## 执行模式决策
@@ -420,10 +488,13 @@ segmented_execution:
 
 ```yaml
 forced_serial_triggers:
-  - condition: "available_context < 50KB"
+  - condition: "minimum_context > model_context_window * 80%"
     priority: "CRITICAL"
-    action: "FORCE_SERIAL"
-    message: "上下文不足，强制串行执行以保证准确性"
+    action: "FORCE_SERIAL_OR_SPLIT"
+    message: "任务所需上下文超过模型容量的80%，强制串行执行或拆分任务"
+    decision_logic: |
+      如果任务可拆分 → 拆分为多个子任务串行执行
+      如果任务不可拆分 → 串行执行（单个任务独占全部上下文）
     
   - condition: "task_complexity == HIGH AND estimated_context > 70KB"
     priority: "HIGH"
@@ -490,9 +561,9 @@ phase_5_develop:
 ```yaml
 develop_expert_integration:
   before_execution:
-    - "context-manager 检查可用上下文"
-    - "如果 < 50KB，触发串行模式或分段执行"
-    - "分配上下文预算给当前任务"
+    - "context-manager 扫描任务依赖，计算动态最小上下文"
+    - "如果 minimum_context > model_context_window * 80%，触发任务拆分"
+    - "分配上下文预算：优先保证 Step 2.5 完整执行"
     
   during_execution:
     - "每完成一个步骤，检查上下文使用"
@@ -559,7 +630,8 @@ context_management_report:
 
 | 指标 | 目标值 | 说明 |
 |------|--------|------|
-| 最小上下文分配 | 50KB | 硬约束，不可突破 |
+| 最小上下文分配 | 动态计算 | 根据任务实际需要计算，不再固定50KB |
+| Step 2.5 完整性 | 100% | 所有依赖类必须完整读取，不可跳过 |
 | 并行任务最大数 | 3 | 保证每个任务有足够上下文 |
 | 上下文使用率警告 | 70% | 提前预警 |
 | 上下文临界值 | 85% | 强制分段执行 |
