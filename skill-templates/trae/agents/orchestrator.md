@@ -180,6 +180,189 @@ clear_blocked:
 4. 重复步骤1-3，直到所有节点执行完毕
 ```
 
+---
+
+#### 🔴 严格的批次执行控制协议（v1.0.4_opt_v2 - 新增）
+
+> **目的**：确保 DAG 批次严格按照顺序执行，当前批次所有任务全部成功完成后，才能启动下一批次
+
+```yaml
+batch_execution_protocol:
+  core_rule: "当前批次所有任务状态为 success 后，才能启动下一批次"
+  
+  batch_execution_flow:
+    step_1_load_batches:
+      action: "读取 task-dag.yaml 的 batches 定义"
+      output: "batch_queue = [batch-1, batch-2, ..., batch-N]"
+      
+    step_2_execute_current_batch:
+      action: "执行当前批次"
+      sub_steps:
+        - "获取当前批次的所有 task_id 列表"
+        - "对每个任务执行 pre_dispatch_check（阻塞检查）"
+        - "对每个任务执行 context_evaluation_request（上下文评估）"
+        - "对每个任务执行 file_conflict_detection（文件冲突检测）"
+        - "确定当前批次内各任务的执行模式（并行/串行）"
+        
+    step_3_wait_for_completion:
+      action: "等待当前批次所有任务完成"
+      completion_criteria:
+        - "每个任务都返回了 task-result.yaml"
+        - "每个任务的 status 为 success"
+        - "每个任务的 output_files 都存在且非空"
+        - "每个任务提供的接口已在 interface-registry.yaml 中注册"
+      
+    step_4_validate_batch:
+      action: "验证当前批次结果"
+      validation_checks:
+        - check: "batch_completion_check"
+          method: "统计当前批次任务状态"
+          pass_condition: "success_count == total_count"
+        - check: "output_existence_check"
+          method: "检查每个任务的输出文件是否存在"
+          command: "for each task in current_batch: [ -f {task.output_files} ]"
+        - check: "interface_registry_check"
+          method: "检查依赖接口是否已注册"
+          command: "grep -q {task.provides.interface} interface-registry.yaml"
+          
+    step_5_proceed_or_block:
+      action: "决定下一步"
+      decision:
+        - condition: "当前批次全部成功"
+          action: "proceed_to_next_batch"
+          next: "step_2_execute_current_batch（下一批次）"
+        - condition: "当前批次有任务失败"
+          action: "block_and_retry"
+          steps:
+            - "标记失败任务"
+            - "重试失败任务（最多 1 次）"
+            - "重试仍失败 → 暂停整个调度，报告用户"
+        - condition: "当前批次有任务超时"
+          action: "check_timeout_task"
+          steps:
+            - "检查超时任务是否仍在后台运行"
+            - "如已完成 → 收集结果继续"
+            - "如确实卡住 → 终止并重新调度"
+            
+    step_6_next_batch:
+      action: "启动下一批次"
+      prerequisite: "当前批次验证全部通过"
+      steps:
+        - "更新 batch_queue，移除已完成的批次"
+        - "更新依赖节点的入度（拓扑排序）"
+        - "检查下一批次的依赖是否全部满足"
+        - "如依赖未满足 → 等待或阻塞"
+        - "如依赖满足 → 进入 step_2_execute_current_batch"
+```
+
+**批次内任务执行模式决策**：
+
+```yaml
+intra_batch_execution_mode:
+  # 同一批次内的任务默认并行（因为它们无相互依赖）
+  default_mode: "parallel"
+  
+  # 但受以下约束限制：
+  constraints:
+    - constraint: "context_limit"
+      condition: "当前批次任务数 * 50KB > available_context"
+      action: "将批次拆分为多个子批次串行执行"
+      example: "批次1有4个任务，但上下文只够2个并行 → 拆分为 [task1,task2] 然后 [task3,task4]"
+      
+    - constraint: "file_conflict"
+      condition: "同一批次内多个任务修改同一文件"
+      action: "冲突任务串行执行，非冲突任务并行"
+      example: "批次2: [task-002(修改A.java), task-006(修改A.java), task-007(修改B.java)] → task-002和task-006串行，task-007并行"
+      
+    - constraint: "max_parallel"
+      condition: "当前批次任务数 > 3"
+      action: "最多同时启动 3 个 subagent，其余等待"
+      
+  execution_decision_flow:
+    - step: 1
+      action: "check_context"
+      description: "评估上下文是否支持全部并行"
+    - step: 2
+      action: "check_conflicts"
+      description: "检测文件冲突"
+    - step: 3
+      action: "determine_groups"
+      description: "将批次任务分组：冲突组串行、独立组并行"
+    - step: 4
+      action: "execute_groups"
+      description: "按组执行，组内串行、组间并行"
+```
+
+**批次执行状态追踪**：
+
+```yaml
+# batch-execution-state.yaml（每个批次一个状态文件）
+batch_execution:
+  batch_id: "batch-1"
+  status: "completed"  # pending / running / completed / failed
+  
+  tasks:
+    - task_id: "task-001"
+      status: "success"
+      result_file: "task-result-task-001.yaml"
+      output_files:
+        - "src/main/java/com/xxx/entity/User.java"
+      interfaces_registered:
+        - "UserEntity"
+        
+    - task_id: "task-005"
+      status: "success"
+      result_file: "task-result-task-005.yaml"
+      output_files:
+        - "src/main/java/com/xxx/entity/Order.java"
+      interfaces_registered:
+        - "OrderEntity"
+        
+  completion_summary:
+    total: 2
+    success: 2
+    failed: 0
+    pending: 0
+    
+  next_batch: "batch-2"
+  can_proceed: true  # 所有任务成功，可以进入下一批次
+```
+
+**批次间依赖检查**：
+
+```yaml
+inter_batch_dependency_check:
+  trigger: "启动新批次前"
+  
+  checks:
+    - check: "previous_batch_completed"
+      method: "读取 batch-execution-state.yaml"
+      pass: "status == completed AND can_proceed == true"
+      
+    - check: "dependency_outputs_ready"
+      method: "检查当前批次任务的 dependencies 对应的输出文件是否存在"
+      command: |
+        for dep_task_id in current_task.dependencies:
+          dep_result = "task-result-{dep_task_id}.yaml"
+          [ -f "$dep_result" ] || echo "MISSING_DEPENDENCY:$dep_task_id"
+      
+    - check: "interface_availability"
+      method: "检查依赖任务提供的接口是否已在 interface-registry.yaml 中注册"
+      command: |
+        for interface in current_task.required_interfaces:
+          grep -q "$interface" interface-registry.yaml || echo "MISSING_INTERFACE:$interface"
+```
+
+**关键约束（铁律）**：
+
+| 约束 | 说明 | 违反后果 |
+|------|------|---------|
+| 批次顺序不可跳过 | 必须 batch-1 → batch-2 → batch-3 顺序执行 | 违反则阻塞 |
+| 批次内全部成功 | 当前批次所有任务 status == success 才能进入下一批次 | 有失败则重试或暂停 |
+| 依赖输出就绪 | 下一批次的任务依赖的输出文件必须存在 | 缺失则阻塞等待 |
+| 接口已注册 | 依赖任务提供的接口必须在 interface-registry.yaml 中 | 未注册则阻塞 |
+| 上下文不足时分批 | 同一批次内上下文不足时拆分子批次串行 | 防止上下文超限 |
+
 **🔴 Context-Manager 上下文评估（新增 - 必须执行）**：
 
 在 DAG 调度前，必须先调用 context-manager 进行上下文评估：
