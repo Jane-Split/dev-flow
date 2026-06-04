@@ -40,6 +40,126 @@ is_background: false
 
 ## 工作流
 
+### Step 0: Pre-Research 智能判断（新增）
+
+> **目的**：避免重复全量扫描，根据 memory 新鲜度决定是否跳过或增量更新
+
+**检查流程**：
+
+```yaml
+pre_research_check:
+  step_1_check_memory_exists:
+    action: "检查 .dev-flow/memory/ 目录是否存在"
+    command: "[ -d .dev-flow/memory ] && echo 'exists' || echo 'not_exists'"
+    decision:
+      - condition: "not_exists"
+        action: "标记需要完整 Research"
+        next_step: "proceed_to_research"
+      - condition: "exists"
+        next_step: "step_2_check_key_files"
+  
+  step_2_check_key_files:
+    action: "检查关键文件是否存在且非空"
+    key_files:
+      - "project-overview.md"
+      - "conventions.md"
+      - "models.md"
+      - "apis.md"
+    command: |
+      missing=0
+      for f in project-overview.md conventions.md models.md apis.md; do
+        [ ! -s ".dev-flow/memory/$f" ] && missing=1 && break
+      done
+      [ $missing -eq 0 ] && echo "complete" || echo "incomplete"
+    decision:
+      - condition: "incomplete"
+        action: "标记需要完整 Research"
+        next_step: "proceed_to_research"
+      - condition: "complete"
+        next_step: "step_3_check_freshness"
+  
+  step_3_check_freshness:
+    action: "检查记忆新鲜度（读取时间戳）"
+    command: |
+      TIMESTAMP=$(grep -oP '<!-- last-updated: \K[^>]+' .dev-flow/memory/project-overview.md 2>/dev/null | head -1)
+      if [ -z "$TIMESTAMP" ]; then
+        echo "no_timestamp"
+      else
+        TIMESTAMP_EPOCH=$(date -d "$TIMESTAMP" +%s 2>/dev/null || echo 0)
+        NOW_EPOCH=$(date +%s)
+        AGE_HOURS=$(( (NOW_EPOCH - TIMESTAMP_EPOCH) / 3600 ))
+        if [ $AGE_HOURS -lt 24 ]; then
+          echo "fresh_24h"
+        elif [ $AGE_HOURS -lt 168 ]; then  # 7 days
+          echo "fresh_7d"
+        else
+          echo "stale"
+        fi
+      fi
+    decision:
+      - condition: "no_timestamp"
+        action: "无时间戳，执行完整 Research"
+        next_step: "proceed_to_research"
+      - condition: "fresh_24h"
+        action: "记忆新鲜（<24h），询问用户是否跳过"
+        user_prompt: |
+          检测到有效的项目记忆（{TIMESTAMP}，{AGE_HOURS}小时前），是否跳过 Research 直接开始 Analyze？
+          - 跳过 Research（推荐，如果项目没有重大变更）
+          - 增量更新（仅扫描变更的部分）
+          - 重新全量扫描
+        next_step: "ask_user_skip_research"
+      - condition: "fresh_7d"
+        action: "记忆较新（<7天），静默执行增量更新"
+        next_step: "proceed_to_incremental_update"
+      - condition: "stale"
+        action: "记忆过期（>7天），询问用户是否重新扫描"
+        user_prompt: |
+          项目记忆已过期（{TIMESTAMP}，{AGE_DAYS}天前），建议重新扫描。是否重新执行 Research？
+          - 重新全量扫描（推荐）
+          - 仍然使用旧记忆（可能缺少最新变更）
+        next_step: "ask_user_rescan"
+  
+  step_4_check_config_changes:
+    action: "检查项目配置文件是否有变更"
+    config_files:
+      - "pom.xml"
+      - "package.json"
+      - "build.gradle"
+    command: |
+      MEMORY_MTIME=$(stat -c %Y .dev-flow/memory/project-overview.md 2>/dev/null || echo 0)
+      CONFIG_CHANGED=0
+      for f in pom.xml package.json build.gradle; do
+        if [ -f "$f" ]; then
+          FILE_MTIME=$(stat -c %Y "$f")
+          if [ $FILE_MTIME -gt $MEMORY_MTIME ]; then
+            CONFIG_CHANGED=1
+            break
+          fi
+        fi
+      done
+      [ $CONFIG_CHANGED -eq 1 ] && echo "changed" || echo "unchanged"
+    decision:
+      - condition: "changed"
+        action: "配置文件有变更，执行增量更新"
+        next_step: "proceed_to_incremental_update"
+      - condition: "unchanged"
+        action: "配置无变更，跳过 Research"
+        next_step: "skip_research"
+```
+
+**判断结果汇总**：
+
+| 条件 | 操作 |
+|------|------|
+| 记忆目录不存在 | 执行完整 Research |
+| 关键文件缺失/为空 | 执行完整 Research |
+| 记忆 < 24h + 用户选择跳过 | 跳过 Research，直接进入 Analyze |
+| 记忆 < 24h + 用户选择增量 | 执行增量更新 |
+| 记忆 < 7d + 配置有变更 | 静默增量更新 |
+| 记忆 < 7d + 配置无变更 | 跳过 Research |
+| 记忆 > 7d + 用户同意 | 执行完整 Research |
+| 记忆 > 7d + 用户拒绝 | 使用旧记忆继续 |
+
 ### Step 1: 需求理解
 - 与用户沟通，明确需求
 - 识别涉及的服务和模块
