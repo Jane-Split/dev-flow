@@ -31,24 +31,36 @@ const PLATFORM_CONFIG = {
     outputFile: 'SKILL.md',
     stripTraeOnly: false,
     useExtraAgents: true,
+    // Trae 的 skill 目录结构：.trae/skills/dev-flow/SKILL.md + stages/
+    // AI 从 skill 目录解析相对路径，stages/ 是同级子目录
+    stagesPath: 'stages/',
+    agentsPath: 'agents/',
   },
   cursor: {
     outputDir: 'skill-templates/cursor',
     outputFile: 'dev-flow.md',
     stripTraeOnly: true,
     useExtraAgents: false,
+    // Cursor 安装路径：.cursor/commands/dev-flow.md + .cursor/stages/
+    // AI 从项目根解析路径
+    stagesPath: '.cursor/stages/',
+    agentsPath: '.cursor/agents/',
   },
   claude: {
     outputDir: 'skill-templates/claude',
     outputFile: 'dev-flow.md',
     stripTraeOnly: true,
     useExtraAgents: false,
+    stagesPath: '.claude/stages/',
+    agentsPath: '.claude/agents/',
   },
   qoder: {
     outputDir: 'skill-templates/qoder',
     outputFile: 'dev-flow.md',
     stripTraeOnly: true,
     useExtraAgents: false,
+    stagesPath: '.qoder/stages/',
+    agentsPath: '.qoder/agents/',
   },
   codex: {
     outputDir: 'skill-templates/codex',
@@ -57,6 +69,8 @@ const PLATFORM_CONFIG = {
     useExtraAgents: false,
     formatCodex: true,
     skipAutoGen: true,
+    stagesPath: '.codex/stages/',
+    agentsPath: '.codex/agents/',
   },
 };
 
@@ -129,6 +143,14 @@ function generatePlatform(platform, config) {
   const coreContent = fs.readFileSync(CORE_SKILL, 'utf-8');
   let processed = processSkillContent(coreContent, config.stripTraeOnly);
 
+  // 平台特定路径替换（{{STAGES_PATH}} 和 {{AGENTS_PATH}}）
+  if (config.stagesPath) {
+    processed = processed.replace(/\{\{STAGES_PATH\}\}/g, config.stagesPath);
+  }
+  if (config.agentsPath) {
+    processed = processed.replace(/\{\{AGENTS_PATH\}\}/g, config.agentsPath);
+  }
+
   if (config.formatCodex) {
     processed = convertToCodexFormat(processed);
   }
@@ -165,8 +187,16 @@ function generatePlatform(platform, config) {
     const baseAgents = fs.readdirSync(CORE_AGENTS).filter(f => f.endsWith('.md'));
     for (const agent of baseAgents) {
       const src = path.join(CORE_AGENTS, agent);
+      let content = fs.readFileSync(src, 'utf-8');
+      // 平台特定路径替换
+      if (config.stagesPath) {
+        content = content.replace(/\{\{STAGES_PATH\}\}/g, config.stagesPath);
+      }
+      if (config.agentsPath) {
+        content = content.replace(/\{\{AGENTS_PATH\}\}/g, config.agentsPath);
+      }
       const dst = path.join(agentsDir, agent);
-      fs.copyFileSync(src, dst);
+      fs.writeFileSync(dst, content, 'utf-8');
     }
     console.log(`  \u2713 agents: ${baseAgents.length} 个`);
   }
@@ -221,6 +251,13 @@ function verifyPlatform(platform, config) {
   } else {
     const coreContent = fs.readFileSync(CORE_SKILL, 'utf-8');
     let generated = processSkillContent(coreContent, config.stripTraeOnly);
+    // 平台特定路径替换
+    if (config.stagesPath) {
+      generated = generated.replace(/\{\{STAGES_PATH\}\}/g, config.stagesPath);
+    }
+    if (config.agentsPath) {
+      generated = generated.replace(/\{\{AGENTS_PATH\}\}/g, config.agentsPath);
+    }
     if (config.formatCodex) {
       generated = convertToCodexFormat(generated);
     }

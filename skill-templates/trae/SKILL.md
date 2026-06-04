@@ -83,7 +83,7 @@ dev-flow 支持两种运行模式：
 **Subagent 通信**：
 - 通过文件系统传递信息（task-context.yaml / task-result.yaml）
 - 主 agent 只保留任务状态，详细内容外置到文件
-- 详见 `.dev-flow/agents/task-protocol.md`
+- 详见 `agents/task-protocol.md`
 
 **何时使用 Subagent 模式**：
 - 需求涉及 2 个以上服务/模块
@@ -288,6 +288,44 @@ Step 0: 检测需求规模
 2. **Subagent 模式**：每个 subagent 只加载自己阶段的指令文件
 3. **Develop 阶段额外加载**：进入 Develop 阶段时，还需加载 `stages/code-reference.md`（包含代码模板和错误模式）
 4. **跳过的阶段不加载**：如果用户要求跳过某个阶段，该阶段的指令文件不需要加载
+
+### 标准模式执行流程
+
+> 当用户输入 `/dev-flow <需求>` 时，按以下步骤依次执行：
+
+```
+Step 1: 读取阶段指令 → Read stages/research.md
+Step 2: 执行 Research 阶段 → 扫描项目，生成 memory/
+Step 3: 暂停 → 展示调研结果，等待用户确认
+  ↓ 用户确认
+Step 4: 读取阶段指令 → Read stages/analyze.md
+Step 5: 执行 Analyze 阶段 → 分析需求，输出分析文档
+Step 6: 暂停 → 展示分析结果，等待用户确认
+  ↓ 用户确认
+Step 7: 读取阶段指令 → Read stages/design.md
+Step 8: 执行 Design 阶段 → 详细设计，输出设计文档
+Step 9: 暂停 → 展示设计方案，等待用户确认
+  ↓ 用户确认
+Step 10: 读取阶段指令 → Read stages/task-split.md
+Step 11: 执行 Task Split → 拆分任务，输出任务清单
+Step 12: 暂停 → 展示任务清单，等待用户确认
+  ↓ 用户确认
+Step 13: 读取阶段指令 → Read stages/develop.md
+        读取代码参考 → Read stages/code-reference.md
+Step 14: 执行 Develop 阶段 → 编写完整代码
+Step 15: 暂停 → 展示开发结果，等待用户确认
+  ↓ 用户确认
+Step 16: 读取阶段指令 → Read stages/unit-test.md
+Step 17: 执行 Unit Test → 编写并运行测试
+Step 18: 暂停 → 展示测试结果，如有失败进入 Fix
+  ↓ 用户确认
+Step 19-N: 继续执行 Smoke Test → Integration Test → Delivery
+```
+
+**关键规则**：
+- **每个阶段开始前必须先读取对应的阶段指令文件**
+- **每个阶段完成后必须暂停，等待用户确认后才能进入下一阶段**
+- **如果 AI 发现上下文接近溢出，提示用户切换到 Subagent 模式**
 
 ---
 

@@ -19,6 +19,23 @@ is_background: false
 4. **结果整合**：收集各 subagent 结果，验证完整性
 5. **错误处理**：失败时重试或调整策略
 
+## 阶段指令路由
+
+> 调度每个 subagent 前，读取对应阶段的指令文件，将其作为上下文传递给 subagent。
+> 这确保 subagent 只获取它需要的指令，而不是全量 SKILL.md。
+
+| 阶段 | Subagent | 阶段指令文件 |
+|------|----------|-------------|
+| Research | research-expert | `stages/research.md` |
+| Analyze | analyze-expert | `stages/analyze.md` |
+| Design | design-expert | `stages/design.md` |
+| Task Split | task-split-expert | `stages/task-split.md` |
+| Develop | develop-expert | `stages/develop.md` |
+| Verify | verify-expert | `stages/unit-test.md` |
+
+**传递方式**：在 task-context.yaml 的 `constraints` 字段中注明阶段指令文件路径，
+subagent 会在开始工作前自动读取。
+
 ## 工作流
 
 ### Step 1: 需求理解
