@@ -234,6 +234,63 @@ dag:
       tasks: ["task-004"]
 ```
 
+### Step 3.5: 任务去重检查（🔴 新增 - 必须执行）
+
+> **目的**：防止相同任务被重复添加到执行队列，避免重复阶段出现
+
+**去重检查流程**：
+
+```yaml
+task_deduplication:
+  step_1_collect_existing_tasks:
+    action: "收集已存在的任务"
+    sources:
+      - "task-dag.yaml 中的 nodes"
+      - "已完成任务列表 completed-tasks.yaml"
+      - "正在执行任务列表 running-tasks.yaml"
+      - "execution-log.yaml 中的执行记录"
+    
+  step_2_check_completed_tasks:
+    action: "检查已完成任务"
+    command: |
+      if [ -f ".dev-flow/sessions/{session-id}/completed-tasks.yaml" ]; then
+        grep -oP 'task_id: "\K[^"]+' .dev-flow/sessions/{session-id}/completed-tasks.yaml
+      fi
+    
+  step_3_check_running_tasks:
+    action: "检查正在执行任务"
+    command: |
+      if [ -f ".dev-flow/sessions/{session-id}/running-tasks.yaml" ]; then
+        grep -oP 'task_id: "\K[^"]+' .dev-flow/sessions/{session-id}/running-tasks.yaml
+      fi
+    
+  step_4_deduplicate:
+    action: "去重处理"
+    rules:
+      - condition: "任务已完成"
+        action: "跳过，复用结果"
+      - condition: "任务正在执行"
+        action: "等待完成，不重复启动"
+      - condition: "任务失败（重试<3次）"
+        action: "重新执行"
+      - condition: "任务失败（重试>=3次）"
+        action: "标记阻塞，通知用户"
+    
+  step_5_update_status:
+    action: "更新任务状态"
+    output: "deduplication-report.yaml"
+```
+
+**去重规则表**：
+
+| 任务状态 | 处理策略 | 输出行为 |
+|---------|---------|---------|
+| 已完成（success） | 跳过，复用结果 | 直接使用已生成的输出文件 |
+| 正在执行 | 等待完成 | 加入等待队列，不重复启动 |
+| 失败（重试次数 < 3） | 重新执行 | 加入执行队列 |
+| 失败（重试次数 >= 3） | 标记阻塞 | 暂停调度，通知用户 |
+| 未知/首次 | 允许执行 | 正常调度 |
+
 ### Step 4: DAG 调度 + 分批执行
 
 **🔴 阻塞检查机制（新增 - 技术级强制执行）**：
@@ -471,6 +528,43 @@ inter_batch_dependency_check:
       command: |
         for interface in current_task.required_interfaces:
           grep -q "$interface" interface-registry.yaml || echo "MISSING_INTERFACE:$interface"
+    
+    # 🔴 新增：批次内任务去重检查
+    - check: "batch_task_deduplication"
+      method: "检查批次内任务是否已完成或重复"
+      command: |
+        SESSION_DIR=".dev-flow/sessions/{session-id}"
+        
+        # 检查 completed-tasks.yaml
+        if [ -f "$SESSION_DIR/completed-tasks.yaml" ]; then
+          for task_id in current_batch.tasks; do
+            if grep -q "task_id: \"$task_id\"" "$SESSION_DIR/completed-tasks.yaml"; then
+              echo "DUPLICATE_COMPLETED:$task_id"
+            fi
+          done
+        fi
+        
+        # 检查 running-tasks.yaml
+        if [ -f "$SESSION_DIR/running-tasks.yaml" ]; then
+          for task_id in current_batch.tasks; do
+            if grep -q "task_id: \"$task_id\"" "$SESSION_DIR/running-tasks.yaml"; then
+              echo "DUPLICATE_RUNNING:$task_id"
+            fi
+          done
+        fi
+      
+      decision:
+        - condition: "有 DUPLICATE_COMPLETED"
+          action: "从批次任务列表中移除已完成任务"
+          log: "任务 {task_id} 已完成，从批次中移除"
+        - condition: "有 DUPLICATE_RUNNING"
+          action: "等待正在执行任务完成"
+          log: "任务 {task_id} 正在执行，等待完成"
+        - condition: "批次所有任务都已完成"
+          action: "跳过整个批次，进入下一批次"
+          log: "批次 {batch_id} 所有任务已完成，跳过"
+        - condition: "无重复"
+          action: "正常执行批次任务"
 ```
 
 **关键约束（铁律）**：
@@ -871,6 +965,143 @@ next_tasks_hint: [建议的后续任务]
 | 依赖任务失败 | 阻塞后续依赖任务，报告用户 |
 | 输出不完整 | 要求 subagent 补充 |
 | 超时 | 后台模式继续，或询问用户 |
+| 任务重复 | 根据去重规则跳过或等待（🔴 新增） |
+
+## 断点续传策略（🔴 新增）
+
+> **目的**：支持从上次中断处继续执行，避免重复已完成的任务
+
+### 续传触发条件
+
+- 用户输入 `/dev-flow --resume`
+- 检测到未完成的会话（`.dev-flow/sessions/{session-id}/` 存在）
+- 检测到 `completed-tasks.yaml` 或 `running-tasks.yaml` 存在且非空
+
+### 续传流程
+
+```yaml
+resume_flow:
+  step_1_load_session:
+    action: "加载上次会话状态"
+    command: |
+      SESSION_DIR=".dev-flow/sessions/{session-id}"
+      
+      # 检查会话目录是否存在
+      if [ ! -d "$SESSION_DIR" ]; then
+        echo "ERROR: No previous session found"
+        exit 1
+      fi
+      
+      # 加载已完成任务
+      if [ -f "$SESSION_DIR/completed-tasks.yaml" ]; then
+        COMPLETED_COUNT=$(grep -c "task_id:" "$SESSION_DIR/completed-tasks.yaml" || echo 0)
+        echo "Found $COMPLETED_COUNT completed tasks"
+      fi
+      
+      # 加载正在执行任务
+      if [ -f "$SESSION_DIR/running-tasks.yaml" ]; then
+        RUNNING_COUNT=$(grep -c "task_id:" "$SESSION_DIR/running-tasks.yaml" || echo 0)
+        echo "Found $RUNNING_COUNT running tasks"
+      fi
+      
+      # 加载任务计划
+      if [ -f "$SESSION_DIR/task-plan.yaml" ]; then
+        TOTAL_TASKS=$(grep -c "task_id:" "$SESSION_DIR/task-plan.yaml" || echo 0)
+        echo "Total tasks in plan: $TOTAL_TASKS"
+      fi
+  
+  step_2_identify_completed:
+    action: "识别已完成任务"
+    command: |
+      SESSION_DIR=".dev-flow/sessions/{session-id}"
+      
+      # 提取已完成的任务ID列表
+      COMPLETED_IDS=$(grep -oP 'task_id: "\K[^"]+' "$SESSION_DIR/completed-tasks.yaml" 2>/dev/null)
+      for tid in $COMPLETED_IDS; do
+        echo "COMPLETED:$tid"
+      done
+      
+      # 提取正在执行的任务ID列表
+      RUNNING_IDS=$(grep -oP 'task_id: "\K[^"]+' "$SESSION_DIR/running-tasks.yaml" 2>/dev/null)
+      for tid in $RUNNING_IDS; do
+        echo "RUNNING:$tid"
+      done
+  
+  step_3_filter_remaining:
+    action: "过滤剩余待执行任务"
+    command: |
+      SESSION_DIR=".dev-flow/sessions/{session-id}"
+      
+      # 从任务计划中排除已完成和正在执行的任务
+      if [ -f "$SESSION_DIR/task-dag.yaml" ]; then
+        for task_id in $(grep -oP '^    - id: "\K[^"]+' "$SESSION_DIR/task-dag.yaml"); do
+          # 检查是否已完成
+          if grep -q "task_id: \"$task_id\"" "$SESSION_DIR/completed-tasks.yaml" 2>/dev/null; then
+            echo "SKIP:$task_id (already completed)"
+            continue
+          fi
+          
+          # 检查是否正在执行
+          if grep -q "task_id: \"$task_id\"" "$SESSION_DIR/running-tasks.yaml" 2>/dev/null; then
+            echo "WAIT:$task_id (currently running)"
+            continue
+          fi
+          
+          # 加入待执行队列
+          echo "PENDING:$task_id"
+        done
+      fi
+  
+  step_4_resume_execution:
+    action: "从断点处继续执行"
+    strategy: |
+      1. 从第一个未完成的批次开始
+      2. 对每个待执行任务进行去重检查
+      3. 跳过已完成的依赖任务
+      4. 按批次顺序执行剩余任务
+    output: "resume-report.yaml"
+```
+
+### 续传报告格式
+
+```yaml
+# resume-report.yaml
+resume:
+  session_id: "session-20260604-001"
+  resumed_at: "2026-06-04 12:00:00"
+  
+  previous_state:
+    total_tasks: 10
+    completed: 4
+    running: 1
+    pending: 5
+  
+  skipped:
+    - task_id: "task-001"
+      reason: "already completed"
+    - task_id: "task-002"
+      reason: "already completed"
+    - task_id: "task-003"
+      reason: "currently running, waiting for completion"
+  
+  resumed_from:
+    batch_id: "batch-3"
+    task_id: "task-004"
+    reason: "first pending task in batch 3"
+  
+  estimated_remaining:
+    batches: 2
+    tasks: 5
+    estimated_duration: "15 minutes"
+```
+
+### 续传限制
+
+| 限制类型 | 值 | 说明 |
+|---------|-----|------|
+| 最大续传次数 | 无限制 | 可以多次续传 |
+| 续传有效期 | 7 天 | 超过 7 天的会话不推荐续传 |
+| 失败任务续传 | 最多 3 次 | 超过则需人工处理 |
 
 ## 上下文管理原则
 
@@ -883,4 +1114,113 @@ next_tasks_hint: [建议的后续任务]
 所有输出写入 `.dev-flow/sessions/{session-id}/`：
 - `task-plan.yaml` - 任务拆分和依赖图
 - `execution-log.yaml` - 执行日志
+- `completed-tasks.yaml` - 已完成任务列表（🔴 新增）
+- `running-tasks.yaml` - 正在执行任务列表（🔴 新增）
 - `final-result.md` - 最终结果汇总
+
+**completed-tasks.yaml 结构**（🔴 新增）：
+```yaml
+completed_tasks:
+  - task_id: "task-001"
+    name: "UserEntity"
+    type: "EntityTask"
+    completed_at: "2026-06-04 10:30:00"
+    status: "success"
+    output_files:
+      - "src/main/java/com/xxx/entity/User.java"
+    duration_seconds: 45
+  
+  - task_id: "task-002"
+    name: "UserMapper"
+    type: "MapperTask"
+    completed_at: "2026-06-04 10:35:00"
+    status: "success"
+    output_files:
+      - "src/main/java/com/xxx/mapper/UserMapper.java"
+    duration_seconds: 30
+
+last_updated: "2026-06-04 10:35:00"
+total_completed: 2
+```
+
+**running-tasks.yaml 结构**（🔴 新增）：
+```yaml
+running_tasks:
+  - task_id: "task-003"
+    name: "UserService"
+    type: "ServiceTask"
+    started_at: "2026-06-04 10:40:00"
+    status: "running"
+    progress_percent: 50
+    current_step: "generating service methods"
+
+last_updated: "2026-06-04 10:45:00"
+total_running: 1
+```
+
+**任务状态更新机制**（🔴 新增）：
+```yaml
+task_status_updates:
+  # 任务开始执行时
+  on_task_start:
+    action: "将任务从待执行队列移到 running-tasks.yaml"
+    command: |
+      SESSION_DIR=".dev-flow/sessions/{session-id}"
+      
+      # 从待执行列表移除
+      sed -i "/task_id: \"$TASK_ID\"/d" "$SESSION_DIR/pending-tasks.yaml"
+      
+      # 添加到正在执行列表
+      cat >> "$SESSION_DIR/running-tasks.yaml" << EOF
+  - task_id: "$TASK_ID"
+    name: "$TASK_NAME"
+    type: "$TASK_TYPE"
+    started_at: "$(date '+%Y-%m-%d %H:%M:%S')"
+    status: "running"
+  EOF
+      
+      echo "Task $TASK_ID moved to running"
+  
+  # 任务完成时
+  on_task_complete:
+    action: "将任务从 running-tasks.yaml 移到 completed-tasks.yaml"
+    command: |
+      SESSION_DIR=".dev-flow/sessions/{session-id}"
+      
+      # 从正在执行列表移除
+      sed -i "/task_id: \"$TASK_ID\"/,/status: \"running\"/d" "$SESSION_DIR/running-tasks.yaml"
+      
+      # 添加到已完成列表
+      cat >> "$SESSION_DIR/completed-tasks.yaml" << EOF
+  - task_id: "$TASK_ID"
+    name: "$TASK_NAME"
+    type: "$TASK_TYPE"
+    completed_at: "$(date '+%Y-%m-%d %H:%M:%S')"
+    status: "$TASK_STATUS"
+    output_files:
+EOF
+      # 追加输出文件列表
+      for f in $OUTPUT_FILES; do
+        echo "      - \"$f\"" >> "$SESSION_DIR/completed-tasks.yaml"
+      done
+      
+      echo "Task $TASK_ID moved to completed"
+  
+  # 任务失败时
+  on_task_failure:
+    action: "更新任务状态为 failed，记录重试次数"
+    command: |
+      SESSION_DIR=".dev-flow/sessions/{session-id}"
+      
+      # 更新 running-tasks.yaml 中的状态
+      sed -i "/task_id: \"$TASK_ID\"/s/status: \"running\"/status: \"failed\"/" "$SESSION_DIR/running-tasks.yaml"
+      sed -i "/task_id: \"$TASK_ID\"/a\    error: \"$ERROR_MESSAGE\"" "$SESSION_DIR/running-tasks.yaml"
+      
+      # 增加失败计数
+      FAILED_COUNT=$(grep -c "task_id: \"$TASK_ID\".*status: \"failed\"" "$SESSION_DIR/execution-log.yaml" || echo 0)
+      if [ $FAILED_COUNT -lt 3 ]; then
+        echo "Task $TASK_ID failed (retry $FAILED_COUNT/3), will retry"
+      else
+        echo "Task $TASK_ID failed (max retries reached), blocking"
+      fi
+```
