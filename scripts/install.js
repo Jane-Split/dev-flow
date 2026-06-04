@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { appendFileSync, cpSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { appendFileSync, cpSync, existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -83,6 +83,14 @@ const STAGE_DEST_MAP = {
   codex: '.codex/stages/',
 };
 
+const REFERENCE_DEST_MAP = {
+  trae: '.trae/skills/dev-flow/references/',
+  cursor: '.cursor/references/',
+  qoder: '.qoder/references/',
+  claude: '.claude/references/',
+  codex: '.codex/references/',
+};
+
 const TOOL_ALIASES = {
   install: 'all',
   all: 'all',
@@ -93,24 +101,32 @@ const TOOL_ALIASES = {
   codex: 'codex',
 };
 
-const MEMORY_FILES = [
+// 长期记忆文件（跨会话保留）
+const LONG_TERM_MEMORY_FILES = [
   'project-overview.md',
   'conventions.md',
+  'patterns.md',
+  'mistakes.md',
+  'preferences.md',
+  'decisions.md',
+  // 微服务模式额外长期记忆
+  'service-registry.md',
+  'dependency-graph.md',
+  'common-modules.md',
+];
+
+// 会话记忆文件（每次 Research 重建）
+const SESSION_MEMORY_FILES = [
   'modules.md',
   'apis.md',
   'models.md',
   'utils.md',
   'config.md',
   'architecture.md',
-  'patterns.md',
-  'mistakes.md',
-  'preferences.md',
-  'decisions.md',
-  // 微服务模式额外记忆文件
-  'service-registry.md',
-  'dependency-graph.md',
-  'common-modules.md',
 ];
+
+// 兼容旧版：MEMORY_FILES = 长期 + 会话
+const MEMORY_FILES = [...LONG_TERM_MEMORY_FILES, ...SESSION_MEMORY_FILES];
 
 const MEMORY_TEMPLATES = {
   'project-overview.md': `# 项目概览
@@ -337,11 +353,13 @@ function install(target) {
       installSkill(key);
       installAgents(key);
       installStages(key);
+      installReferences(key);
     }
   } else {
     installSkill(target);
     installAgents(target);
     installStages(target);
+    installReferences(target);
   }
   createMemoryTemplate();
   console.log('\n✅ dev-flow skill 安装完成！');
@@ -429,6 +447,30 @@ function installStages(tool) {
   console.log(`✅ ${tool} stages: ${destDir} (${installedCount} files)`);
 }
 
+function installReferences(tool) {
+  const destDir = REFERENCE_DEST_MAP[tool];
+  if (!destDir) return;
+
+  const refsSrcDir = resolve(ROOT, `skill-templates/${tool}/references`);
+  if (!existsSync(refsSrcDir)) {
+    console.log(`ℹ️ ${tool} references: 源目录不存在，跳过 (${refsSrcDir})`);
+    return;
+  }
+
+  let installedCount = 0;
+  for (const file of readdirSync(refsSrcDir).filter(f => f.endsWith('.md'))) {
+    const src = resolve(refsSrcDir, file);
+    if (!existsSync(src)) continue;
+
+    const dest = resolve(PROJECT_ROOT, destDir, file);
+    mkdirSync(dirname(dest), { recursive: true });
+    cpSync(src, dest);
+    installedCount += 1;
+  }
+
+  console.log(`✅ ${tool} references: ${destDir} (${installedCount} files)`);
+}
+
 function installCodexAgentsMd(src, dest) {
   mkdirSync(dirname(dest), { recursive: true });
 
@@ -485,13 +527,25 @@ function normalizeTarget(target) {
 
 function createMemoryTemplate() {
   const memoryDir = resolve(PROJECT_ROOT, '.dev-flow/memory');
+  const sessionDir = resolve(PROJECT_ROOT, '.dev-flow/memory/session');
   const sessionsDir = resolve(PROJECT_ROOT, '.dev-flow/sessions');
 
   mkdirSync(memoryDir, { recursive: true });
+  mkdirSync(sessionDir, { recursive: true });
   mkdirSync(sessionsDir, { recursive: true });
 
-  for (const file of MEMORY_FILES) {
+  // 创建长期记忆模板（不覆盖已有内容）
+  for (const file of LONG_TERM_MEMORY_FILES) {
     const filePath = resolve(memoryDir, file);
+    if (!existsSync(filePath)) {
+      const content = MEMORY_TEMPLATES[file] || `# ${file.replace('.md', '').replace(/-/g, ' ')}\n\n> 由 dev-flow Research 阶段自动填充\n\n`;
+      writeFileSync(filePath, content, 'utf-8');
+    }
+  }
+
+  // 创建会话记忆模板（存放在 session/ 子目录）
+  for (const file of SESSION_MEMORY_FILES) {
+    const filePath = resolve(sessionDir, file);
     if (!existsSync(filePath)) {
       const content = MEMORY_TEMPLATES[file] || `# ${file.replace('.md', '').replace(/-/g, ' ')}\n\n> 由 dev-flow Research 阶段自动填充\n\n`;
       writeFileSync(filePath, content, 'utf-8');
@@ -504,7 +558,7 @@ function createMemoryTemplate() {
     writeFileSync(gitkeep, '', 'utf-8');
   }
 
-  console.log(`✅ 记忆目录: .dev-flow/memory/`);
+  console.log(`✅ 记忆目录: .dev-flow/memory/ (长期) + .dev-flow/memory/session/ (会话)`);
 }
 
 // CLI 解析

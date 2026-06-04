@@ -1,9 +1,9 @@
 # dev-flow
 
 [![node](https://img.shields.io/node/v/dev-flow.svg)](https://nodejs.org)
-[![version](https://img.shields.io/badge/version-v1.0.5-blue)]()
+[![version](https://img.shields.io/badge/version-v2.0.0-blue)]()
 
-> **当前版本: v1.0.5** | [更新日志](./CHANGELOG.md)
+> **当前版本: v2.0.0** | [更新日志](./CHANGELOG.md)
 
 AI 开发全流程编排 Skill，适用于 Cursor、Trae、Qoder、Claude Code、OpenAI Codex 等 AI 编程工具。
 
@@ -24,40 +24,37 @@ dev-flow 通过**结构化的流程编排 + 项目记忆 + 长期记忆 + 学习
 
 ## 特性
 
+### v2.0.0 核心架构升级
+
+- **四层按需加载架构** — Router(17KB) + references(按需) + 12 个阶段指令 + 20 个 Agent，上下文占用从 357KB 降至 79KB 以下，代码生成可用空间达 50%+
+- **会话/长期记忆分离** — 会话记忆（modules/apis/models 等）每次 Research 自动重建，长期记忆（patterns/mistakes/preferences 等）跨会话累积
+- **Agent 智能拆分** — 大 Agent 文件拆分为核心+references 模式库，按需加载不浪费上下文
+- **完整测试覆盖** — 构建测试、链接检查、大小预警、格式检查，搭配 GitHub Actions CI
+- **记忆清理命令** — `/dev-flow -cleanup` 安全清理会话记忆，`/dev-flow -cleanup --all` 重置全部
+
+### 基础特性
+
 - **结构化流程** - 10 个阶段 + Hotfix 模式，每个阶段有明确的输入/输出和自检步骤
-- **三层按需加载架构** (v1.0.5) - Router(27KB) + 12 个阶段指令文件按需加载，上下文占用从 357KB 降至 79KB，代码生成可用空间从 10% 提升至 50%
-- **智能任务拆分** - 方案C：Design 输出全局契约，Task Split 生成子任务级设计 + DAG 依赖图，每个 subagent 只接收必要信息
+- **智能任务拆分** - Design 输出全局契约，Task Split 生成子任务级设计 + DAG 依赖图，每个 subagent 只接收必要信息
 - **接口契约机制** - 跨子任务接口定义（serviceContracts/eventContracts/dataContracts），契约冻结（stability: frozen）防止随意修改
 - **多 Subagent 并行** - 复杂任务拆分为独立 subagent 并行执行，上下文隔离，效率翻倍
 - **智能 Research** - 自动评估项目规模，选择标准模式或 4 subagent 并行扫描
 - **深层依赖扫描** - 自动扫描微服务项目的依赖项目（common-bean、basedata-api 等）
-- **项目记忆** - Research 阶段自动扫描并记录项目结构、组件、API、编码规范（12 个文件）
-- **长期记忆** - 记录常见代码模式、错误修复方案、用户偏好、架构决策（4 个文件），跨会话持久化
+- **项目记忆** - Research 阶段自动扫描并记录项目结构、组件、API、编码规范（16 个文件）
+- **长期记忆** - 记录常见代码模式、错误修复方案、用户偏好、架构决策（6 个文件），跨会话持久化
 - **结构化业务逻辑** - 设计阶段输出结构化决策表（8 种 Action 类型），开发阶段精确翻译为代码，消除自然语言歧义
 - **编译验证闭环** - 开发完成后自动编译验证（Java/前端），解析错误并自动修复（最多 3 轮）
 - **契约一致性校验** - contract-validator 自动验证方法签名、Entity 字段、实现完整性、依赖调用一致性
 - **全局集成编译** - 所有子任务完成后全局编译 + 契约验证 + 错误分类 + 循环修复
 - **错误经验学习** - 从编译错误、契约违反、测试失败中提取模式，生成预防策略，持续改进
-- **步骤强制执行** (v1.0.3) - Step Enforcer 验证关键步骤完成质量，防止 AI "偷懒" 跳过，无法跳过必须完成
-- **错误模式自动应用** (v1.0.3) - Error Pattern Learner 自动将学习到的模式应用到 Agent 指导，无需人工更新
+- **步骤强制执行** (v1.0.3) - Step Enforcer 验证关键步骤完成质量，防止 AI "偷懒" 跳过
+- **错误模式自动应用** (v1.0.3) - Error Pattern Learner 自动将学习到的模式应用到 Agent 指导
 - **三层防御体系** (v1.0.4) - 防止 Import 路径猜测错误，代码生成前 Grep 强制验证 + 编译前阻塞 + 编译后自动修复
-- **上下文智能管理** (v1.0.4_opt) - Context Manager 50KB 硬约束 + 三级监控 + 分段执行 + 串行兜底，防止上下文超限
-- **技术级阻塞机制** (v1.0.4_opt) - `.dev-flow/blocked` 标记文件实现技术级强制阻塞，防止 AI 绕过验证
-- **语义级日志占位检测** (v1.0.4_opt) - 对比设计文档 call action 与代码实际调用，检测日志占位替代业务逻辑
-- **交叉验证机制** (v1.0.4_opt_v2) - 读取验证文件内容与 design-contract.yaml 交叉比对，防止验证文件造假
-- **禁止事项自动化扫描** (v1.0.4_opt_v2) - 自动扫描 TODO 占位符、return null 等 7 条禁止事项
-- **测试执行闭环** (v1.0.4_opt_v2) - 编译通过后强制执行 mvn test，自动修复测试失败（最多 3 轮）
-- **逻辑覆盖率 100% 验证** (v1.0.4_opt_v2) - 验证每个 logic step 都在代码中有对应实现，条件分支全覆盖
-- **design-contract 独立验证** (v1.0.4_opt_v2) - 5 步客观验证设计契约完整性，不依赖 AI 自检
-- **condition 形式化语法** (v1.0.4_opt_v2) - 定义 condition 字段形式化语法（AND/OR/NOT/嵌套/range/in/matches）
-- **基于模型的动态阈值** (v1.0.4_opt_v2) - 根据模型上下文窗口动态计算安全阈值
-- **预读取预算机制** (v1.0.4_opt_v2) - Step 2 读取已有代码最大 20KB，4 级优先读取策略
-- **文件级冲突检测** (v1.0.4_opt_v2) - 调度前检测多任务文件冲突，冲突任务自动串行化
-- **全局编译循环上限** (v1.0.4_opt_v2) - 最多循环 5 次，按错误分类设置修复上限
-- **学习能力** - 从用户反馈、代码修改、测试 Bug 中自动学习，持续优化代码生成策略
+- **上下文智能管理** (v1.0.4_opt) - Context Manager 50KB 硬约束 + 三级监控 + 分段执行 + 串行兜底
 - **代码完整性铁律** (v1.0.5) - 正面规则 + 生产可用测试 + 方法体最低标准，确保每个方法体都是 100% 可执行的完整实现
 - **代码完整性防线** (v1.0.5) - 每个文件写入后立即扫描 TODO/空实现/日志占位，当场修复
 - **全平台防护统一** (v1.0.5) - step-enforcer/contract-validator/bytecode-analyzer 等防护 agent 从 Trae-only 提升为全平台共享
+- **学习能力** - 从用户反馈、代码修改、测试 Bug 中自动学习，持续优化代码生成策略
 - **记忆强化** - 模式使用 >3 次标记"高频"优先推荐，>5 次标记"标准"必须遵守
 - **阶段确认** - 每个阶段完成后暂停，展示成果并等待用户确认
 - **断点续传** - 长流程中断后可从上次断点恢复（`.dev-flow/sessions/`）
@@ -80,37 +77,43 @@ npx dev-flow install
 
 | 工具 | 生成的文件 | 触发方式 |
 |------|-----------|---------|
-| Trae | `.trae/skills/dev-flow/SKILL.md` + `stages/*.md` + `agents/*.md` | 输入框输入 `/dev-flow` |
-| Cursor | `.cursor/commands/dev-flow.md` + `stages/*.md` + `agents/*.md` | 输入框输入 `/dev-flow` |
-| Qoder | `.qoder/commands/dev-flow.md` + `stages/*.md` + `agents/*.md` | 输入框输入 `/dev-flow` |
-| Claude Code | `.claude/commands/dev-flow.md` + `stages/*.md` + `agents/*.md` | 输入框输入 `/dev-flow` |
-| OpenAI Codex | `AGENTS.md` + `.agents/skills/dev-flow/SKILL.md` + `.codex/agents/*.toml` | 终端输入 `codex` 后使用自然语言或 `$dev-flow` |
+| Trae | `.trae/skills/dev-flow/SKILL.md` + `stages/*.md` + `agents/*.md` + `references/*.md` | 输入框输入 `/dev-flow` |
+| Cursor | `.cursor/commands/dev-flow.md` + `stages/*.md` + `agents/*.md` + `references/*.md` | 输入框输入 `/dev-flow` |
+| Qoder | `.qoder/commands/dev-flow.md` + `stages/*.md` + `agents/*.md` + `references/*.md` | 输入框输入 `/dev-flow` |
+| Claude Code | `.claude/commands/dev-flow.md` + `stages/*.md` + `agents/*.md` + `references/*.md` | 输入框输入 `/dev-flow` |
+| OpenAI Codex | `AGENTS.md` + `.agents/skills/dev-flow/SKILL.md` + `.codex/agents/*.toml` + `.codex/references/*.md` | 终端输入 `codex` 后使用自然语言或 `$dev-flow` |
 
 **Subagent 文件**（用于 `-subagent` 模式和 Research 并行扫描；Codex 使用 `.codex/agents/*.toml`）：
 
 | Agent | 文件路径 | 职责 |
 |-------|----------|------|
-| orchestrator | `.codex/agents/orchestrator.toml` / 其他工具的 `agents/orchestrator.md` | 主协调者，DAG 调度和依赖检查 |
-| research-expert | `.codex/agents/research-expert.toml` / 其他工具的 `agents/research-expert.md` | 项目研究，调度子 subagent 扫描 |
-| analyze-expert | `.codex/agents/analyze-expert.toml` / 其他工具的 `agents/analyze-expert.md` | 需求分析，影响评估 |
-| design-expert | `.codex/agents/design-expert.toml` / 其他工具的 `agents/design-expert.md` | 详细设计，接口定义 |
-| **task-split-expert** | `.codex/agents/task-split-expert.toml` / 其他工具的 `agents/task-split-expert.md` | **智能任务拆分，生成子任务级设计 + DAG** |
-| develop-expert | `.codex/agents/develop-expert.toml` / 其他工具的 `agents/develop-expert.md` | 代码开发（可并行，支持子任务级输入） |
-| verify-expert | `.codex/agents/verify-expert.toml` / 其他工具的 `agents/verify-expert.md` | 代码验证，质量检查 |
-| task-protocol | `.codex/agents/task-protocol.toml` / 其他工具的 `agents/task-protocol.md` | 任务拆分协议定义 |
-| dependency-scanner | `.codex/agents/dependency-scanner.toml` / 其他工具的 `agents/dependency-scanner.md` | 依赖项目深层扫描（Entity/DTO/Enum/Util/Feign Client） |
-| service-scanner | `.codex/agents/service-scanner.toml` / 其他工具的 `agents/service-scanner.md` | 当前服务源码扫描（Entity/Service/Controller/Mapper） |
-| structure-analyzer | `.codex/agents/structure-analyzer.toml` / 其他工具的 `agents/structure-analyzer.md` | 项目结构和依赖关系分析 |
-| config-analyzer | `.codex/agents/config-analyzer.toml` / 其他工具的 `agents/config-analyzer.md` | 配置和编码规范分析 |
-| **contract-validator** | `.codex/agents/contract-validator.toml` / 其他工具的 `agents/contract-validator.md` | **契约一致性校验（方法签名/字段/实现/依赖）** |
-| **bytecode-analyzer** | `.codex/agents/bytecode-analyzer.toml` / 其他工具的 `agents/bytecode-analyzer.md` | **占位模式扫描（TODO/空实现/日志占位检测）** |
-| **design-contract-validator** | `.codex/agents/design-contract-validator.toml` / 其他工具的 `agents/design-contract-validator.md` | **设计契约完整性验证** |
-| **error-pattern-learner** | `.codex/agents/error-pattern-learner.toml` / 其他工具的 `agents/error-pattern-learner.md` | **错误模式学习与预防策略生成** |
-| **step-enforcer** | `.codex/agents/step-enforcer.toml` / 其他工具的 `agents/step-enforcer.md` | **步骤强制执行验证器（防止跳过关键步骤）** |
-| **context-manager** | `.codex/agents/context-manager.toml` / 其他工具的 `agents/context-manager.md` | **上下文管理器（智能分配上下文、执行模式决策）** |
-| **task-split-expert** | `.codex/agents/task-split-expert.toml` / 其他工具的 `agents/task-split-expert.md` | **智能任务拆分，生成子任务级设计 + DAG** |
+| orchestrator | `agents/orchestrator.md` | 主协调者，DAG 调度和依赖检查 |
+| research-expert | `agents/research-expert.md` | 项目研究，调度子 subagent 扫描 |
+| analyze-expert | `agents/analyze-expert.md` | 需求分析，影响评估 |
+| design-expert | `agents/design-expert.md` | 详细设计，接口定义 |
+| task-split-expert | `agents/task-split-expert.md` | 智能任务拆分，生成子任务级设计 + DAG |
+| develop-expert | `agents/develop-expert.md` | 代码开发（可并行，支持子任务级输入） |
+| verify-expert | `agents/verify-expert.md` | 代码验证，质量检查 |
+| contract-validator | `agents/contract-validator.md` | 契约一致性校验 |
+| bytecode-analyzer | `agents/bytecode-analyzer.md` | 占位模式扫描检测 |
+| design-contract-validator | `agents/design-contract-validator.md` | 设计契约完整性验证 |
+| error-pattern-learner | `agents/error-pattern-learner.md` | 错误模式学习与预防策略 |
+| step-enforcer | `agents/step-enforcer.md` | 步骤强制执行验证器 |
+| context-manager | `agents/context-manager.md` | 上下文管理器 |
+| dependency-scanner | `agents/dependency-scanner.md` | 依赖项目深层扫描 |
+| service-scanner | `agents/service-scanner.md` | 当前服务源码扫描 |
+| structure-analyzer | `agents/structure-analyzer.md` | 项目结构和依赖关系分析 |
+| config-analyzer | `agents/config-analyzer.md` | 配置和编码规范分析 |
+| task-protocol | `agents/task-protocol.md` | 任务拆分协议定义 |
 
-同时创建 `.dev-flow/memory/` 目录（12 个 Markdown 记忆模板）和 `.dev-flow/sessions/` 目录（会话记录）。
+**参考文件**（v2.0.0 新增，按需加载的深度参考文档）：
+
+| 参考文件 | 加载时机 | 内容 |
+|---------|---------|------|
+| `references/memory-system.md` | Research / 需要查阅记忆规则时 | 记忆目录结构、使用规则、文件格式示例 |
+| `references/learning-system.md` | Research / Develop / Fix 结束时 | 学习机制、示例和效果评估 |
+| `references/error-pattern-db.md` | Error Pattern Learner Step 5/6 | 错误模式定义（P001-P009）和预防策略 |
+| `references/model-context-config.md` | Context Manager 计算阈值时 | 模型上下文窗口配置、动态计算规则 |
 
 **阶段指令文件**（按需加载，进入对应阶段时才读取，不占用初始上下文）：
 
@@ -182,6 +185,13 @@ AI 将按阶段逐步执行，每个阶段完成后等待你确认。
 /dev-flow -hotfix <错误信息> # 紧急修复线上错误
 ```
 
+### 记忆管理
+
+```
+/dev-flow -cleanup           # 清理会话记忆（保留长期记忆）
+/dev-flow -cleanup --all     # 重置全部记忆
+```
+
 ### Subagent 模式（复杂任务）
 
 ```
@@ -205,7 +215,7 @@ AI 将按阶段逐步执行，每个阶段完成后等待你确认。
               │     └── config-analyzer      → 分析配置规范
               ├── analyze-expert   → 分析需求，输出分析文档
               ├── design-expert    → 详细设计，输出 design-contract.yaml
-              ├── task-split-expert → 智能拆分，输出 DAG + 子任务设计（方案C）
+              ├── task-split-expert → 智能拆分，输出 DAG + 子任务设计
               ├── develop-expert   → 子任务级代码开发（可并行多个）
               └── verify-expert    → 代码验证
 ```
@@ -227,7 +237,7 @@ Hotfix（独立模式，随时可用，直接输出无需等待确认）
 
 | 阶段 | AI 做什么 | 产出 |
 |------|----------|------|
-| **Research** | 扫描项目文件、识别技术栈、深层扫描依赖项目、提取编码规范 | `.dev-flow/memory/` 12 个记忆文件 |
+| **Research** | 扫描项目文件、识别技术栈、深层扫描依赖项目、提取编码规范 | `.dev-flow/memory/` 长期记忆 + 会话记忆 |
 | **Analyze** | 解析需求、关联已有代码、识别歧义、评估影响范围 | 需求分析文档 |
 | **Design** | 读取项目记忆、设计数据模型、API 接口、组件树、业务流程 | `design-contract.yaml`（含接口契约） |
 | **Task Split** | 拆分为子任务、构建 DAG 依赖图、生成子任务级设计 | `task-dag.yaml` + `subtask-{id}-design.yaml` + `interface-registry.yaml` |
@@ -235,61 +245,119 @@ Hotfix（独立模式，随时可用，直接输出无需等待确认）
 | **Test** | 生成测试用例（覆盖正常/异常/边界）、执行测试、生成报告 | 测试报告 |
 | **Fix** | 分析失败原因、修复代码、回归测试（最多循环 3 次） | 修复后的代码 |
 
-## Research 智能模式
+## v2.0.0 架构详解
 
-Research 阶段会自动评估项目规模，选择最优执行模式：
+### 四层按需加载架构
 
-| 源码文件数 | 执行模式 | 说明 |
-|-----------|---------|------|
-| < 50 个 | **标准模式** | 单 agent 直接执行检查清单 |
-| 50-200 个 | **分组模式** | 2-3 个 subagent 并行扫描 |
-| > 200 个 | **完整模式** | 4 个 subagent 并行扫描 |
+v2.0.0 在 v1.0.5 三层架构基础上，新增了 references 层，将 Router 中的详细参考内容外置：
 
-**4 个 Research Subagent**：
+```
+第一层：Router（17KB，始终加载）
+  ├── YAML front-matter + 命令解析
+  ├── 全局规则（禁止事项 + 完整性铁律精简版）
+  ├── 阶段路由表
+  ├── 标准模式执行流程
+  └── 记忆系统快速引用 + 学习能力快速引用
 
-| Subagent | 职责 | 输出文件 | 上下文 |
-|----------|------|---------|--------|
-| dependency-scanner | 深层扫描依赖项目 | common-modules.md, utils.md | ~30-50KB |
-| service-scanner | 扫描当前服务 | models.md, apis.md | ~20-40KB |
-| structure-analyzer | 分析项目结构 | project-overview.md, service-registry.md, dependency-graph.md | ~10-20KB |
-| config-analyzer | 分析配置规范 | config.md, conventions.md, patterns.md, decisions.md, mistakes.md | ~10-20KB |
+第二层：References（按需加载的深度参考文档）
+  ├── references/memory-system.md (15KB)    ← Research/Develop 时读取
+  ├── references/learning-system.md (8.5KB)  ← 阶段结束时读取
+  ├── references/error-pattern-db.md (11.5KB)← Error Pattern Learner 读取
+  └── references/model-context-config.md      ← Context Manager 读取
 
-**上下文优化效果**：主 Agent 从 ~420KB 降至 ~5KB，降低 98.8%。
+第三层：阶段指令文件（进入阶段时加载）
+  ├── stages/research.md ← 进入 Research 才加载
+  ├── stages/design.md   ← 进入 Design 才加载
+  └── ...共 12 个文件
+
+第四层：Agent 文件（Subagent 模式下加载）
+  ├── develop-expert.md  ← Subagent 模式下加载
+  ├── step-enforcer.md   ← 验证步骤完整性
+  └── ...共 18 个 agent
+```
+
+**与 v1.0.5 对比**：
+
+| 指标 | v1.0.5 | v2.0.0 | 变化 |
+|------|--------|--------|------|
+| Router 体积 | 27KB | **17KB** | **-37%** |
+| 始终加载内容 | 27KB | **17KB** | **-37%** |
+| 按需参考文档 | 0 | **4 个（35KB）** | 新增 |
+| 记忆分类 | 无 | **会话/长期** | 新增 |
+| 测试覆盖 | 0 | **4 套 + CI** | 新增 |
+
+### 会话/长期记忆分离
+
+v2.0.0 将记忆系统分为两层：
+
+```
+.dev-flow/memory/
+├── project-overview.md     # 长期：项目概览
+├── conventions.md          # 长期：编码规范
+├── patterns.md             # 长期：代码模式（跨会话累积）
+├── mistakes.md             # 长期：常见错误（跨会话累积）
+├── preferences.md          # 长期：用户偏好（跨会话累积）
+├── decisions.md            # 长期：架构决策（跨会话累积）
+├── service-registry.md     # 长期：服务注册表（微服务）
+├── dependency-graph.md     # 长期：依赖图谱（微服务）
+├── common-modules.md       # 长期：公共模块（微服务）
+└── session/                # 会话记忆（每次 Research 重建）
+    ├── modules.md          # 会话：模块清单
+    ├── apis.md             # 会话：API 列表
+    ├── models.md           # 会话：数据模型
+    ├── utils.md            # 会话：工具函数
+    ├── config.md           # 会话：配置信息
+    └── architecture.md     # 会话：架构描述
+```
+
+**会话记忆**：反映项目最新快照，每次 Research 自动重建，不会无限膨胀。
+
+**长期记忆**：跨会话累积的项目知识（模式、错误、偏好、决策），Research 阶段只更新不重建。
+
+**清理命令**：
+- `/dev-flow -cleanup` — 清理 `session/` 目录，保留长期记忆
+- `/dev-flow -cleanup --all` — 重置全部记忆文件
+
+### Agent 智能拆分
+
+v2.0.0 将大 Agent 文件拆分为核心+references 模式，按需加载：
+
+| Agent | 原大小 | 拆分后核心 | 外置 references |
+|-------|--------|-----------|----------------|
+| error-pattern-learner | 27KB | **15.7KB** | error-pattern-db.md (11.5KB) |
+| context-manager | 22KB | **18KB** | model-context-config.md |
+
+拆分出的 references 文件仅在需要时加载，不占用初始上下文。
 
 ## 记忆系统
 
-记忆系统分为两部分：**基础记忆**（12 个文件）和**长期记忆**（4 个文件），共 16 个 Markdown 文件。
+记忆系统分为**长期记忆**和**会话记忆**两部分。
 
-### 基础记忆（Research 阶段自动填充）
-
-**Spring Cloud 微服务（12 个文件）：**
+### 长期记忆（跨会话保留）
 
 ```
 .dev-flow/memory/
 ├── project-overview.md      # 项目概览（技术栈、服务列表、目录结构）
-├── service-registry.md      # 服务注册表（服务名/端口/角色/子模块）
-├── dependency-graph.md      # 服务间依赖图谱（Maven 依赖 + Feign 调用）
-├── common-modules.md        # 公共模块清单（依赖项目的 Entity/DTO/Enum/Util）
 ├── conventions.md           # 编码规范（命名、注解、统一响应、异常处理）
-├── config.md                # 配置信息（数据库/Redis/Nacos/中间件）
-├── models.md                # 数据模型（当前服务 + 依赖项目的 Entity 和 DTO）
-├── apis.md                  # API 列表（当前服务 API + Feign Client API）
-├── utils.md                 # 工具类（当前服务 + 依赖项目的工具类）
-├── patterns.md              # 常见代码模式
-├── mistakes.md              # 常见错误及修复
-└── decisions.md             # 架构决策记录
-```
-
-**前端/Node.js 项目（7 个文件）** 和 **Java 单服务项目（8 个文件）** 见用户操作手册。
-
-### 长期记忆（自动学习积累）
-
-```
-.dev-flow/memory/
-├── patterns.md              # 常见代码模式（可复用的代码片段、使用场景、使用次数）
-├── mistakes.md              # 常见错误及修复（Bug 模式、修复方案、出现次数、预防措施）
+├── patterns.md              # 常见代码模式（使用次数 >3 高频，>5 标准）
+├── mistakes.md              # 常见错误及修复（Bug 模式、修复方案、出现次数）
 ├── preferences.md           # 用户偏好（代码风格、架构偏好、质量要求）
-└── decisions.md             # 架构决策记录（ADR 格式：日期、决策、原因、影响）
+├── decisions.md             # 架构决策记录（ADR 格式）
+├── service-registry.md      # 服务注册表（微服务）
+├── dependency-graph.md      # 服务间依赖图谱（微服务）
+└── common-modules.md        # 公共模块清单（微服务）
+```
+
+### 会话记忆（每次 Research 重建）
+
+```
+.dev-flow/memory/session/
+├── modules.md               # 模块清单（Entity/Mapper/Service/Controller/DTO/Enum）
+├── apis.md                  # API 列表（当前服务 + Feign Client）
+├── models.md                # 数据模型（Entity + DTO + 数据库表）
+├── utils.md                 # 工具类/函数
+├── config.md                # 配置信息（数据库/Redis/Nacos/中间件）
+└── architecture.md          # 架构描述
 ```
 
 ### 记忆强化机制
@@ -324,13 +392,13 @@ dev-flow 要求 AI 生成的代码必须：
 
 ## 支持的工具
 
-| 工具 | 版本要求 | 触发方式 | Subagent 支持 |
-|------|---------|---------|--------------|
-| Cursor | 最新版 | `/dev-flow` | ✅ 原生支持 |
-| Trae | 最新版 | `/dev-flow` | ✅ 原生支持 |
-| Qoder | 最新版 | `/dev-flow` | ✅ 原生支持 |
-| Claude Code | 最新版 | `/dev-flow` | ✅ 原生支持 |
-| OpenAI Codex | 当前版本 | 自然语言 / `$dev-flow` | ✅ 原生支持（AGENTS.md + Skill + custom agents） |
+| 工具 | 版本要求 | 触发方式 | Subagent 支持 | References |
+|------|---------|---------|--------------|------------|
+| Cursor | 最新版 | `/dev-flow` | ✅ 原生支持 | ✅ `.cursor/references/` |
+| Trae | 最新版 | `/dev-flow` | ✅ 原生支持 | ✅ `.trae/skills/dev-flow/references/` |
+| Qoder | 最新版 | `/dev-flow` | ✅ 原生支持 | ✅ `.qoder/references/` |
+| Claude Code | 最新版 | `/dev-flow` | ✅ 原生支持 | ✅ `.claude/references/` |
+| OpenAI Codex | 当前版本 | 自然语言 / `$dev-flow` | ✅ 原生支持 | ✅ `.codex/references/` |
 
 ## 项目结构
 
@@ -338,37 +406,47 @@ dev-flow 要求 AI 生成的代码必须：
 dev-flow/
 ├── skill-templates/       # Skill 文件模板
 │   ├── _core/             # 核心模板源（所有平台的公共基础）
-│   │   ├── SKILL.md       # Router（27KB 骨架文件）
+│   │   ├── SKILL.md       # Router（17KB 骨架文件）
 │   │   ├── stages/        # 12 个阶段指令文件（按需加载）
-│   │   └── agents/        # 20 个 agent 定义（全平台共享）
+│   │   ├── agents/        # 18 个 agent 定义（全平台共享）
+│   │   └── references/    # 4 个参考文档（按需加载）← v2.0.0 新增
+│   │       ├── memory-system.md
+│   │       ├── learning-system.md
+│   │       ├── error-pattern-db.md
+│   │       └── model-context-config.md
 │   ├── _platforms/         # 平台特有文件
-│   │   └── trae/agents/   # Trae 专有 agent 扩展
+│   │   ├── trae/agents/   # Trae 专有 agent 扩展
+│   │   └── codex/         # Codex 格式适配指南
 │   ├── trae/              # Trae 构建输出
 │   │   ├── SKILL.md       # Router（路径替换后）
-│   │   ├── stages/        # 12 个阶段文件
-│   │   └── agents/        # 23 个 agent（含 Trae 扩展）
+│   │   ├── stages/
+│   │   ├── agents/
+│   │   └── references/    ← v2.0.0 新增
 │   ├── cursor/            # Cursor 构建输出
 │   │   ├── dev-flow.md
 │   │   ├── stages/
-│   │   └── agents/
+│   │   ├── agents/
+│   │   └── references/
 │   ├── qoder/             # Qoder 构建输出
-│   │   ├── dev-flow.md
-│   │   ├── stages/
-│   │   └── agents/
 │   ├── claude/            # Claude Code 构建输出
-│   │   ├── dev-flow.md
-│   │   ├── stages/
-│   │   └── agents/
 │   └── codex/             # OpenAI Codex 构建输出
-│       ├── AGENTS.md
-│       ├── config.toml
-│       ├── skills/
-│       └── agents/        # 11 个 Codex custom agent TOML
 ├── scripts/
-│   ├── build.cjs          # 构建脚本（模板组装 + 路径替换 + 校验）
-│   └── install.js         # 安装脚本（零依赖）
+│   ├── build.cjs          # 构建脚本（模板组装 + 路径替换 + 校验 + references）
+│   ├── install.js         # 安装脚本（零依赖，含 references 和会话/长期记忆分类）
+│   ├── version-check.js   # 版本号一致性检查 + --fix 自动修复
+│   └── pre-publish.js     # 发布前完整检查
+├── tests/                 # 测试套件 ← v2.0.0 新增
+│   ├── build.test.js      # 构建验证
+│   ├── links.test.js      # 链接有效性
+│   ├── size-warning.test.js # 大小预警
+│   ├── format.test.js     # Markdown 格式检查
+│   └── run-all.js         # 统一入口
+├── .github/workflows/
+│   └── ci.yml             # GitHub Actions CI
 ├── USER_GUIDE.md          # 用户操作手册
 ├── README.md
+├── CHANGELOG.md
+├── LICENSE
 └── package.json
 ```
 

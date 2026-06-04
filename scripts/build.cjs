@@ -23,6 +23,7 @@ const ROOT = path.resolve(__dirname, '..');
 const CORE_SKILL = path.join(ROOT, 'skill-templates', '_core', 'SKILL.md');
 const CORE_AGENTS = path.join(ROOT, 'skill-templates', '_core', 'agents');
 const CORE_STAGES = path.join(ROOT, 'skill-templates', '_core', 'stages');
+const CORE_REFERENCES = path.join(ROOT, 'skill-templates', '_core', 'references');
 const PLATFORMS_DIR = path.join(ROOT, 'skill-templates', '_platforms');
 
 const PLATFORM_CONFIG = {
@@ -35,6 +36,7 @@ const PLATFORM_CONFIG = {
     // AI 从 skill 目录解析相对路径，stages/ 是同级子目录
     stagesPath: 'stages/',
     agentsPath: 'agents/',
+    referencesPath: 'references/',
   },
   cursor: {
     outputDir: 'skill-templates/cursor',
@@ -45,6 +47,7 @@ const PLATFORM_CONFIG = {
     // AI 从项目根解析路径
     stagesPath: '.cursor/stages/',
     agentsPath: '.cursor/agents/',
+    referencesPath: '.cursor/references/',
   },
   claude: {
     outputDir: 'skill-templates/claude',
@@ -53,6 +56,7 @@ const PLATFORM_CONFIG = {
     useExtraAgents: false,
     stagesPath: '.claude/stages/',
     agentsPath: '.claude/agents/',
+    referencesPath: '.claude/references/',
   },
   qoder: {
     outputDir: 'skill-templates/qoder',
@@ -61,6 +65,7 @@ const PLATFORM_CONFIG = {
     useExtraAgents: false,
     stagesPath: '.qoder/stages/',
     agentsPath: '.qoder/agents/',
+    referencesPath: '.qoder/references/',
   },
   codex: {
     outputDir: 'skill-templates/codex',
@@ -71,6 +76,7 @@ const PLATFORM_CONFIG = {
     skipAutoGen: true,
     stagesPath: '.codex/stages/',
     agentsPath: '.codex/agents/',
+    referencesPath: '.codex/references/',
   },
 };
 
@@ -150,6 +156,9 @@ function generatePlatform(platform, config) {
   if (config.agentsPath) {
     processed = processed.replace(/\{\{AGENTS_PATH\}\}/g, config.agentsPath);
   }
+  if (config.referencesPath) {
+    processed = processed.replace(/\{\{REFERENCES_PATH\}\}/g, config.referencesPath);
+  }
 
   if (config.formatCodex) {
     processed = convertToCodexFormat(processed);
@@ -176,6 +185,34 @@ function generatePlatform(platform, config) {
       fs.writeFileSync(dst, content, 'utf-8');
     }
     console.log(`  \u2713 stages: ${stageFiles.length} 个阶段指令文件`);
+  }
+
+  // 2.5 References（按需加载参考文件）
+  const referencesDir = path.join(outputDir, 'references');
+  if (!fs.existsSync(referencesDir)) {
+    fs.mkdirSync(referencesDir, { recursive: true });
+  }
+
+  if (fs.existsSync(CORE_REFERENCES)) {
+    const refFiles = fs.readdirSync(CORE_REFERENCES).filter(f => f.endsWith('.md'));
+    for (const refFile of refFiles) {
+      const src = path.join(CORE_REFERENCES, refFile);
+      let content = fs.readFileSync(src, 'utf-8');
+      content = processStageContent(content, config.stripTraeOnly);
+      // 平台路径替换
+      if (config.stagesPath) {
+        content = content.replace(/\{\{STAGES_PATH\}\}/g, config.stagesPath);
+      }
+      if (config.agentsPath) {
+        content = content.replace(/\{\{AGENTS_PATH\}\}/g, config.agentsPath);
+      }
+      if (config.referencesPath) {
+        content = content.replace(/\{\{REFERENCES_PATH\}\}/g, config.referencesPath);
+      }
+      const dst = path.join(referencesDir, refFile);
+      fs.writeFileSync(dst, content, 'utf-8');
+    }
+    console.log(`  \u2713 references: ${refFiles.length} 个参考文件`);
   }
 
   // 3. Agents
@@ -257,6 +294,9 @@ function verifyPlatform(platform, config) {
     }
     if (config.agentsPath) {
       generated = generated.replace(/\{\{AGENTS_PATH\}\}/g, config.agentsPath);
+    }
+    if (config.referencesPath) {
+      generated = generated.replace(/\{\{REFERENCES_PATH\}\}/g, config.referencesPath);
     }
     if (config.formatCodex) {
       generated = convertToCodexFormat(generated);

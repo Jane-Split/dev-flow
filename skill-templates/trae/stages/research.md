@@ -262,25 +262,36 @@ type: stage-instruction
 > **铁律**：每个文件必须写入具体内容。没有数据也要写"暂无数据"。空文件 = 执行失败。
 > **时间戳**：每个文件首行必须写入时间戳标记 `<!-- last-updated: YYYY-MM-DD HH:mm -->`，用于 Step 0 智能判断。
 
-**创建目录**：`.dev-flow/memory/`
+**🔴 Step 5.0：清理会话记忆**（v2.0.0 新增）
+
+在写入新的记忆文件之前，先执行会话记忆清理：
+1. 删除 `.dev-flow/memory/session/` 目录下所有文件（会话记忆可安全重建）
+2. **不删除** `.dev-flow/memory/` 根目录下的长期记忆文件（patterns、mistakes、preferences、decisions 等跨会话保留）
+3. 重新创建 `.dev-flow/memory/session/` 目录
+
+> **会话记忆 vs 长期记忆**：
+> - **会话记忆**（session/ 目录）：modules、apis、models、utils、config、architecture — 每次重建，反映项目最新快照
+> - **长期记忆**（根目录）：patterns、mistakes、preferences、decisions、conventions、project-overview — 跨会话累积
+
+**创建目录**：`.dev-flow/memory/`（长期）+ `.dev-flow/memory/session/`（会话）
 
 **逐文件写入以下内容**：
 
-| # | 文件名 | 必须包含的内容 | 不能为空 |
-|---|--------|---------------|---------|
-| 1 | `project-overview.md` | 技术栈、服务列表表格、目录结构 | ✅ |
-| 2 | `service-registry.md` | 服务列表表格（服务名/目录/端口/角色/子模块/启动类）+ 跨服务调用关系表格 | ✅ |
-| 3 | `dependency-graph.md` | Maven 依赖关系表格 + Feign 调用关系表格 + 依赖链路图（如 `quality → common-bean`） | ✅ |
-| 4 | `common-modules.md` | **从 Step 2 深层扫描的结果**：每个依赖项目的 Entity/DTO/Enum/Util/Feign Client 表格，含完整类路径 | ✅ |
-| 5 | `architecture.md` | 架构模式（微服务/单体）、服务角色（网关/业务服务/基础服务）、分层架构（Controller/Service/Mapper）、技术选型理由 | ✅ |
-| 6 | `conventions.md` | 命名规范、注解使用、统一响应、异常处理、DTO 转换方式 | ✅ |
-| 7 | `config.md` | 数据库/Redis/Nacos/中间件配置（从 application.yml 提取） | ✅ |
-| 8 | `models.md` | 当前服务的 Entity 表格 + 依赖项目的 Entity 表格（从 Step 2 获取）+ DTO 表格 | ✅ |
-| 9 | `apis.md` | 当前服务的 Controller API 表格 + 依赖服务的 Feign Client API 表格 | ✅ |
-| 10 | `utils.md` | 当前服务工具类 + 依赖项目工具类（从 Step 2 获取） | ✅ |
-| 11 | `decisions.md` | 架构决策表格（无则写"暂无已识别的架构决策，后续开发中持续记录"） | ✅ |
-| 12 | `mistakes.md` | 常见错误（初始写"暂无记录，在 Fix 阶段和开发过程中持续积累"） | ✅ |
-| 13 | `patterns.md` | 代码模式表格（无则写"暂无已识别的代码模式，后续开发中持续记录"） | ✅ |
+| # | 文件名 | 存放位置 | 必须包含的内容 | 不能为空 |
+|---|--------|---------|---------------|---------|
+| 1 | `project-overview.md` | 根目录 | 技术栈、服务列表表格、目录结构 | ✅ |
+| 2 | `service-registry.md` | 根目录 | 服务列表表格（服务名/目录/端口/角色/子模块/启动类）+ 跨服务调用关系表格 | ✅ |
+| 3 | `dependency-graph.md` | 根目录 | Maven 依赖关系表格 + Feign 调用关系表格 + 依赖链路图（如 `quality → common-bean`） | ✅ |
+| 4 | `common-modules.md` | 根目录 | **从 Step 2 深层扫描的结果**：每个依赖项目的 Entity/DTO/Enum/Util/Feign Client 表格，含完整类路径 | ✅ |
+| 5 | `architecture.md` | session/ | 架构模式（微服务/单体）、服务角色（网关/业务服务/基础服务）、分层架构（Controller/Service/Mapper）、技术选型理由 | ✅ |
+| 6 | `conventions.md` | 根目录 | 命名规范、注解使用、统一响应、异常处理、DTO 转换方式 | ✅ |
+| 7 | `config.md` | session/ | 数据库/Redis/Nacos/中间件配置（从 application.yml 提取） | ✅ |
+| 8 | `models.md` | session/ | 当前服务的 Entity 表格 + 依赖项目的 Entity 表格（从 Step 2 获取）+ DTO 表格 | ✅ |
+| 9 | `apis.md` | session/ | 当前服务的 Controller API 表格 + 依赖服务的 Feign Client API 表格 | ✅ |
+| 10 | `utils.md` | session/ | 当前服务工具类 + 依赖项目工具类（从 Step 2 获取） | ✅ |
+| 11 | `decisions.md` | 根目录 | 架构决策表格（无则写"暂无已识别的架构决策，后续开发中持续记录"） | ✅ |
+| 12 | `mistakes.md` | 根目录 | 常见错误（初始写"暂无记录，在 Fix 阶段和开发过程中持续积累"） | ✅ |
+| 13 | `patterns.md` | 根目录 | 代码模式表格（无则写"暂无已识别的代码模式，后续开发中持续记录"） | ✅ |
 
 **每个文件的格式要求**（以 common-modules.md 为例）：
 ```markdown

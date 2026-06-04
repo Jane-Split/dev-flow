@@ -2,6 +2,55 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.0] - 2026-06-04
+
+### 架构优化：Router 精简 + Agent 拆分 + 测试覆盖 + 记忆系统增强
+
+**核心变化**：Router 精简 37%、大 Agent 文件拆分、新增完整测试套件和 CI、记忆系统支持会话/长期分类
+
+#### Router 精简（SKILL.md 27KB → 17KB）
+
+- **记忆系统外置**：从 SKILL.md 提取到 `references/memory-system.md`（15KB），Router 保留快速引用
+- **学习能力外置**：从 SKILL.md 提取到 `references/learning-system.md`（8.5KB），Router 保留快速引用
+- **新增 `{{REFERENCES_PATH}}` 占位符**：构建系统支持 references 目录的平台路径替换
+- **构建系统升级**（build.cjs）：新增 references 目录的生成、复制和校验逻辑
+- **安装系统升级**（install.js）：新增 `installReferences()` 函数，安装参考文件到各平台目录
+
+#### Agent 综合拆分
+
+- **error-pattern-learner.md**（27KB → 15.7KB）：错误模式库外置到 `references/error-pattern-db.md`（11.5KB）
+- **context-manager.md**（22KB → 18KB）：模型上下文配置外置到 `references/model-context-config.md`
+- 所有大 Agent 文件均通过 `{{REFERENCES_PATH}}` 引用拆分出的内容
+
+#### 完整测试覆盖 + CI
+
+- **tests/build.test.js**：核心文件存在性、构建输出目录、Router 大小、占位符替换
+- **tests/links.test.js**：README 链接有效性、SKILL.md 文件引用、构建输出路径替换
+- **tests/size-warning.test.js**：Router/Stage/Agent/Reference 大小阈值检查
+- **tests/format.test.js**：Markdown frontmatter 和格式检查
+- **tests/run-all.js**：统一测试入口
+- **scripts/version-check.js**：版本号一致性检查 + `--fix` 自动修复
+- **scripts/pre-publish.js**：发布前完整检查（版本、构建、核心文件、平台输出）
+- **.github/workflows/ci.yml**：GitHub Actions CI（双版本 Node.js + 构建验证 + 自动发布）
+
+#### 记忆系统增强
+
+- **会话/长期记忆分类**：modules、apis、models、utils、config、architecture 存入 `session/` 子目录（每次 Research 重建）；patterns、mistakes、preferences、decisions 等保留在根目录（跨会话累积）
+- **清理命令**：`/dev-flow -cleanup` 清理会话记忆、`/dev-flow -cleanup --all` 重置全部
+- **Research 阶段更新**：Step 5 新增 Step 5.0 会话记忆清理逻辑
+- **install.js 更新**：区分 LONG_TERM_MEMORY_FILES 和 SESSION_MEMORY_FILES，分别安装到根目录和 session/ 子目录
+
+#### Codex 平台优化
+
+- 新增 `_platforms/codex/FORMAT.md` 格式适配指南
+- AGENTS.md 新增会话/长期记忆区分说明和清理命令
+
+#### 版本号一致性修复
+
+- 修复 `package.json` 版本号从 `0.1.0` 到 `1.0.6`
+- README.md 版本徽章和文本自动同步
+- 新增 LICENSE 文件
+
 ## [1.0.5] - 2026-06-04
 
 ### 架构重构：三层按需加载 + 代码完整性防线

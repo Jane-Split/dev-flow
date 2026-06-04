@@ -29,6 +29,8 @@ description: AI开发全流程编排技能 - 在AI编程工具对话框中结构
 | `/dev-flow -fix` | 分析并修复 Bug |
 | `/dev-flow -hotfix <错误信息>` | 紧急修复线上错误 |
 | `/dev-flow --resume` | 从上次中断处继续 |
+| `/dev-flow -cleanup` | 清理会话记忆，保留长期记忆 |
+| `/dev-flow -cleanup --all` | 清理全部记忆（重置） |
 
 ## 运行模式
 
@@ -264,7 +266,7 @@ Step 0: 检测需求规模
 ## 阶段指令路由
 
 > **按需加载机制**：每个阶段的详细指令已拆分为独立文件。进入对应阶段时，读取对应文件获取详细指令。
-> 这样做可以将 SKILL.md 的体积从 140KB 降低到 ~25KB，为代码生成释放 80%+ 的上下文空间。
+> 这样做可以将 SKILL.md 的体积从 140KB 降低到 ~9KB，为代码生成释放 90%+ 的上下文空间。
 
 | 阶段 | 指令文件 | 加载时机 |
 |------|---------|---------|
@@ -329,322 +331,23 @@ Step 19-N: 继续执行 Smoke Test → Integration Test → Delivery
 
 ## 记忆系统
 
-### 记忆目录结构
+> 详细记忆目录结构、使用规则、文件格式和会话/长期记忆分类见 `.claude/references/memory-system.md`。
+> Research 完成后读取以生成记忆文件；Design/Analyze/Develop 前按需读取。
 
-**Java 微服务（多服务模式）：**
-```
-.dev-flow/memory/                          # 根目录共享记忆（全局）
-├── project-overview.md                    # 微服务架构总览（所有服务、技术栈、端口）
-├── conventions.md                         # 项目级编码规范（从公共模块推断）
-├── service-registry.md                    # 服务注册表（服务名、端口、角色、子模块列表）
-├── dependency-graph.md                    # 服务间依赖图谱（谁依赖谁、Feign 调用关系）
-├── common-modules.md                      # 公共模块清单（通用 Entity/DTO/Util/Enum）
-├── patterns.md                            # 常见代码模式
-├── mistakes.md                            # 常见错误及修复
-├── preferences.md                         # 用户偏好
-└── decisions.md                           # 架构决策记录
-
-service-a/.dev-flow/memory/                # 服务 A 专属记忆
-├── modules.md                             # 服务 A 的模块清单（Entity/Mapper/Service/Controller/DTO/Enum）
-├── apis.md                                # 服务 A 的 API 列表
-├── models.md                              # 服务 A 的数据模型
-├── config.md                              # 服务 A 的配置信息
-└── architecture.md                        # 服务 A 的架构决策
-
-service-b/.dev-flow/memory/                # 服务 B 专属记忆
-├── modules.md                             # 服务 B 的模块清单
-├── apis.md                                # 服务 B 的 API 列表
-├── models.md                              # 服务 B 的数据模型
-├── config.md                              # 服务 B 的配置信息
-└── architecture.md                        # 服务 B 的架构决策
-```
-
-**service-registry.md 说明**：记录所有服务的元信息，包括服务名、目录路径、端口、角色（网关/认证/业务/公共）、子模块列表（自动发现，不硬编码模块名）。
-
-**dependency-graph.md 说明**：记录服务间的依赖关系和 Feign 调用关系，包括调用方服务、被调用方服务、Feign Client 接口名、方法签名。
-
-**common-modules.md 说明**：记录所有公共模块中可复用的类，包括通用 Entity、DTO、Enum、Util、Exception 等，供各服务开发时优先复用。公共模块通过内容分析识别（被其他服务依赖、无启动类、无配置文件），不依赖命名模式。
-
-**Java 单服务项目：**
-```
-.dev-flow/memory/
-├── project-overview.md    # 项目概览
-├── conventions.md         # 编码规范
-├── modules.md             # 已有模块（Java: Entity/Mapper/Service/Controller/DTO/Enum）
-├── apis.md                # 已有 API
-├── models.md              # 数据模型（Entity、DTO、数据库表）
-├── utils.md               # 工具类
-├── config.md              # 配置信息
-├── architecture.md        # 架构决策
-├── patterns.md            # 常见代码模式
-├── mistakes.md            # 常见错误及修复
-├── preferences.md         # 用户偏好
-└── decisions.md           # 历史架构决策
-```
-
-**前端项目：**
-```
-.dev-flow/memory/
-├── project-overview.md    # 项目概览
-├── conventions.md         # 编码规范
-├── components.md          # 已有组件
-├── apis.md                # 已有 API
-├── models.md              # 数据模型
-├── utils.md               # 工具函数
-└── architecture.md        # 架构决策
-```
-
-### 记忆使用规则
-
-**读取时机**：
-- Develop 前：必须读取 conventions、modules/components、apis、utils、patterns、mistakes
-- Design 前：必须读取 project-overview、architecture、decisions
-- Analyze 前：必须读取 modules/components、apis、models
-- **多服务模式额外读取时机**：
-  - Analyze 前：必须读取 service-registry.md、dependency-graph.md、common-modules.md
-  - Design 前：必须读取 service-registry.md、dependency-graph.md、common-modules.md
-  - Develop 前：必须读取 service-registry.md、dependency-graph.md、common-modules.md
-  - 开发某服务时：读取该服务的 `.dev-flow/memory/modules.md`（如有）
-
-**更新时机**：
-- Research 完成后：创建/更新所有记忆文件
-- Develop 完成后：更新 modules/components、apis、models、patterns
-- Fix 完成后：更新 mistakes（记录新错误模式）
-- 用户反馈后：更新 preferences（记录偏好）
-- **多服务模式额外更新时机**：
-  - 新增/删除服务后：更新 service-registry.md、dependency-graph.md
-  - 新增/修改 Feign Client 后：更新 dependency-graph.md
-  - 公共模块变更后：更新 common-modules.md
-
-### 记忆文件格式
-
-所有记忆文件使用 Markdown 格式，方便 AI 直接读取和理解：
-
-**Java 项目 project-overview.md 示例**：
-```markdown
-# 项目概览
-
-## 技术栈
-- 语言：Java 17
-- 框架：Spring Boot 3.2.5
-- ORM：MyBatis-Plus 3.5.5
-- 数据库：MySQL 8.0
-- 缓存：Redis 7.0
-- 消息队列：RabbitMQ / Kafka
-- 远程调用：OpenFeign
-- 对象映射：MapStruct
-- 工具库：Lombok、Hutool
-- 测试：JUnit 5 + Mockito
-- 构建：Maven 3.9
-
-## 目录结构
-\`\`\`
-src/main/java/com/example/project/
-├── config/          # 配置类
-├── controller/      # REST API 控制器
-├── service/         # 业务逻辑层
-│   └── impl/        # 服务实现
-├── mapper/          # 数据访问层
-├── entity/          # 实体类
-├── dto/             # 数据传输对象
-├── enums/           # 枚举类
-├── exception/       # 异常处理
-└── util/            # 工具类
-
-src/main/resources/
-├── mapper/          # MyBatis XML 映射文件
-├── application.yml  # 应用配置
-└── application-dev.yml  # 开发环境配置
-\`\`\`
-
-## 入口文件
-- 启动类：src/main/java/com/example/project/Application.java
-- 配置：src/main/resources/application.yml
-```
-
-**Java 项目 modules.md 示例**：
-```markdown
-# 已有模块
-
-## Entity
-
-### Order
-- 路径：entity/Order.java
-- 表名：t_order
-- 主键：id（自增）
-- 字段：orderNo, userId, amount, status, createTime, updateTime
-- 关联：User（多对一）
-
-## Mapper
-
-### OrderMapper
-- 路径：mapper/OrderMapper.java
-- 继承：BaseMapper<Order>
-- 自定义方法：selectByOrderNo, selectByUserId
-
-## Service
-
-### OrderService
-- 接口路径：service/OrderService.java
-- 实现路径：service/impl/OrderServiceImpl.java
-- 方法：
-  - ApiResponse<Order> createOrder(CreateOrderRequest request)
-  - ApiResponse<Order> getById(Long id)
-  - ApiResponse<PageResult<Order>> list(PageQueryRequest request)
-
-## Controller
-
-### OrderController
-- 路径：controller/OrderController.java
-- 基础路径：/api/orders
-- 端点：
-  - POST / - 创建订单
-  - GET /{id} - 查询订单
-  - GET / - 订单列表
-
-## DTO
-
-### CreateOrderRequest
-- 路径：dto/CreateOrderRequest.java
-- 字段：userId, items, address
-- 校验：@NotNull, @Size
-
-## Enum
-
-### OrderStatus
-- 路径：enums/OrderStatus.java
-- 值：PENDING(0, "待支付"), PAID(1, "已支付"), SHIPPED(2, "已发货"), COMPLETED(3, "已完成"), CANCELLED(4, "已取消")
-```
-
-**前端项目 project-overview.md 示例**：
-```markdown
-# 项目概览
-
-## 技术栈
-- 语言：TypeScript
-- 框架：React 18 + Express 4
-- 数据库：PostgreSQL + Prisma ORM
-- 测试：Vitest + Playwright
-- 构建：Vite
-
-## 目录结构
-\`\`\`
-src/
-├── components/    # React 组件
-├── api/           # Express 路由
-├── services/      # 业务逻辑
-├── models/        # Prisma 模型
-├── utils/         # 工具函数
-└── hooks/         # React Hooks
-\`\`\`
-
-## 入口文件
-- 前端：src/main.tsx
-- 后端：src/server.ts
-```
-
-**前端项目 components.md 示例**：
-```markdown
-# 已有组件
-
-## Button
-- 路径：src/components/Button.tsx
-- 类型：展示组件
-- Props：{ variant: 'primary' | 'secondary'; size: 'sm' | 'md' | 'lg'; disabled?: boolean; children: ReactNode }
-- 用途：通用按钮组件
-```
-
----
+**快速参考**：
+- 长期记忆（跨会话保留）：project-overview、conventions、patterns、mistakes、preferences、decisions
+- 会话记忆（每次 Research 重建，存放在 `session/` 子目录）：modules、apis、models、utils、config、architecture
+- 强化机制：使用 >3 次标记"高频"，>5 次标记"标准"
+- 清理命令：`/dev-flow -cleanup`（清理会话记忆）/ `/dev-flow -cleanup --all`（重置全部）
 
 ---
 
 ## 学习能力
 
-dev-flow 具备从用户反馈中学习的能力，通过持续积累项目知识，实现"越用越好用"。
+> 详细学习机制、示例和效果评估见 `.claude/references/learning-system.md`。
+> Research / Develop / Fix 阶段结束后按需读取执行学习动作。
 
-### 学习来源
-
-**1. 用户显式反馈**
-- 用户说"这段代码很好，以后都按这个风格"→ 更新 preferences.md
-- 用户说"这个错误又出现了"→ 更新 mistakes.md
-- 用户修改了 AI 生成的代码 → 分析差异，更新 patterns.md
-
-**2. 隐式学习**
-- 观察用户如何修改 AI 生成的代码
-- 统计哪些代码模式被复用最多
-- 记录哪些错误反复出现
-
-**3. 阶段间学习**
-- Test 阶段发现的 Bug → 更新 mistakes.md
-- Fix 阶段的修复方案 → 更新 patterns.md
-- Develop 阶段的新模式 → 更新 patterns.md
-
-### 学习动作
-
-当发生以下情况时，AI 应主动学习和更新记忆：
-
-| 场景 | 学习动作 | 更新文件 |
-|------|----------|----------|
-| 用户表扬某段代码 | 记录代码模式，标记为"推荐" | patterns.md |
-| 用户修改 AI 生成的代码 | 分析修改原因，更新偏好或模式 | preferences.md / patterns.md |
-| 测试发现 Bug | 记录错误模式和修复方案 | mistakes.md |
-| 用户明确指定偏好 | 记录偏好设置 | preferences.md |
-| 重大架构决策 | 记录决策和原因 | decisions.md |
-| 某模式被复用 3 次以上 | 标记为"高频模式" | patterns.md |
-
-### 学习示例
-
-**示例 1：从用户修改中学习**
-
-AI 生成的代码：
-```typescript
-const handleSubmit = async (data) => {
-  await api.createUser(data);
-  router.push('/users');
-};
-```
-
-用户修改为：
-```typescript
-const handleSubmit = async (data) => {
-  try {
-    await api.createUser(data);
-    toast.success('用户创建成功');
-    router.push('/users');
-  } catch (error) {
-    toast.error(error.message);
-  }
-};
-```
-
-AI 学习：用户偏好添加 toast 提示 → 更新 preferences.md
-AI 学习：API 调用需要 try-catch + toast → 更新 patterns.md
-
-**示例 2：从错误中学习**
-
-Test 阶段发现：组件未处理 loading 状态导致测试失败
-Fix 阶段修复：添加 loading 状态处理
-
-AI 学习：记录"忘记处理 loading 状态"为常见错误 → 更新 mistakes.md
-AI 学习：记录"标准 loading 处理模式" → 更新 patterns.md
-
-### 学习效果评估
-
-通过以下指标评估学习效果：
-
-| 指标 | 目标 | 评估方式 |
-|------|------|----------|
-| 代码接受率 | > 80% | 用户修改 AI 生成代码的比例降低 |
-| Bug 重复率 | < 10% | 同一错误不出现超过 2 次 |
-| 模式复用率 | > 60% | 新代码复用已有模式的比例 |
-| 用户满意度 | > 4.5/5 | 用户主观评价 |
-
-### 学习提示
-
-在每个阶段结束时，AI 应主动询问用户：
-
-- **Research 后**："调研结果是否符合项目实际情况？有需要补充的吗？"
-- **Develop 后**："代码风格是否符合您的预期？有哪些需要调整的地方？"
-- **Fix 后**："修复方案是否解决了问题？这个错误以前出现过吗？"
-
-通过持续收集反馈，dev-flow 会越来越了解项目和用户的偏好，生成越来越符合预期的代码。
+**快速参考**：
+- 学习来源：用户反馈、隐式学习（代码修改观察）、阶段间学习（Bug→mistakes, 修复→patterns）
+- 关键学习动作：用户表扬→patterns、用户修改→preferences/patterns、测试Bug→mistakes、模式复用3次→标记高频
+- 阶段结束提示：主动询问用户"结果是否符合预期？"

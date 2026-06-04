@@ -1,6 +1,6 @@
 {
   "name": "dev-flow",
-  "version": "0.1.0",
+  "version": "2.0.0",
   "description": "AI开发全流程自动化Agent技能系统",
   "type": "module",
   "main": "scripts/install.js",
@@ -9,7 +9,16 @@
   },
   "scripts": {
     "install": "node scripts/install.js",
-    "prepublishOnly": "node scripts/install.js"
+    "prepublishOnly": "node scripts/install.js",
+    "test": "node scripts/version-check.js && node tests/run-all.js",
+    "test:version": "node scripts/version-check.js",
+    "test:build": "node tests/build.test.js",
+    "test:links": "node tests/links.test.js",
+    "test:size": "node tests/size-warning.test.js",
+    "test:format": "node tests/format.test.js",
+    "build": "node scripts/build.cjs",
+    "verify": "node scripts/build.cjs --verify",
+    "version-check": "node scripts/version-check.js"
   },
   "keywords": [
     "ai",
@@ -29,8 +38,10 @@
   "files": [
     "scripts",
     "skill-templates",
-    "SKILL.md",
+    "tests",
     "README.md",
-    "USER_GUIDE.md"
+    "USER_GUIDE.md",
+    "CHANGELOG.md",
+    "LICENSE"
   ]
 }

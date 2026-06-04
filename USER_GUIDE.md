@@ -27,21 +27,22 @@
 - [7. Hotfix 模式](#7-hotfix-模式)
 - [8. 断点续传](#8-断点续传)
 - [9. 记忆系统](#9-记忆系统)
-  - [9.1 基础记忆](#91-基础记忆)
-  - [9.2 长期记忆](#92-长期记忆)
+  - [9.1 长期记忆](#91-长期记忆)
+  - [9.2 会话记忆](#92-会话记忆)
   - [9.3 记忆使用和更新规则](#93-记忆使用和更新规则)
+  - [9.4 记忆清理](#94-记忆清理)
 - [10. 学习能力](#10-学习能力)
 - [11. v1.0.2 新特性](#11-v102-新特性)
 - [12. v1.0.3 新特性](#12-v103-新特性)
 - [13. v1.0.4 新特性](#13-v104-新特性)
 - [14. v1.0.5 架构优化](#14-v105-架构优化)
-  - [14.1 三层按需加载架构](#141-三层按需加载架构)
-  - [14.2 代码完整性铁律](#142-代码完整性铁律)
-  - [14.3 代码完整性防线](#143-代码完整性防线)
-  - [14.4 全平台防护统一](#144-全平台防护统一)
-  - [14.5 标准模式执行流程](#145-标准模式执行流程)
-  - [14.6 上下文优化效果](#146-上下文优化效果)
-- [15. 常见问题](#15-常见问题)
+- [15. v2.0.0 架构升级](#15-v200-架构升级)
+  - [15.1 四层按需加载架构](#151-四层按需加载架构)
+  - [15.2 会话/长期记忆分离](#152-会话长期记忆分离)
+  - [15.3 Agent 智能拆分](#153-agent-智能拆分)
+  - [15.4 完整测试覆盖与 CI](#154-完整测试覆盖与-ci)
+  - [15.5 参考文件（References）](#155-参考文件references)
+- [16. 常见问题](#16-常见问题)
 
 ---
 
@@ -64,6 +65,10 @@ dev-flow 是一个 AI 开发全流程编排 Skill，适用于 Cursor、Trae、Qo
 - **三层按需加载架构**（v1.0.5）：上下文占用从 357KB 降至 79KB，代码生成可用空间提升至 50%
 - **代码完整性铁律**（v1.0.5）：正面规则 + 生产可用测试，确保代码 100% 完整实现
 - **全平台防护统一**（v1.0.5）：step-enforcer 等防护 agent 全平台共享，不再仅限 Trae
+- **四层按需加载 + References 层**（v2.0.0）：Router 从 27KB 精简至 17KB，新增 4 个按需参考文档
+- **会话/长期记忆分离**（v2.0.0）：会话记忆每次 Research 自动重建，长期记忆跨会话累积
+- **Agent 智能拆分**（v2.0.0）：大 Agent 核心保留，模式库外置为 references 按需加载
+- **完整测试覆盖 + CI**（v2.0.0）：4 套自动化测试 + GitHub Actions CI
 
 ## 2. 安装
 
@@ -92,7 +97,7 @@ npx dev-flow install
 ```
 your-project/
 ├── .trae/skills/dev-flow/
-│   ├── SKILL.md                           # Router（27KB 骨架）
+│   ├── SKILL.md                           # Router（17KB 骨架）
 │   ├── stages/                            # 12 个阶段指令文件（按需加载）
 │   │   ├── research.md
 │   │   ├── analyze.md
@@ -106,38 +111,48 @@ your-project/
 │   │   ├── integration-test.md
 │   │   ├── delivery.md
 │   │   └── code-reference.md              # 代码标准模板、错误模式
-│   └── agents/                            # 23 个 subagent 定义
+│   ├── agents/                            # 18+ 个 subagent 定义
+│   └── references/                        # 按需加载参考文档 ← v2.0.0 新增
+│       ├── memory-system.md               # 记忆系统详细规则
+│       ├── learning-system.md             # 学习能力详细说明
+│       ├── error-pattern-db.md            # 错误模式数据库
+│       └── model-context-config.md        # 模型上下文配置
 ├── .cursor/
 │   ├── commands/dev-flow.md               # Cursor Router
 │   ├── stages/                            # 12 个阶段文件
-│   └── agents/                            # 23 个 agent 文件
+│   ├── agents/
+│   └── references/                        # ← v2.0.0 新增
 ├── .qoder/
-│   ├── commands/dev-flow.md               # Qoder Router
+│   ├── commands/dev-flow.md
 │   ├── stages/
-│   └── agents/
+│   ├── agents/
+│   └── references/
 ├── .claude/
-│   ├── commands/dev-flow.md               # Claude Router
+│   ├── commands/dev-flow.md
 │   ├── stages/
-│   └── agents/
+│   ├── agents/
+│   └── references/
 ├── AGENTS.md                              # OpenAI Codex 项目指令
 ├── .agents/skills/dev-flow/SKILL.md       # OpenAI Codex 仓库级 Skill
 ├── .codex/
 │   ├── config.toml
-│   └── agents/*.toml                      # Codex custom agents
+│   ├── agents/*.toml                      # Codex custom agents
+│   └── references/                        # ← v2.0.0 新增
 └── .dev-flow/
-    ├── memory/                            # 记忆目录（12 个 Markdown 模板）
+    ├── memory/                            # 长期记忆目录
     │   ├── project-overview.md
     │   ├── conventions.md
-    │   ├── components.md / modules.md
-    │   ├── apis.md
-    │   ├── models.md
-    │   ├── utils.md
-    │   ├── architecture.md
-    │   ├── config.md
-    │   ├── patterns.md
-    │   ├── mistakes.md
-    │   ├── preferences.md
-    │   └── decisions.md
+    │   ├── patterns.md                    # 代码模式（跨会话累积）
+    │   ├── mistakes.md                    # 常见错误（跨会话累积）
+    │   ├── preferences.md                 # 用户偏好（跨会话累积）
+    │   ├── decisions.md                   # 架构决策（跨会话累积）
+    │   └── session/                       # 会话记忆 ← v2.0.0 新增
+    │       ├── modules.md                 # 模块清单（每次 Research 重建）
+    │       ├── apis.md
+    │       ├── models.md
+    │       ├── utils.md
+    │       ├── config.md
+    │       └── architecture.md
     └── sessions/                           # 会话记录目录
         └── .gitkeep
 ```
@@ -268,6 +283,13 @@ AI 将按以下流程执行，针对 Java 项目的特点进行适配：
 | 命令 | 说明 |
 |------|------|
 | `/dev-flow --resume` | 从上次中断处继续 |
+
+### 记忆管理（v2.0.0 新增）
+
+| 命令 | 说明 |
+|------|------|
+| `/dev-flow -cleanup` | 清理会话记忆（`session/` 目录），保留长期记忆 |
+| `/dev-flow -cleanup --all` | 重置全部记忆文件（谨慎使用） |
 
 ## 5. 各阶段详解
 
@@ -689,62 +711,50 @@ Hotfix 是独立模式，不需要经过完整流程，随时可用。
 
 dev-flow 的记忆系统让 AI 能够记住项目信息和用户偏好，实现跨会话的知识积累。
 
-### 9.1 基础记忆
+v2.0.0 将记忆系统分为**长期记忆**和**会话记忆**两层：
 
-基础记忆在 Research 阶段自动创建和更新。
+- **长期记忆**（`.dev-flow/memory/` 根目录）：跨会话保留，Research 阶段只更新不重建
+- **会话记忆**（`.dev-flow/memory/session/` 子目录）：每次 Research 自动重建，反映项目最新快照
 
-**前端项目（7 个文件）：**
+### 9.1 长期记忆
 
-| 文件 | 内容 | 更新时机 |
-|------|------|----------|
-| `project-overview.md` | 项目概览：技术栈、架构、目录结构、入口文件 | Research |
-| `conventions.md` | 编码规范：命名风格、导入排序、注释风格、文件组织 | Research / Fix |
-| `components.md` | 已有组件：名称、路径、Props、用途 | Research / Develop |
-| `apis.md` | 已有 API：路径、方法、参数、响应格式 | Research / Develop |
-| `models.md` | 数据模型：名称、字段、关系 | Research / Develop |
-| `utils.md` | 工具函数：名称、签名、用途 | Research |
-| `architecture.md` | 架构决策：分层方式、设计模式 | Research |
+长期记忆在 Research 阶段创建/更新，在 Develop/Fix/用户反馈时持续积累。
 
-**Java 项目（8 个文件）：**
+**所有项目通用的长期记忆**：
 
 | 文件 | 内容 | 更新时机 |
 |------|------|----------|
 | `project-overview.md` | 项目概览：技术栈、架构、目录结构、入口文件 | Research |
 | `conventions.md` | 编码规范：命名风格、导入排序、注释风格、文件组织 | Research / Fix |
-| `modules.md` | 已有模块：Entity/Mapper/Service/Controller/DTO/Enum | Research / Develop |
-| `apis.md` | 已有 API：路径、方法、参数、响应格式 | Research / Develop |
-| `models.md` | 数据模型：Entity、DTO、数据库表 | Research / Develop |
-| `utils.md` | 工具类：名称、签名、用途 | Research |
-| `config.md` | 配置信息：数据库、Redis、中间件 | Research |
-| `architecture.md` | 架构决策：分层方式、设计模式 | Research |
+| `patterns.md` | 常见代码模式：可复用代码片段、使用场景、使用次数 | Develop / 用户反馈 |
+| `mistakes.md` | 常见错误及修复：Bug 模式、修复方案、出现次数、预防措施 | Test / Fix |
+| `preferences.md` | 用户偏好：代码风格、架构偏好、质量要求 | 用户反馈 |
+| `decisions.md` | 架构决策记录（ADR）：日期、决策、原因、影响 | 重大决策 |
 
-**Spring Cloud 微服务（12 个文件）：**
+**Spring Cloud 微服务额外长期记忆**：
 
 | 文件 | 内容 | 更新时机 |
 |------|------|----------|
-| `project-overview.md` | 项目概览：技术栈、架构、目录结构 | Research |
 | `service-registry.md` | 服务注册表：服务列表、端口、角色、子模块 | Research |
 | `dependency-graph.md` | 依赖图谱：服务间依赖、Feign 调用关系 | Research |
 | `common-modules.md` | 公共模块：通用 Entity/DTO/Enum/Util | Research |
-| `conventions.md` | 编码规范：命名风格、注解使用、异常处理 | Research / Fix |
-| `modules.md` | 各服务模块：Entity/Mapper/Service/Controller | Research / Develop |
-| `apis.md` | 已有 API：路径、方法、参数、响应 | Research / Develop |
-| `models.md` | 数据模型：Entity、DTO、数据库表 | Research / Develop |
-| `utils.md` | 工具类：名称、签名、用途 | Research |
-| `config.md` | 配置信息：数据库、Redis、Nacos | Research |
-| `common-modules.md` | 公共模块：依赖项目的 Entity/DTO/Enum/Util/Feign Client | Research |
-| `architecture.md` | 架构决策：分层方式、设计模式 | Research |
 
-### 9.2 长期记忆
+### 9.2 会话记忆
 
-长期记忆通过 AI 的学习能力自动积累，共 4 个文件：
+会话记忆存放在 `.dev-flow/memory/session/` 子目录，每次 Research 开始时自动清空并重建。
 
-| 文件 | 内容 | 积累方式 |
+| 文件 | 内容 | 更新时机 |
 |------|------|----------|
-| `patterns.md` | 常见代码模式：可复用的代码片段、使用场景、使用次数 | Develop 中记录新模式，复用时更新次数 |
-| `mistakes.md` | 常见错误及修复：Bug 模式、修复方案、出现次数、预防措施 | Test/Fix 中记录新错误模式 |
-| `preferences.md` | 用户偏好：代码风格、架构偏好、质量要求 | 用户反馈时记录 |
-| `decisions.md` | 架构决策记录（ADR）：日期、决策、原因、影响 | 重大决策时记录 |
+| `modules.md` | 模块清单：Entity/Mapper/Service/Controller/DTO/Enum | Research / Develop |
+| `apis.md` | API 列表：当前服务 API + Feign Client API | Research / Develop |
+| `models.md` | 数据模型：Entity + DTO + 数据库表 | Research / Develop |
+| `utils.md` | 工具函数/类 | Research |
+| `config.md` | 配置信息：数据库/Redis/Nacos/中间件 | Research |
+| `architecture.md` | 架构描述：分层方式、设计模式 | Research |
+
+> **为什么分离？** 会话记忆反映项目代码的最新快照，每次 Research 都应重建以确保准确性。而长期记忆（模式、错误、偏好）是累积性的，不应被清空。
+
+### 9.3 记忆使用和更新规则
 
 #### patterns.md 示例
 
@@ -907,6 +917,20 @@ String name = Optional.ofNullable(user.getName())
 - 每个模式/错误/偏好记录**使用次数**
 - 使用次数 > 3 次 → 标记为 **"高频"**，AI 优先推荐
 - 使用次数 > 5 次 → 标记为 **"标准"**，AI 必须遵守
+
+### 9.4 记忆清理（v2.0.0 新增）
+
+当记忆文件占用过大或数据过时时，可以使用清理命令：
+
+| 命令 | 效果 | 适用场景 |
+|------|------|----------|
+| `/dev-flow -cleanup` | 仅清理 `session/` 目录，保留长期记忆 | 项目结构变化后，需重新扫描 |
+| `/dev-flow -cleanup --all` | 清理全部记忆文件（包括长期记忆） | 重大架构变更后，从头重建 |
+
+**安全提示**：
+- `-cleanup` 不带 `--all` 只清理会话记忆，长期记忆（patterns/mistakes/preferences/decisions）安全保留
+- `-cleanup --all` 会删除所有积累的知识，请谨慎使用
+- 清理后执行 `/dev-flow -research` 重新生成记忆
 
 ## 10. 学习能力
 
@@ -1385,7 +1409,125 @@ Step 7-N: Smoke Test → Integration Test → Delivery → 完成
 | Agent 防护数量 | 16 个（Trae）/ 9 个（其他） | **20 个（全平台统一）** |
 | 阶段指令文件 | 0（内嵌 SKILL.md） | **12 个（按需加载）** |
 
-## 15. 常见问题
+## 15. v2.0.0 架构升级
+
+v2.0.0 是一次重大架构升级，在 v1.0.5 三层按需加载基础上，新增 References 层、实现会话/长期记忆分离、完成 Agent 智能拆分、并建立完整测试覆盖体系。
+
+### 15.1 四层按需加载架构
+
+**问题**：v1.0.5 的 Router 仍有 27KB，其中记忆系统（目录结构、使用规则、文件格式示例）和学习能力（学习机制、示例、效果评估）占用大量空间，但这些内容并非每个阶段都需要。
+
+**解决方案**：将 Router 中的详细参考内容外置为 References 层，Router 只保留快速引用。
+
+```
+第一层：Router（17KB，始终加载）← 原 27KB，减少 37%
+  ├── 命令解析 + 全局规则
+  ├── 阶段路由表
+  ├── 记忆系统快速引用（5 行摘要 + references 链接）
+  └── 学习能力快速引用（5 行摘要 + references 链接）
+
+第二层：References（按需加载）← v2.0.0 新增
+  ├── memory-system.md (15KB)     ← Research / 需要查阅记忆规则时
+  ├── learning-system.md (8.5KB)  ← 阶段结束时读取
+  ├── error-pattern-db.md (11.5KB)← Error Pattern Learner 读取
+  └── model-context-config.md      ← Context Manager 读取
+
+第三层：阶段指令文件（进入阶段时加载）
+  └── stages/*.md（12 个文件）
+
+第四层：Agent 文件（Subagent 模式下加载）
+  └── agents/*.md（18 个文件）
+```
+
+**v2.0.0 vs v1.0.5 对比**：
+
+| 指标 | v1.0.5 | v2.0.0 | 变化 |
+|------|--------|--------|------|
+| Router 体积 | 27KB | **17KB** | **-37%** |
+| 始终加载内容 | 27KB | **17KB** | **-37%** |
+| 按需参考文档 | 0 | **4 个（35KB）** | 新增 |
+| 构建系统占位符 | `{{STAGES_PATH}}` `{{AGENTS_PATH}}` | + `{{REFERENCES_PATH}}` | 新增 |
+
+### 15.2 会话/长期记忆分离
+
+**问题**：v1.0.5 的所有记忆文件都在同一目录，Research 阶段会重建所有文件，导致长期积累的模式、错误、偏好数据丢失。不重建则可能数据过时。
+
+**解决方案**：将记忆分为长期记忆和会话记忆，分别存放。
+
+**长期记忆**（`.dev-flow/memory/` 根目录）：
+- 跨会话保留，Research 阶段只更新不重建
+- 包含：project-overview、conventions、patterns、mistakes、preferences、decisions、service-registry、dependency-graph、common-modules
+
+**会话记忆**（`.dev-flow/memory/session/` 子目录）：
+- 每次 Research 自动清空并重建，反映项目最新快照
+- 包含：modules、apis、models、utils、config、architecture
+
+**清理命令**：
+- `/dev-flow -cleanup` — 清理 `session/` 目录，保留长期记忆
+- `/dev-flow -cleanup --all` — 重置全部记忆文件
+
+**Research 阶段变化**：
+- Step 5.0 新增会话记忆清理逻辑（清空 session/ 目录 → 重建）
+- 长期记忆只在有新数据时更新，不重建
+
+### 15.3 Agent 智能拆分
+
+**问题**：error-pattern-learner (27KB) 和 context-manager (22KB) 体积过大，Subagent 模式下加载时占用大量上下文。
+
+**解决方案**：将大 Agent 中的详细数据库和配置外置为 references 文件，核心 Agent 保留工作流和关键规则。
+
+| Agent | 原大小 | 拆分后核心 | 外置 references |
+|-------|--------|-----------|----------------|
+| error-pattern-learner | 27KB | **15.7KB** | error-pattern-db.md (11.5KB) |
+| context-manager | 22KB | **18KB** | model-context-config.md |
+
+核心 Agent 文件中通过 `{{REFERENCES_PATH}}xxx.md` 引用外置内容，需要时才读取。
+
+### 15.4 完整测试覆盖与 CI
+
+**问题**：v1.0.5 没有自动化测试，构建和发布完全依赖人工验证。
+
+**解决方案**：新增 4 套自动化测试 + GitHub Actions CI。
+
+| 测试 | 文件 | 检查内容 |
+|------|------|---------|
+| 构建测试 | `tests/build.test.js` | 核心文件存在性、构建输出、Router 大小、占位符替换 |
+| 链接测试 | `tests/links.test.js` | README 链接有效性、SKILL.md 文件引用、路径替换 |
+| 大小预警 | `tests/size-warning.test.js` | Router/Stage/Agent/Reference 大小阈值 |
+| 格式检查 | `tests/format.test.js` | Markdown frontmatter 和格式规范 |
+
+**CI 配置**（`.github/workflows/ci.yml`）：
+- 双版本 Node.js（18/20）测试
+- 自动构建验证
+- 发布前检查（`scripts/pre-publish.js`）
+- npm 自动发布
+
+**版本号一致性检查**（`scripts/version-check.js`）：
+- 自动比对 `package.json` vs `README.md` vs `CHANGELOG.md`
+- `--fix` 参数自动修复 README 版本号
+
+### 15.5 参考文件（References）
+
+v2.0.0 新增的 References 层包含 4 个按需加载的深度参考文档：
+
+| 文件 | 大小 | 加载时机 | 内容 |
+|------|------|---------|------|
+| `memory-system.md` | 15KB | Research / Develop 前查阅记忆规则 | 完整的记忆目录结构、使用规则、文件格式示例 |
+| `learning-system.md` | 8.5KB | Research / Develop / Fix 结束时 | 学习机制、学习示例、效果评估 |
+| `error-pattern-db.md` | 11.5KB | Error Pattern Learner Step 5/6 | 错误模式定义 P001-P009、预防策略 S001-S009 |
+| `model-context-config.md` | — | Context Manager 计算动态阈值 | 模型上下文窗口配置、动态计算规则、分层设计文档裁剪 |
+
+**各平台 References 安装路径**：
+
+| 平台 | 路径 |
+|------|------|
+| Trae | `.trae/skills/dev-flow/references/` |
+| Cursor | `.cursor/references/` |
+| Claude Code | `.claude/references/` |
+| Qoder | `.qoder/references/` |
+| OpenAI Codex | `.codex/references/` |
+
+## 16. 常见问题
 
 ### Q: 安装后找不到 /dev-flow 命令？
 
