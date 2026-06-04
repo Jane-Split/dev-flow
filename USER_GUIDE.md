@@ -34,7 +34,14 @@
 - [11. v1.0.2 新特性](#11-v102-新特性)
 - [12. v1.0.3 新特性](#12-v103-新特性)
 - [13. v1.0.4 新特性](#13-v104-新特性)
-- [14. 常见问题](#14-常见问题)
+- [14. v1.0.5 架构优化](#14-v105-架构优化)
+  - [14.1 三层按需加载架构](#141-三层按需加载架构)
+  - [14.2 代码完整性铁律](#142-代码完整性铁律)
+  - [14.3 代码完整性防线](#143-代码完整性防线)
+  - [14.4 全平台防护统一](#144-全平台防护统一)
+  - [14.5 标准模式执行流程](#145-标准模式执行流程)
+  - [14.6 上下文优化效果](#146-上下文优化效果)
+- [15. 常见问题](#15-常见问题)
 
 ---
 
@@ -54,6 +61,9 @@ dev-flow 是一个 AI 开发全流程编排 Skill，适用于 Cursor、Trae、Qo
 - **错误经验学习**（v1.0.2）：从历史错误中提取模式，生成预防策略
 - **步骤强制执行**（v1.0.3）：Step Enforcer 验证关键步骤完成质量，防止跳过
 - **错误模式自动应用**（v1.0.3）：自动将学习到的模式应用到 Agent 指导
+- **三层按需加载架构**（v1.0.5）：上下文占用从 357KB 降至 79KB，代码生成可用空间提升至 50%
+- **代码完整性铁律**（v1.0.5）：正面规则 + 生产可用测试，确保代码 100% 完整实现
+- **全平台防护统一**（v1.0.5）：step-enforcer 等防护 agent 全平台共享，不再仅限 Trae
 
 ## 2. 安装
 
@@ -81,30 +91,54 @@ npx dev-flow install
 
 ```
 your-project/
-├── .trae/skills/dev-flow/SKILL.md        # Trae 的 Skill 文件
-├── .cursor/commands/dev-flow.md          # Cursor 的命令文件
-├── .qoder/commands/dev-flow.md           # Qoder 的命令文件
-├── .claude/commands/dev-flow.md          # Claude Code 的命令文件
-├── AGENTS.md                            # OpenAI Codex 的项目指令文件
-├── .agents/skills/dev-flow/SKILL.md     # OpenAI Codex 的仓库级 Skill
+├── .trae/skills/dev-flow/
+│   ├── SKILL.md                           # Router（27KB 骨架）
+│   ├── stages/                            # 12 个阶段指令文件（按需加载）
+│   │   ├── research.md
+│   │   ├── analyze.md
+│   │   ├── design.md
+│   │   ├── task-split.md
+│   │   ├── develop.md                      # 含代码完整性铁律
+│   │   ├── unit-test.md
+│   │   ├── fix.md
+│   │   ├── hotfix.md
+│   │   ├── smoke-test.md
+│   │   ├── integration-test.md
+│   │   ├── delivery.md
+│   │   └── code-reference.md              # 代码标准模板、错误模式
+│   └── agents/                            # 23 个 subagent 定义
+├── .cursor/
+│   ├── commands/dev-flow.md               # Cursor Router
+│   ├── stages/                            # 12 个阶段文件
+│   └── agents/                            # 23 个 agent 文件
+├── .qoder/
+│   ├── commands/dev-flow.md               # Qoder Router
+│   ├── stages/
+│   └── agents/
+├── .claude/
+│   ├── commands/dev-flow.md               # Claude Router
+│   ├── stages/
+│   └── agents/
+├── AGENTS.md                              # OpenAI Codex 项目指令
+├── .agents/skills/dev-flow/SKILL.md       # OpenAI Codex 仓库级 Skill
 ├── .codex/
-│   ├── config.toml                       # OpenAI Codex 的项目配置（如不存在才写入）
-│   └── agents/*.toml                     # OpenAI Codex 的 custom agents
+│   ├── config.toml
+│   └── agents/*.toml                      # Codex custom agents
 └── .dev-flow/
-    ├── memory/                           # 记忆目录（12 个 Markdown 模板）
-    │   ├── project-overview.md           # 项目概览
-    │   ├── conventions.md                # 编码规范
-    │   ├── components.md / modules.md    # 已有组件/模块列表
-    │   ├── apis.md                       # 已有 API 列表
-    │   ├── models.md                     # 数据模型列表
-    │   ├── utils.md                      # 工具函数/类列表
-    │   ├── architecture.md               # 架构决策
-    │   ├── config.md                     # 配置信息（Java 项目）
-    │   ├── patterns.md                   # 常见代码模式
-    │   ├── mistakes.md                   # 常见错误及修复
-    │   ├── preferences.md                # 用户偏好
-    │   └── decisions.md                  # 架构决策记录
-    └── sessions/                         # 会话记录目录
+    ├── memory/                            # 记忆目录（12 个 Markdown 模板）
+    │   ├── project-overview.md
+    │   ├── conventions.md
+    │   ├── components.md / modules.md
+    │   ├── apis.md
+    │   ├── models.md
+    │   ├── utils.md
+    │   ├── architecture.md
+    │   ├── config.md
+    │   ├── patterns.md
+    │   ├── mistakes.md
+    │   ├── preferences.md
+    │   └── decisions.md
+    └── sessions/                           # 会话记录目录
         └── .gitkeep
 ```
 
@@ -1205,7 +1239,153 @@ logic:
 - **零等待**：减少编译-修复循环，提高开发效率
 - **自动修复**：即使第一二层失效，第三层也能自动修复
 
-## 14. 常见问题
+## 14. v1.0.5 架构优化
+
+v1.0.5 是一次架构级重构，围绕**上下文效率**和**代码完整性**进行了 4 项重大优化，将代码生成可用空间从 10% 提升至 50%。
+
+### 14.1 三层按需加载架构
+
+**问题**：原 SKILL.md 体积 140KB / 4000 行，AI 加载后消耗 55% 的上下文窗口，留给代码生成的空间严重不足，导致代码被截断、简化、用占位符填充。
+
+**解决方案**：将 140KB 的单体 SKILL.md 拆分为三层按需加载架构。
+
+```
+第一层：Router（27KB，始终加载）
+  ├── YAML front-matter + 命令解析
+  ├── 全局规则（禁止事项 + 完整性铁律精简版）
+  ├── 阶段路由表
+  ├── 标准模式执行流程
+  └── 记忆系统 + 学习能力
+
+第二层：阶段指令文件（按需加载）
+  ├── stages/research.md (15KB)     ← 进入 Research 阶段才加载
+  ├── stages/analyze.md (10KB)     ← 进入 Analyze 阶段才加载
+  ├── stages/design.md (22KB)      ← 进入 Design 阶段才加载
+  ├── stages/task-split.md (7KB)   ← 进入 Task Split 才加载
+  ├── stages/develop.md (28KB)     ← 进入 Develop 阶段才加载
+  ├── stages/code-reference.md (10KB) ← Develop 阶段额外加载
+  └── ...共 12 个文件
+
+第三层：Agent 文件（仅 Develop 阶段加载）
+  ├── develop-expert.md (26KB)     ← Subagent 模式下加载
+  ├── step-enforcer.md              ← 验证步骤完整性
+  ├── contract-validator.md         ← 契约一致性校验
+  └── ...共 20 个 agent
+```
+
+**加载规则**：
+- 标准模式：按顺序进入每个阶段时，读取对应阶段的 `stages/*.md` 文件
+- Subagent 模式：每个 subagent 只加载自己阶段的指令文件，不加载其他阶段
+- 跳过的阶段不加载
+
+**各平台路径适配**：
+
+| 平台 | Router 路径 | Stages 路径 | Agents 路径 |
+|------|-----------|------------|------------|
+| Trae | `.trae/skills/dev-flow/SKILL.md` | `stages/` | `agents/` |
+| Cursor | `.cursor/commands/dev-flow.md` | `.cursor/stages/` | `.cursor/agents/` |
+| Claude Code | `.claude/commands/dev-flow.md` | `.claude/stages/` | `.claude/agents/` |
+| Qoder | `.qoder/commands/dev-flow.md` | `.qoder/stages/` | `.qoder/agents/` |
+
+### 14.2 代码完整性铁律
+
+**问题**：AI 在 subagent 模式下生成的代码包含大量空实现、TODO、`log.xxx()` 占位符，而非完整可运行的代码。之前的禁止列表只说了"不要做什么"，缺少"每个方法必须包含什么"的正面规则。
+
+**解决方案**：在 develop-expert.md 中新增"代码完整性铁律"章节，定义正面规则和判断标准。
+
+**7 条正面规则**：
+
+1. **每个方法体必须包含实质性的业务操作**（数据库操作/外部调用/业务计算/状态变更）
+2. **每个条件分支都必须有完整的处理逻辑**（if/else 每个分支都有实际代码）
+3. **每个循环都必须有完整的循环体**（循环内有实际操作）
+4. **每个 try-catch 的 catch 必须有实际错误处理**（不能只有 log）
+5. **返回值必须经过实际计算/查询/转换**（不能直接 return null 或硬编码）
+6. **外部调用（Feign/RPC/MQ/Redis/DB）必须使用真实调用代码**（不能被 log 替代）
+7. **数据转换（Entity ↔ DTO）必须写完整字段映射**（不能省略）
+
+**判断标准 — 生产可用测试**：
+
+> 如果这段代码被直接部署到生产环境，它能正常工作吗？
+> 答案为"否" → 代码不够完整，必须补充。
+
+**禁止事项（扩展版）**：
+
+| 禁止行为 | 正确做法 |
+|---------|---------|
+| `// TODO: 实现业务逻辑` | 必须实现完整逻辑 |
+| `return null;` 空实现 | 必须实现完整逻辑 |
+| 只有 `log.xxx()` 的方法体 | 必须包含真实业务调用 |
+| `pass` / `...` / `raise NotImplementedError` | 必须实现完整逻辑 |
+| `throw new UnsupportedOperationException` | 必须实现完整逻辑 |
+
+### 14.3 代码完整性防线
+
+**问题**：代码完整性规则依赖 AI 自觉执行，没有技术手段强制验证。
+
+**解决方案**：在 develop-expert.md 的 Step 3（代码生成）中新增 Step 3.5"完整性防线"——每个文件写入后立即扫描占位模式，发现即修复。
+
+**防线扫描的占位模式**：
+
+- `TODO`、`FIXME`、`HACK`、`XXX` 占位注释
+- `return null;` 空实现
+- 只有 `log.xxx()` 的方法体
+- `{/* 描述 */}` React 占位组件
+- `pass` / `...` Python 占位
+- `throw new UnsupportedOperationException`
+
+**修复流程**：扫描发现占位 → 立即替换为完整实现 → 重新扫描确认 → 继续
+
+### 14.4 全平台防护统一
+
+**问题**：step-enforcer、contract-validator、bytecode-analyzer、design-contract-validator 等关键防护 agent 原本只在 Trae 平台有效，cursor/claude/qoder 平台缺少这些防护。
+
+**解决方案**：将这些 agent 从 `_platforms/trae/agents/` 提升到 `_core/agents/`，所有平台共享。
+
+**提升的 agent**（7 个）：
+
+| Agent | 功能 |
+|-------|------|
+| `step-enforcer.md` | 步骤强制执行验证器 |
+| `contract-validator.md` | 契约一致性校验 |
+| `bytecode-analyzer.md` | 占位模式扫描 |
+| `design-contract-validator.md` | 设计契约完整性验证 |
+| `context-manager.md` | 上下文管理器 |
+| `error-pattern-learner.md` | 错误模式学习 |
+| `task-split-expert.md` | 智能任务拆分 |
+
+### 14.5 标准模式执行流程
+
+v1.0.5 在 Router 中新增了显式的标准模式执行流程，明确每个阶段的"读取指令→执行→暂停确认"三步循环。
+
+**完整流程**：
+
+```
+Step 1:  Read stages/research.md → 执行 Research → 暂停确认
+Step 2:  Read stages/analyze.md → 执行 Analyze → 暂停确认
+Step 3:  Read stages/design.md → 执行 Design → 暂停确认
+Step 4:  Read stages/task-split.md → 执行 Task Split → 暂停确认
+Step 5:  Read stages/develop.md + stages/code-reference.md → 执行 Develop → 暂停确认
+Step 6:  Read stages/unit-test.md → 执行 Test → 暂停确认
+Step 7-N: Smoke Test → Integration Test → Delivery → 完成
+```
+
+**关键规则**：
+- 每个阶段开始前必须先读取对应的阶段指令文件
+- 每个阶段完成后必须暂停，等待用户确认后才能进入下一阶段
+- 如果 AI 发现上下文接近溢出，提示用户切换到 Subagent 模式
+
+### 14.6 上下文优化效果
+
+| 指标 | 优化前 (v1.0.4) | 优化后 (v1.0.5) |
+|------|----------------|----------------|
+| Router 体积 | 140KB / 4000行 | **27KB / 616行（-81%）** |
+| Develop 阶段上下文 | ~357KB（全量加载） | **~79KB（Router + develop + agent）** |
+| 代码生成可用空间 | ~10% | **~50%** |
+| 有防护的平台 | 仅 Trae | **trae/cursor/claude/qoder 全部** |
+| Agent 防护数量 | 16 个（Trae）/ 9 个（其他） | **20 个（全平台统一）** |
+| 阶段指令文件 | 0（内嵌 SKILL.md） | **12 个（按需加载）** |
+
+## 15. 常见问题
 
 ### Q: 安装后找不到 /dev-flow 命令？
 

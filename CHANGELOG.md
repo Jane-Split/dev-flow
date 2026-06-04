@@ -2,6 +2,73 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.0.5] - 2026-06-04
+
+### 架构重构：三层按需加载 + 代码完整性防线
+
+**核心变化**：将 140KB 单体 SKILL.md 重构为三层按需加载架构，上下文占用降低 82%
+
+#### 三层按需加载架构
+
+- **SKILL.md → Router（27KB）**：从 140KB/4000行 精简到 27KB/616行（-81%），仅包含命令解析路由、全局规则、阶段路由表、标准模式执行流程、记忆系统、学习能力
+- **12 个阶段指令文件**（stages/*.md）：Research/Analyze/Design/TaskSplit/Develop/UnitTest/Fix/Hotfix/SmokeTest/IntegrationTest/Delivery/CodeReference 独立存放，进入对应阶段时才加载
+- **构建系统升级**（build.cjs）：
+  - 新增 stages 目录的生成、复制和校验逻辑
+  - 新增 `{{STAGES_PATH}}` / `{{AGENTS_PATH}}` 占位符，构建时替换为各平台实际安装路径
+  - PLATFORM_CONFIG 新增 stagesPath/agentsPath 配置
+- **安装系统升级**（install.js）：
+  - 新增 `installStages()` 函数，安装阶段文件到各平台目录
+  - AGENT_FILES 从 16 个扩展到 23 个（含提升的防护 agent）
+  - 新增 STAGE_FILES 列表（12 个文件）
+
+#### 代码完整性铁律
+
+- **develop-expert.md 新增"代码完整性铁律"章节**：7 条正面规则 + "生产可用测试"判断标准 + 方法体最低标准
+- **禁止事项表格扩展**：新增 3 条（log 占位、pass/NotImplementedError、UnsupportedOperationException）
+- **Step 3.5 代码完整性防线**：每个文件写入后立即扫描 TODO/空实现/日志占位，当场修复
+- **SKILL.md Develop 阶段新增完整性要求**：方法体规则 + 完整性自检流程 + 强制修复规则
+
+#### 全平台防护统一
+
+- **7 个防护 agent 从 Trae-only 提升到 _core 共享**：step-enforcer、contract-validator、bytecode-analyzer、design-contract-validator、context-manager、error-pattern-learner、task-split-expert
+- **cursor/claude/qoder 平台现在拥有完整的防护能力**：step-enforcer 验证步骤完整性、contract-validator 校验契约一致性、bytecode-analyzer 扫描占位模式
+
+#### 标准模式执行流程
+
+- **Router 新增显式标准模式执行流程**：Step 1-19 逐步描述，每个阶段包含"读取阶段指令 → 执行 → 暂停等待用户确认"三步循环
+- **orchestrator.md 新增阶段指令路由表**：调度每个 subagent 前，读取对应阶段的指令文件传递给 subagent
+
+### 上下文优化效果
+
+| 指标 | v1.0.4 | v1.0.5 |
+|------|--------|--------|
+| SKILL.md 体积 | 140KB | 27KB (-81%) |
+| Develop 阶段上下文 | ~357KB | ~79KB (-78%) |
+| 代码生成可用空间 | ~10% | ~50% |
+| 防护覆盖 | 仅 Trae | 全平台 |
+
+### 改动文件清单
+
+**修改**：
+- `skill-templates/_core/SKILL.md` — 重写为 Router，使用占位符
+- `skill-templates/_core/agents/develop-expert.md` — 新增完整性铁律 + 防线 + stages 引用
+- `skill-templates/_core/agents/orchestrator.md` — 新增阶段指令路由表
+- `scripts/build.cjs` — stages 目录处理 + 路径替换 + 增强校验
+- `scripts/install.js` — stages 安装 + AGENT_FILES/STAGE_FILES 更新
+- `README.md` — 版本更新 + 架构说明 + 项目结构更新
+- `USER_GUIDE.md` — 新增 v1.0.5 架构优化章节
+- `CHANGELOG.md` — 新增 v1.0.5 条目
+
+**新增**：
+- `skill-templates/_core/stages/*.md` — 12 个阶段指令文件
+- `skill-templates/_core/agents/step-enforcer.md` — 从 Trae 提升
+- `skill-templates/_core/agents/contract-validator.md` — 从 Trae 提升
+- `skill-templates/_core/agents/bytecode-analyzer.md` — 从 Trae 提升
+- `skill-templates/_core/agents/design-contract-validator.md` — 从 Trae 提升
+- `skill-templates/_core/agents/context-manager.md` — 从 Trae 提升
+- `skill-templates/_core/agents/error-pattern-learner.md` — 从 Trae 提升
+- `skill-templates/_core/agents/task-split-expert.md` — 从 Trae 提升
+
 ## [1.0.4_opt_v3] - 2026-06-03
 
 ### 核心变化：取消固定50KB限制，改为任务驱动动态预算

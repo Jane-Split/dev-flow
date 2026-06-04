@@ -1,9 +1,9 @@
 # dev-flow
 
 [![node](https://img.shields.io/node/v/dev-flow.svg)](https://nodejs.org)
-[![version](https://img.shields.io/badge/version-v1.0.4_opt-blue)]()
+[![version](https://img.shields.io/badge/version-v1.0.5-blue)]()
 
-> **当前版本: v1.0.4_opt** | [更新日志](./CHANGELOG.md)
+> **当前版本: v1.0.5** | [更新日志](./CHANGELOG.md)
 
 AI 开发全流程编排 Skill，适用于 Cursor、Trae、Qoder、Claude Code、OpenAI Codex 等 AI 编程工具。
 
@@ -24,7 +24,8 @@ dev-flow 通过**结构化的流程编排 + 项目记忆 + 长期记忆 + 学习
 
 ## 特性
 
-- **结构化流程** - 7 个阶段 + Hotfix 模式，每个阶段有明确的输入/输出和自检步骤
+- **结构化流程** - 10 个阶段 + Hotfix 模式，每个阶段有明确的输入/输出和自检步骤
+- **三层按需加载架构** (v1.0.5) - Router(27KB) + 12 个阶段指令文件按需加载，上下文占用从 357KB 降至 79KB，代码生成可用空间从 10% 提升至 50%
 - **智能任务拆分** - 方案C：Design 输出全局契约，Task Split 生成子任务级设计 + DAG 依赖图，每个 subagent 只接收必要信息
 - **接口契约机制** - 跨子任务接口定义（serviceContracts/eventContracts/dataContracts），契约冻结（stability: frozen）防止随意修改
 - **多 Subagent 并行** - 复杂任务拆分为独立 subagent 并行执行，上下文隔离，效率翻倍
@@ -54,6 +55,9 @@ dev-flow 通过**结构化的流程编排 + 项目记忆 + 长期记忆 + 学习
 - **文件级冲突检测** (v1.0.4_opt_v2) - 调度前检测多任务文件冲突，冲突任务自动串行化
 - **全局编译循环上限** (v1.0.4_opt_v2) - 最多循环 5 次，按错误分类设置修复上限
 - **学习能力** - 从用户反馈、代码修改、测试 Bug 中自动学习，持续优化代码生成策略
+- **代码完整性铁律** (v1.0.5) - 正面规则 + 生产可用测试 + 方法体最低标准，确保每个方法体都是 100% 可执行的完整实现
+- **代码完整性防线** (v1.0.5) - 每个文件写入后立即扫描 TODO/空实现/日志占位，当场修复
+- **全平台防护统一** (v1.0.5) - step-enforcer/contract-validator/bytecode-analyzer 等防护 agent 从 Trae-only 提升为全平台共享
 - **记忆强化** - 模式使用 >3 次标记"高频"优先推荐，>5 次标记"标准"必须遵守
 - **阶段确认** - 每个阶段完成后暂停，展示成果并等待用户确认
 - **断点续传** - 长流程中断后可从上次断点恢复（`.dev-flow/sessions/`）
@@ -76,10 +80,10 @@ npx dev-flow install
 
 | 工具 | 生成的文件 | 触发方式 |
 |------|-----------|---------|
-| Trae | `.trae/skills/dev-flow/SKILL.md` | 输入框输入 `/dev-flow` |
-| Cursor | `.cursor/commands/dev-flow.md` | 输入框输入 `/dev-flow` |
-| Qoder | `.qoder/commands/dev-flow.md` | 输入框输入 `/dev-flow` |
-| Claude Code | `.claude/commands/dev-flow.md` | 输入框输入 `/dev-flow` |
+| Trae | `.trae/skills/dev-flow/SKILL.md` + `stages/*.md` + `agents/*.md` | 输入框输入 `/dev-flow` |
+| Cursor | `.cursor/commands/dev-flow.md` + `stages/*.md` + `agents/*.md` | 输入框输入 `/dev-flow` |
+| Qoder | `.qoder/commands/dev-flow.md` + `stages/*.md` + `agents/*.md` | 输入框输入 `/dev-flow` |
+| Claude Code | `.claude/commands/dev-flow.md` + `stages/*.md` + `agents/*.md` | 输入框输入 `/dev-flow` |
 | OpenAI Codex | `AGENTS.md` + `.agents/skills/dev-flow/SKILL.md` + `.codex/agents/*.toml` | 终端输入 `codex` 后使用自然语言或 `$dev-flow` |
 
 **Subagent 文件**（用于 `-subagent` 模式和 Research 并行扫描；Codex 使用 `.codex/agents/*.toml`）：
@@ -99,11 +103,31 @@ npx dev-flow install
 | structure-analyzer | `.codex/agents/structure-analyzer.toml` / 其他工具的 `agents/structure-analyzer.md` | 项目结构和依赖关系分析 |
 | config-analyzer | `.codex/agents/config-analyzer.toml` / 其他工具的 `agents/config-analyzer.md` | 配置和编码规范分析 |
 | **contract-validator** | `.codex/agents/contract-validator.toml` / 其他工具的 `agents/contract-validator.md` | **契约一致性校验（方法签名/字段/实现/依赖）** |
+| **bytecode-analyzer** | `.codex/agents/bytecode-analyzer.toml` / 其他工具的 `agents/bytecode-analyzer.md` | **占位模式扫描（TODO/空实现/日志占位检测）** |
+| **design-contract-validator** | `.codex/agents/design-contract-validator.toml` / 其他工具的 `agents/design-contract-validator.md` | **设计契约完整性验证** |
 | **error-pattern-learner** | `.codex/agents/error-pattern-learner.toml` / 其他工具的 `agents/error-pattern-learner.md` | **错误模式学习与预防策略生成** |
 | **step-enforcer** | `.codex/agents/step-enforcer.toml` / 其他工具的 `agents/step-enforcer.md` | **步骤强制执行验证器（防止跳过关键步骤）** |
 | **context-manager** | `.codex/agents/context-manager.toml` / 其他工具的 `agents/context-manager.md` | **上下文管理器（智能分配上下文、执行模式决策）** |
+| **task-split-expert** | `.codex/agents/task-split-expert.toml` / 其他工具的 `agents/task-split-expert.md` | **智能任务拆分，生成子任务级设计 + DAG** |
 
 同时创建 `.dev-flow/memory/` 目录（12 个 Markdown 记忆模板）和 `.dev-flow/sessions/` 目录（会话记录）。
+
+**阶段指令文件**（按需加载，进入对应阶段时才读取，不占用初始上下文）：
+
+| 阶段 | 文件 | 内容 |
+|------|------|------|
+| Research | `stages/research.md` | 项目调研指令 |
+| Analyze | `stages/analyze.md` | 需求分析指令 |
+| Design | `stages/design.md` | 详细设计指令 |
+| Task Split | `stages/task-split.md` | 任务拆分指令 |
+| Develop | `stages/develop.md` | 代码开发指令（含代码完整性铁律） |
+| Unit Test | `stages/unit-test.md` | 单元测试指令 |
+| Fix | `stages/fix.md` | Bug 修复指令 |
+| Hotfix | `stages/hotfix.md` | 紧急修复指令 |
+| Smoke Test | `stages/smoke-test.md` | 冒烟测试指令 |
+| Integration Test | `stages/integration-test.md` | 集成测试指令 |
+| Delivery | `stages/delivery.md` | 交付指令 |
+| Code Reference | `stages/code-reference.md` | 代码标准模板、错误模式、用户偏好 |
 
 也可以只安装特定工具的 skill 文件：
 
@@ -313,24 +337,35 @@ dev-flow 要求 AI 生成的代码必须：
 ```
 dev-flow/
 ├── skill-templates/       # Skill 文件模板
-│   ├── trae/              # Trae 模板
-│   │   ├── SKILL.md       # 主指令文件
-│   │   └── agents/        # 15 个 subagent 定义（含 task-split-expert、contract-validator、error-pattern-learner、step-enforcer）
-│   ├── cursor/            # Cursor 模板
+│   ├── _core/             # 核心模板源（所有平台的公共基础）
+│   │   ├── SKILL.md       # Router（27KB 骨架文件）
+│   │   ├── stages/        # 12 个阶段指令文件（按需加载）
+│   │   └── agents/        # 20 个 agent 定义（全平台共享）
+│   ├── _platforms/         # 平台特有文件
+│   │   └── trae/agents/   # Trae 专有 agent 扩展
+│   ├── trae/              # Trae 构建输出
+│   │   ├── SKILL.md       # Router（路径替换后）
+│   │   ├── stages/        # 12 个阶段文件
+│   │   └── agents/        # 23 个 agent（含 Trae 扩展）
+│   ├── cursor/            # Cursor 构建输出
 │   │   ├── dev-flow.md
+│   │   ├── stages/
 │   │   └── agents/
-│   ├── qoder/             # Qoder 模板
+│   ├── qoder/             # Qoder 构建输出
 │   │   ├── dev-flow.md
+│   │   ├── stages/
 │   │   └── agents/
-│   ├── claude/            # Claude Code 模板
+│   ├── claude/            # Claude Code 构建输出
 │   │   ├── dev-flow.md
+│   │   ├── stages/
 │   │   └── agents/
-│   └── codex/             # OpenAI Codex 模板
-│       ├── AGENTS.md      # Codex 项目指令文件
-│       ├── config.toml    # Codex 项目配置（安装到 .codex/config.toml）
-│       ├── skills/        # Codex repo skill（安装到 .agents/skills/）
-│       └── agents/        # 11 个 Codex custom agent TOML 定义
+│   └── codex/             # OpenAI Codex 构建输出
+│       ├── AGENTS.md
+│       ├── config.toml
+│       ├── skills/
+│       └── agents/        # 11 个 Codex custom agent TOML
 ├── scripts/
+│   ├── build.cjs          # 构建脚本（模板组装 + 路径替换 + 校验）
 │   └── install.js         # 安装脚本（零依赖）
 ├── USER_GUIDE.md          # 用户操作手册
 ├── README.md
