@@ -24,6 +24,7 @@ description: AI开发全流程编排技能 - 在AI编程工具对话框中结构
 | `/dev-flow -develop <需求>` | 直接开发（跳过设计和拆分） |
 | `/dev-flow -test` | 生成单元测试并执行 |
 | `/dev-flow -smoke` | 执行冒烟测试 |
+| `/dev-flow -e2e` | 执行端到端测试 |
 | `/dev-flow -integration` | 执行集成测试 |
 | `/dev-flow -delivery` | 生成交付报告 |
 | `/dev-flow -fix` | 分析并修复 Bug |
@@ -42,6 +43,25 @@ dev-flow 支持两种运行模式：
 |------|----------|----------|
 | **标准模式** | `/dev-flow <需求>` | 简单需求、单服务项目、快速开发 |
 | **Subagent 模式** | `/dev-flow -subagent <需求>` | 复杂需求、多服务项目、大型重构 |
+
+### 平台能力分级
+
+> **不同 AI 编程平台的 Subagent 能力差异很大，系统必须根据当前平台选择合适的调度策略。**
+
+| 平台 | Subagent 支持 | 并行能力 | 调度策略 |
+|------|--------------|---------|---------|
+| **Trae** | `/agent-name` 斜杠命令 | 原生并行 | 完整并行模式 |
+| **Cursor** | `.cursor/commands/` 无子 agent | 单会话串行 | 顺序模拟并行 |
+| **Claude Code** | `.claude/commands/` 无子 agent | 单会话串行 | 顺序模拟并行 |
+| **Qoder** | `.qoder/commands/` 无子 agent | 单会话串行 | 顺序模拟并行 |
+| **Codex** | `AGENTS.md` agents 定义 | 有限并行 | 有限并行模式 |
+
+**平台检测**：Orchestrator 在执行前自动检测当前平台能力，选择对应调度策略。
+
+**并行开发适配规则**：
+- **Trae**：同批次任务同时启动多个 `/develop-expert`，通过 `task-result.yaml` 传递产出
+- **Cursor/Claude/Qoder**：采用"上下文隔离 + 顺序执行"模拟并行 — 每个任务独立上下文，完成后清理，通过 `task-result.yaml` 传递产出
+- **Codex**：通过 `run agent: develop-expert` 切换 agent 上下文，按 DAG 顺序执行
 
 ### Subagent 模式
 
@@ -164,7 +184,7 @@ Step 0: 检测需求规模
 | L0 | 📋 **轻量模式** | 1 个文件 | 配置修改、常量添加、单文件 Bug 修复 | `/dev-flow --lite <需求>` | Research(快速) → Fix → Delivery |
 | L1 | 🔧 **小型模式** | 2-5 个文件 | 简单 CRUD、小功能增强 | `/dev-flow <需求>` | Research → Analyze → Design → Develop → Test → Delivery |
 | L2 | 🏗️ **标准模式** | 5-10 个文件 | 中等功能、单服务开发 | `/dev-flow --detailed <需求>` | Research → Analyze → Design → Task Split → Develop → Unit Test → Smoke Test → Delivery |
-| L3 | 🏢 **企业级模式** | 10+ 个文件 | 复杂功能、多服务联调、大型重构 | `/dev-flow -subagent <需求>` | Research → Analyze → Design → Task Split → Develop(并行) → Unit Test → Smoke Test → Integration Test → Delivery |
+| L3 | 🏢 **企业级模式** | 10+ 个文件 | 复杂功能、多服务联调、大型重构 | `/dev-flow -subagent <需求>` | Research → Analyze → Design → Task Split → Develop(并行) → Unit Test → Smoke Test → E2E Test → Integration Test → Delivery |
 
 ### 模式自动检测规则
 
@@ -209,10 +229,37 @@ Step 0: 检测需求规模
 
 ### 执行原则
 1. **每个阶段完成后必须暂停，向用户展示成果并等待确认**
-2. **生成任何代码前，必须先读取项目记忆和已有代码**
-3. **所有代码必须完整可运行，禁止生成空壳**
-4. **遵守项目已有的编码风格和架构模式**
-5. **根据项目类型自动选择对应的技术栈执行路径**
+2. **阶段确认采用结构化 Checklist**：每个阶段末尾必须输出确认清单，用户逐项确认后方可进入下一阶段
+3. **生成任何代码前，必须先读取项目记忆和已有代码**
+4. **所有代码必须完整可运行，禁止生成空壳**
+5. **遵守项目已有的编码风格和架构模式**
+6. **根据项目类型自动选择对应的技术栈执行路径**
+
+### 阶段确认机制（硬性阻断）
+
+> **每个阶段完成后，必须输出结构化确认 Checklist，等待用户逐项确认。未确认不得进入下一阶段。**
+
+**标准确认 Checklist 模板**：
+```markdown
+## ✅ 阶段确认清单
+
+| # | 确认项 | 状态 |
+|---|--------|------|
+| 1 | [阶段核心产出描述] | ⬜ 待确认 |
+| 2 | [完整性检查描述] | ⬜ 待确认 |
+| 3 | [与需求一致性检查] | ⬜ 待确认 |
+| 4 | [后续阶段准备就绪] | ⬜ 待确认 |
+
+**用户操作**：
+- 确认无误 → 回复 "确认" 或 "继续" 进入下一阶段
+- 需要修改 → 指出具体问题，返回当前阶段修正
+- 需要重新执行 → 回复 "重新执行"
+```
+
+**硬性阻断规则**：
+- ❌ 禁止跳过确认直接进入下一阶段
+- ❌ 禁止用"看起来没问题"等模糊描述代替逐项确认
+- ✅ 如果用户说"继续"但 Checklist 未全部确认，补充确认遗漏项
 
 ### 项目类型检测
 
@@ -281,8 +328,9 @@ Step 0: 检测需求规模
 | Fix（Bug 修复） | `stages/fix.md` | 进入阶段七 |
 | Hotfix（独立模式） | `stages/hotfix.md` | 使用 Hotfix 模式 |
 | Smoke Test（冒烟测试） | `stages/smoke-test.md` | 进入阶段八 |
-| Integration Test（集成测试） | `stages/integration-test.md` | 进入阶段九 |
-| Delivery（交付报告） | `stages/delivery.md` | 进入阶段十 |
+| E2E Test（端到端测试） | `stages/e2e-test.md` | 进入阶段九 |
+| Integration Test（集成测试） | `stages/integration-test.md` | 进入阶段十 |
+| Delivery（交付报告） | `stages/delivery.md` | 进入阶段十一 |
 
 ### 加载规则
 
@@ -321,7 +369,7 @@ Step 16: 读取阶段指令 → Read stages/unit-test.md
 Step 17: 执行 Unit Test → 编写并运行测试
 Step 18: 暂停 → 展示测试结果，如有失败进入 Fix
   ↓ 用户确认
-Step 19-N: 继续执行 Smoke Test → Integration Test → Delivery
+Step 19-N: 继续执行 Smoke Test → E2E Test → Integration Test → Delivery
 ```
 
 **关键规则**：

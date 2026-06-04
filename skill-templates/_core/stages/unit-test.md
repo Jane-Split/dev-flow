@@ -92,7 +92,6 @@ type: stage-instruction
 
 **测试覆盖度要求（所有项目）**：
 
-<!-- TRAE-ONLY-START -->
 **强制覆盖矩阵**：
 
 | 方法类型 | 必须覆盖场景 | 最少用例数 | 检查方式 |
@@ -108,7 +107,6 @@ type: stage-instruction
 - 行覆盖率 ≥ 90%
 - 分支覆盖率 ≥ 85%
 - 方法覆盖率 ≥ 95%
-<!-- TRAE-ONLY-END -->
 
 **测试质量要求**：
 - 每个功能点必须至少有一个对应的测试用例
@@ -118,7 +116,6 @@ type: stage-instruction
 - 禁止只测试渲染而不测试交互（浅层测试）
 - 测试数据必须使用有意义的模拟数据，禁止使用随机字符串
 
-<!-- TRAE-ONLY-START -->
 **禁止生成的测试**：
 - ❌ `expect(true).toBe(true)` 无效测试
 - ❌ 只测试渲染不测试交互
@@ -129,7 +126,6 @@ type: stage-instruction
 **测试命名规范**：
 - Java: `test{MethodName}_{Scenario}_{ExpectedResult}`
 - TypeScript: `should {expectedBehavior} when {condition}`
-<!-- TRAE-ONLY-END -->
 
 **Step 2: 执行测试**
 - 运行 `mvn test`（Java 项目）
@@ -201,5 +197,17 @@ type: stage-instruction
 ```
 
 **暂停，等待用户确认。如果有失败用例，进入 Fix 阶段。**
+
+---
+
+### ✅ 阶段确认清单
+
+| # | 确认项 | 状态 |
+|---|--------|------|
+| 1 | 所有 Service 层 public 方法都有对应测试（getter/setter 除外） | ⬜ 待确认 |
+| 2 | 覆盖率达标（行≥90%、分支≥85%、方法≥95%） | ⬜ 待确认 |
+| 3 | 无无效测试（恒真断言/无断言/只测渲染） | ⬜ 待确认 |
+| 4 | 测试数据使用有意义模拟数据（非随机字符串） | ⬜ 待确认 |
+| 5 | 测试报告已输出 | ⬜ 待确认 |
 
 ---

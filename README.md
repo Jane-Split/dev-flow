@@ -24,9 +24,18 @@ dev-flow 通过**结构化的流程编排 + 项目记忆 + 长期记忆 + 学习
 
 ## 特性
 
-### v2.0.0 核心架构升级
+### v2.0.0 核心特性
 
-- **四层按需加载架构** — Router(17KB) + references(按需) + 12 个阶段指令 + 20 个 Agent，上下文占用从 357KB 降至 79KB 以下，代码生成可用空间达 50%+
+- **四层按需加载架构** — Router(17KB) + references(按需) + 13 个阶段指令 + 20 个 Agent，上下文占用从 357KB 降至 79KB 以下，代码生成可用空间达 50%+
+- **跨平台 Subagent 调度策略** — 自动检测当前平台能力，Trae 原生并行、Cursor/Claude/Qoder 顺序模拟并行、Codex 有限并行，全平台可用
+- **任务冲突检测** — DAG 构建时自动检测文件读写冲突（写写/写读/读写矩阵），修正依赖后重排批次，防止多 Agent 写冲突
+- **任务拆分双维度** — 自动选择代码层维度（Entity→DTO→Service→Controller）或功能维度（每个功能端到端实现）
+- **端到端测试（E2E）** — 新增 E2E Test 阶段，支持 Java @SpringBootTest 完整链路测试 + 前端 Playwright 浏览器测试
+- **强制编译验证** — 开发完成后必须执行编译验证，失败自动进入修复循环（最多 3 轮），不可跳过
+- **全平台防护统一** — step-enforcer/contract-validator/bytecode-analyzer 等防护 agent 全平台共享
+- **阶段确认硬性阻断** — 每个阶段末尾输出结构化确认 Checklist，用户逐项确认方可进入下一阶段
+- **需求一致性校验** — Analyze 阶段自动检测逻辑矛盾、不可达状态、循环依赖、数据完整性约束
+- **Design Contract 多语言** — 支持 Java / TypeScript / Python / Go 四种语言的接口契约格式
 - **会话/长期记忆分离** — 会话记忆（modules/apis/models 等）每次 Research 自动重建，长期记忆（patterns/mistakes/preferences 等）跨会话累积
 - **Agent 智能拆分** — 大 Agent 文件拆分为核心+references 模式库，按需加载不浪费上下文
 - **完整测试覆盖** — 构建测试、链接检查、大小预警、格式检查，搭配 GitHub Actions CI
@@ -34,16 +43,16 @@ dev-flow 通过**结构化的流程编排 + 项目记忆 + 长期记忆 + 学习
 
 ### 基础特性
 
-- **结构化流程** - 10 个阶段 + Hotfix 模式，每个阶段有明确的输入/输出和自检步骤
-- **智能任务拆分** - Design 输出全局契约，Task Split 生成子任务级设计 + DAG 依赖图，每个 subagent 只接收必要信息
+- **结构化流程** - 11 个阶段 + Hotfix 模式，每个阶段有明确的输入/输出、自检步骤和结构化确认 Checklist
+- **智能任务拆分** - Design 输出全局契约，Task Split 生成子任务级设计 + DAG 依赖图 + 文件冲突检测，每个 subagent 只接收必要信息
 - **接口契约机制** - 跨子任务接口定义（serviceContracts/eventContracts/dataContracts），契约冻结（stability: frozen）防止随意修改
-- **多 Subagent 并行** - 复杂任务拆分为独立 subagent 并行执行，上下文隔离，效率翻倍
+- **多 Subagent 并行** - 复杂任务拆分为独立 subagent 并行执行，上下文隔离，支持 Trae 原生并行和 Cursor/Claude/Qoder 顺序模拟并行
 - **智能 Research** - 自动评估项目规模，选择标准模式或 4 subagent 并行扫描
 - **深层依赖扫描** - 自动扫描微服务项目的依赖项目（common-bean、basedata-api 等）
 - **项目记忆** - Research 阶段自动扫描并记录项目结构、组件、API、编码规范（16 个文件）
 - **长期记忆** - 记录常见代码模式、错误修复方案、用户偏好、架构决策（6 个文件），跨会话持久化
 - **结构化业务逻辑** - 设计阶段输出结构化决策表（8 种 Action 类型），开发阶段精确翻译为代码，消除自然语言歧义
-- **编译验证闭环** - 开发完成后自动编译验证（Java/前端），解析错误并自动修复（最多 3 轮）
+- **编译验证闭环** - 开发完成后必须编译验证（Java/前端），解析错误并自动修复（最多 3 轮循环）
 - **契约一致性校验** - contract-validator 自动验证方法签名、Entity 字段、实现完整性、依赖调用一致性
 - **全局集成编译** - 所有子任务完成后全局编译 + 契约验证 + 错误分类 + 循环修复
 - **错误经验学习** - 从编译错误、契约违反、测试失败中提取模式，生成预防策略，持续改进
@@ -54,6 +63,8 @@ dev-flow 通过**结构化的流程编排 + 项目记忆 + 长期记忆 + 学习
 - **代码完整性铁律** (v1.0.5) - 正面规则 + 生产可用测试 + 方法体最低标准，确保每个方法体都是 100% 可执行的完整实现
 - **代码完整性防线** (v1.0.5) - 每个文件写入后立即扫描 TODO/空实现/日志占位，当场修复
 - **全平台防护统一** (v1.0.5) - step-enforcer/contract-validator/bytecode-analyzer 等防护 agent 从 Trae-only 提升为全平台共享
+- **阶段确认硬性阻断** (v2.0.0) - 每个阶段末尾结构化确认 Checklist，逐项确认后方可进入下一阶段
+- **Design Contract 多语言** (v2.0.0) - 支持 Java / TypeScript / Python / Go 四种语言的接口契约格式
 - **学习能力** - 从用户反馈、代码修改、测试 Bug 中自动学习，持续优化代码生成策略
 - **记忆强化** - 模式使用 >3 次标记"高频"优先推荐，>5 次标记"标准"必须遵守
 - **阶段确认** - 每个阶段完成后暂停，展示成果并等待用户确认
@@ -120,15 +131,16 @@ npx dev-flow install
 | 阶段 | 文件 | 内容 |
 |------|------|------|
 | Research | `stages/research.md` | 项目调研指令 |
-| Analyze | `stages/analyze.md` | 需求分析指令 |
-| Design | `stages/design.md` | 详细设计指令 |
-| Task Split | `stages/task-split.md` | 任务拆分指令 |
-| Develop | `stages/develop.md` | 代码开发指令（含代码完整性铁律） |
+| Analyze | `stages/analyze.md` | 需求分析指令（含一致性校验） |
+| Design | `stages/design.md` | 详细设计指令（含多语言契约） |
+| Task Split | `stages/task-split.md` | 任务拆分指令（含冲突检测 + 双维度） |
+| Develop | `stages/develop.md` | 代码开发指令（含代码完整性铁律 + 强制编译） |
 | Unit Test | `stages/unit-test.md` | 单元测试指令 |
+| Smoke Test | `stages/smoke-test.md` | 冒烟测试指令 |
+| E2E Test | `stages/e2e-test.md` | 端到端测试指令 |
+| Integration Test | `stages/integration-test.md` | 集成测试指令 |
 | Fix | `stages/fix.md` | Bug 修复指令 |
 | Hotfix | `stages/hotfix.md` | 紧急修复指令 |
-| Smoke Test | `stages/smoke-test.md` | 冒烟测试指令 |
-| Integration Test | `stages/integration-test.md` | 集成测试指令 |
 | Delivery | `stages/delivery.md` | 交付指令 |
 | Code Reference | `stages/code-reference.md` | 代码标准模板、错误模式、用户偏好 |
 
@@ -181,6 +193,9 @@ AI 将按阶段逐步执行，每个阶段完成后等待你确认。
 /dev-flow -split <需求>     # 任务拆分（方案C：生成子任务级设计 + DAG）
 /dev-flow -develop <需求>    # 直接开发（跳过设计和拆分，适合小需求）
 /dev-flow -test              # 生成测试并执行
+/dev-flow -smoke             # 冒烟测试
+/dev-flow -e2e               # 端到端测试
+/dev-flow -integration       # 集成测试
 /dev-flow -fix               # 分析并修复 Bug
 /dev-flow -hotfix <错误信息> # 紧急修复线上错误
 ```
@@ -203,6 +218,11 @@ AI 将按阶段逐步执行，每个阶段完成后等待你确认。
 - 预计生成 10 个以上文件
 - 项目代码量大（上下文可能不足）
 - 需要并行开发加速
+
+**跨平台调度策略**（v2.0.0 新增）：
+- **Trae**：原生并行 — 同批次任务同时启动多个 `/develop-expert`
+- **Cursor / Claude Code / Qoder**：顺序模拟并行 — 按批次顺序执行，每个任务独立上下文，通过 `task-result.yaml` 传递产出
+- **Codex**：有限并行 — 通过 `run agent: develop-expert` 切换 agent 上下文
 
 **架构**：
 ```
@@ -229,8 +249,8 @@ AI 将按阶段逐步执行，每个阶段完成后等待你确认。
 ## 工作流程
 
 ```
-Research → Analyze → Design → Task Split → Develop → Test → Fix
-  调研   →  分析  →  设计  →  任务拆分  →  开发  → 测试 → 修复
+Research → Analyze → Design → Task Split → Develop → Unit Test → Smoke Test → E2E Test → Integration Test → Fix → Delivery
+  调研   →  分析  →  设计  →  任务拆分  →  开发  →  单元测试 →  冒烟测试  →  E2E测试  →  集成测试   → 修复 →  交付
 
 Hotfix（独立模式，随时可用，直接输出无需等待确认）
 ```
@@ -238,12 +258,16 @@ Hotfix（独立模式，随时可用，直接输出无需等待确认）
 | 阶段 | AI 做什么 | 产出 |
 |------|----------|------|
 | **Research** | 扫描项目文件、识别技术栈、深层扫描依赖项目、提取编码规范 | `.dev-flow/memory/` 长期记忆 + 会话记忆 |
-| **Analyze** | 解析需求、关联已有代码、识别歧义、评估影响范围 | 需求分析文档 |
-| **Design** | 读取项目记忆、设计数据模型、API 接口、组件树、业务流程 | `design-contract.yaml`（含接口契约） |
-| **Task Split** | 拆分为子任务、构建 DAG 依赖图、生成子任务级设计 | `task-dag.yaml` + `subtask-{id}-design.yaml` + `interface-registry.yaml` |
-| **Develop** | 读取子任务设计、按 DAG 批次并行生成完整可运行的代码 | 代码文件 |
-| **Test** | 生成测试用例（覆盖正常/异常/边界）、执行测试、生成报告 | 测试报告 |
+| **Analyze** | 解析需求、关联已有代码、识别歧义、**一致性校验**、评估影响范围 | 需求分析文档 |
+| **Design** | 读取项目记忆、设计数据模型、API 接口、组件树、业务流程 | `design-contract.yaml`（含接口契约，支持多语言） |
+| **Task Split** | 拆分为子任务、**冲突检测**、构建 DAG、**双维度选择**、生成子任务级设计 | `task-dag.yaml` + `subtask-{id}-design.yaml` + `interface-registry.yaml` |
+| **Develop** | 读取子任务设计、按 DAG 批次并行生成代码、**强制编译验证** | 代码文件 |
+| **Unit Test** | 生成单元测试（覆盖正常/异常/边界）、执行测试 | 单元测试报告 |
+| **Smoke Test** | 快速验证核心流程可运行（curl/手动验证） | 冒烟测试报告 |
+| **E2E Test** | 端到端自动化测试（Java 完整链路 / Playwright 浏览器测试） | E2E 测试报告 |
+| **Integration Test** | 跨服务/跨模块集成测试、接口契约验证 | 集成测试报告 |
 | **Fix** | 分析失败原因、修复代码、回归测试（最多循环 3 次） | 修复后的代码 |
+| **Delivery** | 汇总全流程成果、生成交付清单 | 交付报告 |
 
 ## v2.0.0 架构详解
 
@@ -268,7 +292,7 @@ v2.0.0 在 v1.0.5 三层架构基础上，新增了 references 层，将 Router 
 第三层：阶段指令文件（进入阶段时加载）
   ├── stages/research.md ← 进入 Research 才加载
   ├── stages/design.md   ← 进入 Design 才加载
-  └── ...共 12 个文件
+  └── ...共 13 个文件
 
 第四层：Agent 文件（Subagent 模式下加载）
   ├── develop-expert.md  ← Subagent 模式下加载
@@ -392,13 +416,13 @@ dev-flow 要求 AI 生成的代码必须：
 
 ## 支持的工具
 
-| 工具 | 版本要求 | 触发方式 | Subagent 支持 | References |
-|------|---------|---------|--------------|------------|
-| Cursor | 最新版 | `/dev-flow` | ✅ 原生支持 | ✅ `.cursor/references/` |
-| Trae | 最新版 | `/dev-flow` | ✅ 原生支持 | ✅ `.trae/skills/dev-flow/references/` |
-| Qoder | 最新版 | `/dev-flow` | ✅ 原生支持 | ✅ `.qoder/references/` |
-| Claude Code | 最新版 | `/dev-flow` | ✅ 原生支持 | ✅ `.claude/references/` |
-| OpenAI Codex | 当前版本 | 自然语言 / `$dev-flow` | ✅ 原生支持 | ✅ `.codex/references/` |
+| 工具 | 版本要求 | 触发方式 | Subagent 调度策略 | References |
+|------|---------|---------|-------------------|------------|
+| Cursor | 最新版 | `/dev-flow` | 顺序模拟并行 | ✅ `.cursor/references/` |
+| Trae | 最新版 | `/dev-flow` | 原生并行 | ✅ `.trae/skills/dev-flow/references/` |
+| Qoder | 最新版 | `/dev-flow` | 顺序模拟并行 | ✅ `.qoder/references/` |
+| Claude Code | 最新版 | `/dev-flow` | 顺序模拟并行 | ✅ `.claude/references/` |
+| OpenAI Codex | 当前版本 | 自然语言 / `$dev-flow` | 有限并行 | ✅ `.codex/references/` |
 
 ## 项目结构
 
@@ -407,8 +431,8 @@ dev-flow/
 ├── skill-templates/       # Skill 文件模板
 │   ├── _core/             # 核心模板源（所有平台的公共基础）
 │   │   ├── SKILL.md       # Router（17KB 骨架文件）
-│   │   ├── stages/        # 12 个阶段指令文件（按需加载）
-│   │   ├── agents/        # 18 个 agent 定义（全平台共享）
+│   │   ├── stages/        # 13 个阶段指令文件（按需加载）
+│   │   ├── agents/        # 20 个 agent 定义（全平台共享）
 │   │   └── references/    # 4 个参考文档（按需加载）← v2.0.0 新增
 │   │       ├── memory-system.md
 │   │       ├── learning-system.md

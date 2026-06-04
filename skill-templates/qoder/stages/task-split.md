@@ -24,6 +24,66 @@ type: stage-instruction
 ### 目的
 将详细设计拆分为精确的开发任务，解决依赖关系，确定并行/串行执行顺序，为后续并行开发做准备。
 
+### 拆分维度选择
+
+> **根据需求复杂度自动选择最合适的拆分维度。**
+
+| 拆分维度 | 切分方式 | 适用场景 | 任务粒度 |
+|---------|---------|---------|---------|
+| **代码层维度**（默认） | 按代码分层拆分：Entity → DTO → Mapper → Service → Controller | 简单 CRUD、单服务需求 | 粗（每个任务 = 一层代码） |
+| **功能维度** | 按业务功能拆分：每个任务 = 一个完整功能的端到端实现 | 复杂业务逻辑、多功能点需求 | 细（每个任务 = 一个功能） |
+
+**自动选择规则**：
+
+```
+Step 0: 选择拆分维度
+  │
+  ├── 功能点 ≤ 3 且 单服务
+  │     └── 代码层维度（默认）
+  │     └── 任务按 Entity → DTO → Mapper → Service → Controller 拆分
+  │
+  ├── 功能点 > 3 或 多服务 或 功能间有数据交互
+  │     └── 功能维度
+  │     └── 每个功能点独立成任务，包含该功能的完整代码实现
+  │
+  └── 用户显式指定 → 使用指定维度
+```
+
+**代码层维度拆分示例**（简单需求）：
+
+```
+功能：新增用户 CRUD
+
+任务拆分（代码层维度）：
+  Task-1: 新增 UserEntity（无依赖）
+  Task-2: 新增 UserRequestDTO / UserResponseDTO（依赖 Task-1）
+  Task-3: 新增 UserMapper（依赖 Task-1）
+  Task-4: 新增 UserService 接口 + 实现类（依赖 Task-2, Task-3）
+  Task-5: 新增 UserController（依赖 Task-4）
+```
+
+**功能维度拆分示例**（复杂需求）：
+
+```
+功能：用户管理模块（含 CRUD + 角色分配 + 密码重置）
+
+任务拆分（功能维度）：
+  Task-1: 用户 CRUD 功能端到端实现
+    - 包含：UserEntity, UserDTO, UserMapper, UserService, UserController
+    - 依赖：无（基础功能）
+
+  Task-2: 角色分配功能端到端实现
+    - 包含：UserRoleEntity, RoleDTO, UserRoleService, RoleController
+    - 依赖：Task-1（需要 UserEntity）
+
+  Task-3: 密码重置功能端到端实现
+    - 包含：PasswordResetDTO, PasswordResetService, PasswordResetController
+    - 依赖：Task-1（需要 UserService）
+```
+
+> **选择功能维度时，Step 2（依赖图）和 Step 2.5（冲突检测）仍然必须执行**，
+> 以确保不同功能任务之间的 Entity 引用和 Service 调用不会冲突。
+
 ### 执行步骤
 
 **Step 1: 读取详细设计文档**
@@ -51,6 +111,71 @@ type: stage-instruction
 | Feign Client | 无（可并行，但需目标服务已定义） |
 | Controller | Service, DTO |
 | Config | 无（可并行） |
+
+**Step 2.5: 文件冲突检测（🔴 必须执行）**
+
+> **目的**：检测并行任务之间的文件读写冲突，防止多 Agent 同时修改同一文件导致数据丢失。
+
+**检测流程**：
+
+```
+Step 2.5.1: 声明每个任务的文件操作集合
+
+对每个任务，声明：
+  read_files: [该任务需要读取的文件列表]
+  write_files: [该任务需要创建或修改的文件列表]
+
+Step 2.5.2: 构建文件冲突矩阵
+
+对同一批次内所有任务对 (Ti, Tj) 执行冲突检测：
+
+  冲突检测规则：
+  ├── Ti.write ∩ Tj.write ≠ ∅  → 🔴 写写冲突 → 必须串行（Ti 先于 Tj）
+  ├── Ti.write ∩ Tj.read ≠ ∅  → 🟡 写读约束 → Ti 先于 Tj
+  ├── Ti.read ∩ Tj.write ≠ ∅  → 🟡 读写约束 → Tj 先于 Ti
+  └── Ti.read ∩ Tj.read ≠ ∅   → 🟢 无冲突   → 可并行
+
+Step 2.5.3: 修正 DAG 依赖图
+
+  将冲突检测结果转化为额外依赖边：
+  - 写写冲突：Ti → Tj（Ti 必须在 Tj 之前完成）
+  - 写读约束：Ti → Tj（Ti 必须在 Tj 之前完成）
+  - 读写约束：Tj → Ti（Tj 必须在 Ti 之前完成）
+
+Step 2.5.4: 重新拓扑排序
+
+  在修正后的 DAG 上重新执行拓扑排序，生成最终的批次划分
+```
+
+**冲突检测输出**：
+
+```yaml
+# task-breakdown.yaml 中新增 conflicts 字段
+conflicts:
+  - task_a: "Task-5"    # 新增 XxxMapper.xml
+    task_b: "Task-6"    # 新增 XxxMapper (Java)
+    conflict_type: "write-write"
+    file: "XxxMapper"
+    resolution: "Task-5 先于 Task-6"
+  - task_a: "Task-3"
+    task_b: "Task-7"
+    conflict_type: "write-read"
+    file: "XxxConfig"
+    resolution: "Task-3 先于 Task-7"
+```
+
+**冲突检测报告**：
+
+```markdown
+### 文件冲突检测结果
+
+| 任务 A | 任务 B | 冲突类型 | 冲突文件 | 解决方案 |
+|--------|--------|---------|---------|---------|
+| Task-5 | Task-6 | 🔴 写写 | XxxMapper.xml | Task-5 先执行 |
+| Task-3 | Task-7 | 🟡 写读 | XxxConfig.java | Task-3 先执行 |
+
+**冲突修正后**：原批次 1 的 Task-3 被移至批次 2
+```
 
 **Step 3: 划分执行批次**
 
@@ -240,3 +365,16 @@ Task Split 阶段输出（极端模式）：
 **暂停，等待用户确认任务拆分方案。**
 
 ---
+
+### ✅ 阶段确认清单
+
+| # | 确认项 | 状态 |
+|---|--------|------|
+| 1 | 所有设计文档中的文件都已纳入任务清单 | ⬜ 待确认 |
+| 2 | 任务依赖关系（DAG）正确无遗漏 | ⬜ 待确认 |
+| 3 | 文件冲突检测结果已处理（无写写冲突残留） | ⬜ 待确认 |
+| 4 | 拆分维度选择合理（代码层/功能维度） | ⬜ 待确认 |
+| 5 | 并行/串行执行顺序符合实际开发约束 | ⬜ 待确认 |
+| 6 | 每个任务的负责 Subagent 已分配 | ⬜ 待确认 |
+
+**用户操作**：确认无误 → 回复 "确认" 进入 Develop 阶段；需要修改 → 指出具体问题

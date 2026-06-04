@@ -12,18 +12,22 @@
   - [5.3 Design（详细设计）](#53-design详细设计)
   - [5.4 Task Split（智能任务拆分）](#54-task-split智能任务拆分)
   - [5.5 Develop（开发执行）](#55-develop开发执行)
-  - [5.6 Test（测试验证）](#56-test测试验证)
-  - [5.7 Fix（Bug 修复）](#57-fixbug-修复)
+  - [5.6 Unit Test（单元测试）](#56-unit-test单元测试)
+  - [5.7 Smoke Test（冒烟测试）](#57-smoke-test冒烟测试)
+  - [5.8 E2E Test（端到端测试）](#58-e2e-test端到端测试)
+  - [5.9 Integration Test（集成测试）](#59-integration-test集成测试)
+  - [5.10 Fix（Bug 修复）](#510-fixbug-修复)
 - [6. Subagent 模式](#6-subagent-模式)
   - [6.1 什么是 Subagent 模式](#61-什么是-subagent-模式)
   - [6.2 适用场景](#62-适用场景)
   - [6.3 命令](#63-命令)
   - [6.4 架构](#64-架构)
   - [6.5 工作流程](#65-工作流程)
-  - [6.6 任务拆分与依赖处理](#66-任务拆分与依赖处理)
-  - [6.7 方案C：子任务级设计与接口契约](#67-方案c子任务级设计与接口契约)
-  - [6.8 精准按需加载](#68-精准按需加载)
-  - [6.9 与标准模式的对比](#69-与标准模式的对比)
+  - [6.6 跨平台调度策略](#66-跨平台调度策略)
+  - [6.7 任务拆分与依赖处理](#67-任务拆分与依赖处理)
+  - [6.8 方案C：子任务级设计与接口契约](#68-方案c子任务级设计与接口契约)
+  - [6.9 精准按需加载](#69-精准按需加载)
+  - [6.10 与标准模式的对比](#610-与标准模式的对比)
 - [7. Hotfix 模式](#7-hotfix-模式)
 - [8. 断点续传](#8-断点续传)
 - [9. 记忆系统](#9-记忆系统)
@@ -50,12 +54,17 @@
 
 dev-flow 是一个 AI 开发全流程编排 Skill，适用于 Cursor、Trae、Qoder、Claude Code、OpenAI Codex 等 AI 编程工具。
 
-它通过结构化的 7 阶段流程（Research → Analyze → Design → Task Split → Develop → Test → Fix），让 AI 编程工具按步骤执行开发任务，避免跳过重要步骤、生成不一致代码、遗漏边界情况等问题。
+它通过结构化的 11 阶段流程（Research → Analyze → Design → Task Split → Develop → Unit Test → Smoke Test → E2E Test → Integration Test → Fix → Delivery），让 AI 编程工具按步骤执行开发任务，避免跳过重要步骤、生成不一致代码、遗漏边界情况等问题。
 
 **核心特点**：
-- 每个阶段完成后暂停等待你确认，确保产出质量
+- 每个阶段完成后输出**结构化确认 Checklist**，逐项确认后才可进入下一阶段
 - 自动记忆项目结构和编码规范，后续开发自动遵守
 - 具备学习能力，使用越多越了解你的偏好
+- **跨平台 Subagent 调度策略**（v2.0.0）：Trae 原生并行，Cursor/Claude/Qoder 顺序模拟并行
+- **任务冲突检测**（v2.0.0）：并行任务间文件读写冲突自动检测和批次修正
+- **端到端测试**（v2.0.0）：Java @SpringBootTest 完整链路 + Playwright 浏览器测试
+- **强制编译验证**（v2.0.0）：开发完成必须编译，失败自动修复循环
+- **Design Contract 多语言**（v2.0.0）：Java / TypeScript / Python / Go 接口契约
 - **结构化业务逻辑**（v1.0.2）：设计阶段输出结构化决策表，消除自然语言歧义
 - **编译验证闭环**（v1.0.2）：开发完成后自动编译验证，解析错误并自动修复
 - **契约一致性校验**（v1.0.2）：自动验证代码与设计契约的一致性
@@ -98,20 +107,21 @@ npx dev-flow install
 your-project/
 ├── .trae/skills/dev-flow/
 │   ├── SKILL.md                           # Router（17KB 骨架）
-│   ├── stages/                            # 12 个阶段指令文件（按需加载）
+│   ├── stages/                            # 13 个阶段指令文件（按需加载）
 │   │   ├── research.md
 │   │   ├── analyze.md
 │   │   ├── design.md
 │   │   ├── task-split.md
-│   │   ├── develop.md                      # 含代码完整性铁律
+│   │   ├── develop.md                      # 含代码完整性铁律 + 强制编译验证
 │   │   ├── unit-test.md
+│   │   ├── smoke-test.md
+│   │   ├── e2e-test.md                     # 端到端测试 ← v2.0.0 新增
+│   │   ├── integration-test.md
 │   │   ├── fix.md
 │   │   ├── hotfix.md
-│   │   ├── smoke-test.md
-│   │   ├── integration-test.md
 │   │   ├── delivery.md
 │   │   └── code-reference.md              # 代码标准模板、错误模式
-│   ├── agents/                            # 18+ 个 subagent 定义
+│   ├── agents/                            # 20 个 subagent 定义
 │   └── references/                        # 按需加载参考文档 ← v2.0.0 新增
 │       ├── memory-system.md               # 记忆系统详细规则
 │       ├── learning-system.md             # 学习能力详细说明
@@ -119,7 +129,7 @@ your-project/
 │       └── model-context-config.md        # 模型上下文配置
 ├── .cursor/
 │   ├── commands/dev-flow.md               # Cursor Router
-│   ├── stages/                            # 12 个阶段文件
+│   ├── stages/                            # 13 个阶段文件
 │   ├── agents/
 │   └── references/                        # ← v2.0.0 新增
 ├── .qoder/
@@ -262,7 +272,7 @@ AI 将按以下流程执行，针对 Java 项目的特点进行适配：
 
 | 命令 | 说明 |
 |------|------|
-| `/dev-flow <需求描述>` | 执行完整流程：Research → Analyze → Design → Develop → Test → Fix |
+| `/dev-flow <需求描述>` | 执行完整流程：Research → Analyze → Design → Develop → Unit Test → Smoke Test → E2E Test → Integration Test → Fix → Delivery |
 
 ### 单阶段模式
 
@@ -273,7 +283,10 @@ AI 将按以下流程执行，针对 Java 项目的特点进行适配：
 | `/dev-flow -design <需求>` | 仅执行详细设计 | 需要先看设计方案再开发 |
 | `/dev-flow -split <需求>` | 仅执行任务拆分（方案C） | 需要将设计拆分为可并行的子任务 |
 | `/dev-flow -develop <需求>` | 直接开发（跳过设计和拆分） | 小需求，不需要详细设计和任务拆分 |
-| `/dev-flow -test` | 生成测试并执行 | 已有代码，需要补充测试 |
+| `/dev-flow -test` | 生成单元测试并执行 | 已有代码，需要补充测试 |
+| `/dev-flow -smoke` | 执行冒烟测试 | 开发完成后快速验证核心流程 |
+| `/dev-flow -e2e` | 执行端到端测试 | 冒烟测试通过后，验证功能正确性 |
+| `/dev-flow -integration` | 执行集成测试 | 端到端测试通过后，验证跨服务/跨模块集成 |
 | `/dev-flow -fix` | 分析并修复 Bug | 测试失败，需要修复 |
 | `/dev-flow -hotfix <错误信息>` | 紧急修复线上错误 | 生产环境报错，需要快速修复 |
 | `/dev-flow -subagent <需求>` | Subagent 并行模式 | 复杂任务，涉及多服务/多模块 |
@@ -327,7 +340,9 @@ AI 将按以下流程执行，针对 Java 项目的特点进行适配：
 2. 提取核心功能点列表
 3. 读取项目记忆，关联已有组件、API、数据模型
 4. 列出不明确的地方，向你提问澄清
-5. 生成需求分析文档
+5. **需求一致性校验**（v2.0.0 新增）：自动检测逻辑矛盾、不可达状态、循环依赖、数据完整性约束
+6. 生成需求分析文档
+7. 输出**结构化确认 Checklist**，等你逐项确认
 
 **你会看到**：需求分析文档，包含功能点、约束条件、歧义/待确认项、相关已有代码。
 
@@ -360,11 +375,16 @@ AI 将按以下流程执行，针对 Java 项目的特点进行适配：
 - Subagent 模式下由 Orchestrator 调用 task-split-expert 执行
 
 **执行步骤**：
-1. **分析设计文档**：读取 `design-contract.yaml`，理解所有 Entity、DTO、Service、Controller 定义
-2. **识别子任务边界**：按分层架构（Entity → DTO → Mapper → Service → Controller）和业务模块拆分
-3. **构建依赖 DAG**：分析子任务间的依赖关系，确定执行批次
-4. **生成子任务设计**：为每个子任务生成 `subtask-{id}-design.yaml`
-5. **生成接口注册表**：汇总所有子任务提供的接口，生成 `interface-registry.yaml`
+1. **选择拆分维度**（v2.0.0 新增）：根据需求复杂度自动选择
+   - 代码层维度：按 Entity → DTO → Mapper → Service → Controller 拆分（简单需求）
+   - 功能维度：按业务功能拆分，每个任务 = 一个完整功能的端到端实现（复杂需求）
+2. **分析设计文档**：读取 `design-contract.yaml`，理解所有 Entity、DTO、Service、Controller 定义
+3. **识别子任务边界**：按选定维度拆分
+4. **构建依赖 DAG**：分析子任务间的依赖关系，确定执行批次
+5. **文件冲突检测**（v2.0.0 新增）：检测并行任务间的文件读写冲突（写写/写读/读写），修正 DAG 后重排批次
+6. **生成子任务设计**：为每个子任务生成 `subtask-{id}-design.yaml`
+7. **生成接口注册表**：汇总所有子任务提供的接口，生成 `interface-registry.yaml`
+8. 输出**结构化确认 Checklist**，等你确认拆分方案
 
 **产出文件**（写入 `.dev-flow/docs/{需求简称}-task-split/`）：
 
@@ -419,8 +439,9 @@ provides:            # 本任务对外提供的接口
 2. 读取子任务设计文档，解析结构化业务逻辑（v1.0.2）
 3. 按依赖顺序开发：数据模型 → 工具函数 → API/服务层 → 状态管理 → 展示组件 → 容器组件 → 路由
 4. 每个文件生成后进行自检（类型错误、边界情况、风格一致性、安全漏洞）
-5. **编译验证闭环**（v1.0.2）：代码生成后自动执行编译验证（Java: `mvn compile`，前端: `tsc --noEmit`），如编译失败自动解析错误并修复（最多 3 轮）
+5. **强制编译验证**（v2.0.0 升级）：代码生成后**必须执行**编译验证（Java: `mvn compile`，前端: `tsc --noEmit`），如编译失败自动进入修复循环（最多 3 轮），记录修复日志到 `compile-fix-log.yaml`
 6. 简要说明每个文件的实现思路
+7. 输出**结构化确认 Checklist**，等你确认代码质量
 
 **你会看到**：完整的代码文件，每个文件附带实现思路说明。
 
@@ -431,27 +452,68 @@ provides:            # 本任务对外提供的接口
 - AI 会自动遵守项目已有的编码风格
 - AI 会自动复用已有的组件和工具函数
 
-### 5.6 Test（测试验证）
+### 5.6 Unit Test（单元测试）
 
-**做什么**：AI 为开发的代码生成测试用例并执行。
+**做什么**：AI 为开发的代码生成单元测试用例并执行。
 
 **执行步骤**：
 1. 为每个模块生成测试用例（组件测试、API 测试、工具函数测试）
 2. 确保覆盖正常流程、异常流程、边界情况
 3. 运行测试命令（npm test / pytest / mvn test）
 4. 生成测试报告
-
-**你会看到**：测试报告表格，包含各模块的测试数、通过数、失败数、覆盖率。
-
-**你需要做的**：查看测试结果。如果有失败用例，确认后进入 Fix 阶段。
+5. 输出**结构化确认 Checklist**
 
 **测试覆盖要求**：
+- 行覆盖 ≥ 90%，方法覆盖 ≥ 95%
 - 每个功能点至少有一个测试用例
-- 组件测试覆盖渲染、交互、边界情况（空数据、加载状态、错误状态）
-- API 测试覆盖成功流程、参数验证失败、权限不足、服务器错误
 - 禁止只测试渲染而不测试交互
 
-### 5.7 Fix（Bug 修复）
+### 5.7 Smoke Test（冒烟测试）
+
+**做什么**：快速验证核心业务流程可运行。
+
+**执行步骤**：
+1. 启动服务（如需要）
+2. 使用 curl 或手动方式调用核心 API
+3. 验证基本功能是否可用
+4. 输出冒烟测试报告
+5. 输出**结构化确认 Checklist**
+
+### 5.8 E2E Test（端到端测试）
+
+> **v2.0.0 新增阶段**。冒烟测试通过后执行，验证功能是否正确。
+
+**做什么**：使用自动化测试脚本验证完整的业务流程链路。
+
+**执行步骤**：
+1. **测试数据准备**：创建测试所需的初始数据（数据库种子、fixture 等）
+2. **调用链执行**：按业务流程顺序调用多个 API/操作
+3. **断言验证**：验证每个步骤的响应状态码、响应数据、数据库状态变更
+4. **测试清理**：清理测试数据，确保不影响后续测试
+5. 生成 E2E 测试报告
+6. 输出**结构化确认 Checklist**
+
+**技术栈适配**：
+
+| 项目类型 | 测试框架 | 测试内容 |
+|---------|---------|---------|
+| Java (Spring Boot) | `@SpringBootTest` + `TestRestTemplate` | 完整 API 调用链、数据库状态验证 |
+| 前端 (React/Vue) | Playwright | 浏览器级用户操作、页面渲染验证 |
+| Python (FastAPI) | `pytest` + `httpx.AsyncClient` | 完整 API 调用链、数据一致性验证 |
+| Go (Gin) | `net/http/httptest` | Handler 端到端测试 |
+
+### 5.9 Integration Test（集成测试）
+
+**做什么**：验证跨服务/跨模块的集成正确性。
+
+**执行步骤**：
+1. 验证 Feign Client 与目标 Controller 端点匹配
+2. 验证跨服务数据一致性
+3. 验证接口契约（serviceContracts/eventContracts/dataContracts）一致性
+4. 生成集成测试报告
+5. 输出**结构化确认 Checklist**
+
+### 5.10 Fix（Bug 修复）
 
 **做什么**：AI 分析测试失败原因，修复代码并回归测试。
 
@@ -460,6 +522,7 @@ provides:            # 本任务对外提供的接口
 2. 分析根因（逻辑错误/类型错误/遗漏边界情况）
 3. 修复代码，确保不引入新问题
 4. 重新运行所有测试
+5. 输出**结构化确认 Checklist**
 
 **你会看到**：修复说明和回归测试结果。
 
@@ -531,7 +594,44 @@ Subagent 模式是 dev-flow 的高级功能，适用于复杂任务，通过任�
 7. **错误模式学习**（v1.0.2）：error-pattern-learner 从编译错误、契约违反中提取模式，生成预防策略
 8. **Verify 阶段**：verify-expert 验证所有生成代码的质量和完整性
 
-### 6.6 任务拆分与依赖处理
+### 6.6 跨平台调度策略（v2.0.0 新增）
+
+不同 AI 编程平台的 Subagent 能力差异很大，dev-flow 会自动检测当前平台并选择合适的调度策略。
+
+**平台能力矩阵**：
+
+| 平台 | Subagent 支持 | 并行能力 | 调度策略 |
+|------|--------------|---------|---------|
+| **Trae** | `/agent-name` 斜杠命令 | 原生并行 | 完整并行模式 |
+| **Cursor** | 无子 agent 原生支持 | 单会话串行 | 顺序模拟并行 |
+| **Claude Code** | 无子 agent 原生支持 | 单会话串行 | 顺序模拟并行 |
+| **Qoder** | 无子 agent 原生支持 | 单会话串行 | 顺序模拟并行 |
+| **Codex** | `AGENTS.md` agents 定义 | 有限并行 | 有限并行模式 |
+
+**策略一：Trae 完整并行模式**
+
+同批次任务同时启动多个 `/develop-expert`，通过 `task-result.yaml` 汇报结果。
+
+```
+# 批次 1: 并行启动
+/develop-expert [Task-1 上下文]
+/develop-expert [Task-2 上下文]
+/develop-expert [Task-3 上下文]
+```
+
+**策略二：顺序模拟并行模式（Cursor / Claude / Qoder）**
+
+由于平台不支持原生并行 subagent，采用"上下文隔离 + 顺序执行"策略：
+
+1. 构建完整 DAG + 拓扑排序 + 划分批次
+2. 对每个任务：读取 `task-context.yaml` → 读取前序 `task-result.yaml` → 执行开发 → 写入 `task-result.yaml` → 清理上下文
+3. 每个任务控制在 30% 上下文以内
+
+**策略三：Codex 有限并行模式**
+
+通过 `run agent: develop-expert` 切换 agent 上下文，按 DAG 顺序执行。
+
+### 6.7 任务拆分与依赖处理
 
 **DAG 依赖图**：
 - Analyze 阶段输出的 `task-breakdown.yaml` 定义所有开发任务及其依赖关系
@@ -546,7 +646,7 @@ Subagent 模式是 dev-flow 的高级功能，适用于复杂任务，通过任�
 | 4 | T5(Service 实现) + T6(Controller) | 并行 | 都依赖 T4 但互不依赖 |
 | 5 | T8(代码验证) | 串行 | 依赖所有开发任务 |
 
-### 6.7 方案C：子任务级设计与接口契约
+### 6.8 方案C：子任务级设计与接口契约
 
 方案C 是 dev-flow 在 Subagent 模式下的核心创新，通过**子任务级设计**和**接口契约机制**解决并行开发中的依赖一致性和上下文溢出问题。
 
@@ -629,7 +729,7 @@ interfaces:
 3. 只实现 `ownDesign` 中定义的内容
 4. 完成后更新 `interface-registry.yaml`，注册自己提供的接口
 
-### 6.8 精准按需加载
+### 6.9 精准按需加载
 
 每个 subagent 只读取必要的文件：
 
@@ -641,17 +741,20 @@ interfaces:
 | develop-expert | 设计文档、任务上下文 | 当前任务相关的已有代码 | 无关模块的代码 |
 | verify-expert | 设计文档、开发结果 | 生成的代码文件 | 未被修改的文件 |
 
-### 6.9 与标准模式的对比
+### 6.10 与标准模式的对比
 
 | 特性 | 标准模式 | Subagent 模式 |
 |------|----------|---------------|
 | 适用场景 | 简单需求、单服务 | 复杂需求、多服务 |
-| 执行方式 | 单 agent 串行 | 多 subagent 并行 |
+| 执行方式 | 单 agent 串行 | 多 subagent 并行/顺序模拟并行 |
+| 跨平台适配 | 统一流程 | Trae 原生并行 / Cursor/Claude/Qoder 顺序模拟并行 |
 | 上下文管理 | 单上下文，逐步累积 | 多独立上下文，隔离膨胀 |
-| 任务拆分 | 无 | DAG 依赖图 + 拓扑排序 |
+| 任务拆分 | 无 | DAG 依赖图 + 拓扑排序 + 冲突检测 |
 | 设计粒度 | 完整设计文档 | 子任务级设计（ownDesign + dependencies + provides） |
 | 依赖处理 | 手动管理 | 接口契约 + 接口注册表 + 契约冻结 |
 | 代码生成 | 主 agent 直接生成 | develop-expert 按子任务并行生成 |
+| 编译验证 | 建议执行 | **强制执行** + 修复循环（最多 3 轮） |
+| 确认机制 | 暂停等待 | 结构化确认 Checklist 逐项确认 |
 | 效率 | 适合小任务 | 复杂任务效率翻倍 |
 
 ## 7. Hotfix 模式

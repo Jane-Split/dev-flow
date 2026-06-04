@@ -21,15 +21,11 @@ type: stage-instruction
 - 全流程模式（Analyze 确认后）
 - 用户输入 `/dev-flow -design <需求>`
 
-<!-- TRAE-ONLY-START -->
----
-
 ### ⚠️ 重要：Design 输出规范（必须遵守）
 
-<!-- TRAE-ONLY-END -->
 > **Design 阶段的所有输出必须遵循以下规范，否则 Develop 阶段无法正确解析。**
 
-#### <!-- TRAE-ONLY-START -->3.1 <!-- TRAE-ONLY-END -->Design 输出 JSON Schema
+#### Design 输出 JSON Schema
 
 Design 阶段输出的所有设计必须包含以下结构化字段，用于 Develop 阶段自动解析：
 
@@ -68,7 +64,7 @@ entity:
 - 常见命名模式：`get{ClassName}{Field}()` 而非 `get{Field}()`
 - 示例：`getUserStatus()` 而非 `getStatus()`
 
-#### <!-- TRAE-ONLY-START -->3.2 <!-- TRAE-ONLY-END -->Design → Develop 数据交换格式
+#### Design → Develop 数据交换格式
 
 Design 阶段完成后，生成标准交换文件 `.dev-flow/docs/{需求简称}-design-contract.yaml`：
 
@@ -178,12 +174,12 @@ mappers:
       - name: "selectByCondition"
         params: ["UserQueryDTO"]
         returnType: "List<User>"
-        sqlType: "XML"<!-- TRAE-ONLY-START -->           # XML / Annotation<!-- TRAE-ONLY-END -->
+        sqlType: "XML" # XML / Annotation
         description: "条件查询"
       - name: "checkExistsByName"
         params: ["String"]
         returnType: "boolean"
-        sqlType: "Annotation"<!-- TRAE-ONLY-START -->    # @Select<!-- TRAE-ONLY-END -->
+        sqlType: "Annotation" # @Select
         description: "检查名称是否存在"
 
 # 异常类定义
@@ -198,9 +194,8 @@ exceptions:
       - code: "USER_ALREADY_EXISTS"
         message: "用户已存在"
         httpStatus: 409
-<!-- TRAE-ONLY-START -->
 
-# 跨子任务接口契约定义（方案C新增）
+# 跨子任务接口契约定义
 interfaces:
   serviceContracts:
     - name: "UserService"
@@ -234,10 +229,393 @@ interfaces:
         - name: "status"
           type: "UserStatus"
       stability: "frozen"
-<!-- TRAE-ONLY-END -->
 ```
 
-#### <!-- TRAE-ONLY-START -->3.3 <!-- TRAE-ONLY-END -->方法命名规范检查（Design 阶段必须执行）
+#### Design Contract 多语言格式
+
+> **Design Contract 支持多种语言。根据 Research 阶段识别的项目类型，选择对应的契约格式。**
+
+**语言选择规则**：
+
+| 项目类型 | 契约格式 |
+|---------|---------|
+| Java（默认） | YAML（见上方 Java Design Contract） |
+| TypeScript / 前端 | TypeScript Contract（见下方） |
+| Python / 后端 | Python Contract（见下方） |
+| Go / 后端 | Go Contract（见下方） |
+
+---
+
+**TypeScript Contract 格式**：
+
+```yaml
+# Design Contract（TypeScript）
+contract_version: "1.0"
+language: "typescript"
+framework: "NestJS"  # 或 Express / Fastify
+
+# Interface/Model 定义（对应 Java Entity）
+models:
+  - name: "User"
+    file: "src/users/user.model.ts"
+    type: "interface"  # interface / type / class
+    fields:
+      - name: "id"
+        type: "number"
+        optional: false
+        decorator: "@PrimaryKey() @AutoIncrement()"
+      - name: "username"
+        type: "string"
+        optional: false
+        decorator: "@Column({ type: 'varchar', length: 50 })"
+      - name: "status"
+        type: "UserStatus"
+        optional: false
+        decorator: "@Column({ type: 'enum', enum: UserStatus })"
+      - name: "createdAt"
+        type: "Date"
+        optional: false
+        decorator: "@CreatedAt"
+
+# DTO 定义
+dtos:
+  - name: "CreateUserDTO"
+    file: "src/users/dto/create-user.dto.ts"
+    type: "class"
+    fields:
+      - name: "username"
+        type: "string"
+        validation: "@IsString() @Length(1, 50)"
+      - name: "password"
+        type: "string"
+        validation: "@IsString() @MinLength(8)"
+
+  - name: "UserResponseDTO"
+    file: "src/users/dto/user-response.dto.ts"
+    type: "class"
+    fields:
+      - name: "id"
+        type: "number"
+      - name: "username"
+        type: "string"
+
+# Service 定义
+services:
+  - name: "UsersService"
+    file: "src/users/users.service.ts"
+    injectDependencies: ["Repository<User>", "HashService"]
+    methods:
+      - name: "create"
+        params: ["CreateUserDTO"]
+        returnType: "Promise<UserResponseDTO>"
+        throws: ["ConflictException", "BadRequestException"]
+        description: "创建新用户"
+
+      - name: "findById"
+        params: ["number"]
+        returnType: "Promise<UserResponseDTO | null>"
+        throws: ["NotFoundException"]
+        description: "根据 ID 查询用户"
+
+# Controller 定义
+controllers:
+  - name: "UsersController"
+    file: "src/users/users.controller.ts"
+    basePath: "/api/users"
+    injectDependencies: ["UsersService"]
+    apis:
+      - method: "POST"
+        path: "/"
+        paramType: "CreateUserDTO"
+        returnType: "UserResponseDTO"
+        decorator: "@Post() @UseGuards(JwtAuthGuard)"
+        status: 201
+
+      - method: "GET"
+        path: "/:id"
+        returnType: "UserResponseDTO"
+        decorator: "@Get(':id') @UseGuards(JwtAuthGuard)"
+
+# 枚举定义
+enums:
+  - name: "UserStatus"
+    file: "src/users/enums/user-status.enum.ts"
+    values:
+      - name: "ACTIVE"
+        value: "active"
+        description: "正常"
+      - name: "DISABLED"
+        value: "disabled"
+        description: "禁用"
+
+# 跨子任务接口契约定义
+interfaces:
+  serviceContracts:
+    - name: "UsersService"
+      methods:
+        - name: "findById"
+          params: ["number"]
+          returnType: "Promise<UserResponseDTO | null>"
+          stability: "frozen"
+```
+
+---
+
+**Python Contract 格式**：
+
+```yaml
+# Design Contract（Python）
+contract_version: "1.0"
+language: "python"
+framework: "FastAPI"  # 或 Django / Flask
+
+# Model 定义（对应 Java Entity）
+models:
+  - name: "User"
+    file: "app/models/user.py"
+    baseClass: "Base"  # SQLAlchemy Base / Django Model
+    tableName: "users"
+    fields:
+      - name: "id"
+        type: "int"
+        columnType: "Integer"
+        primaryKey: true
+        autoIncrement: true
+        pydanticType: "int"
+      - name: "username"
+        type: "str"
+        columnType: "String(50)"
+        nullable: false
+        unique: true
+        pydanticType: "str"
+      - name: "status"
+        type: "UserStatus"
+        columnType: "Enum(UserStatus)"
+        nullable: false
+        pydanticType: "UserStatus"
+      - name: "created_at"
+        type: "datetime"
+        columnType: "DateTime"
+        default: "now()"
+        pydanticType: "datetime"
+
+# Schema/DTO 定义
+schemas:
+  - name: "UserCreate"
+    file: "app/schemas/user.py"
+    baseClass: "BaseModel"  # Pydantic
+    fields:
+      - name: "username"
+        type: "str"
+        constraints: "min_length=1, max_length=50"
+      - name: "password"
+        type: "str"
+        constraints: "min_length=8"
+
+  - name: "UserResponse"
+    file: "app/schemas/user.py"
+    baseClass: "BaseModel"
+    fields:
+      - name: "id"
+        type: "int"
+      - name: "username"
+        type: "str"
+      - name: "status"
+        type: "UserStatus"
+    config: "from_attributes = True"
+
+# Service/UseCase 定义
+services:
+  - name: "UserService"
+    file: "app/services/user_service.py"
+    injectDependencies: ["SessionLocal", "pwd_context"]
+    methods:
+      - name: "create_user"
+        params: ["UserCreate"]
+        returnType: "UserResponse"
+        raises: ["HTTPException(409)", "ValidationError"]
+        description: "创建新用户"
+
+      - name: "get_user_by_id"
+        params: ["int"]
+        returnType: "UserResponse | None"
+        raises: ["HTTPException(404)"]
+        description: "根据 ID 查询用户"
+
+# Router 定义（对应 Java Controller）
+routers:
+  - name: "user_router"
+    file: "app/routers/users.py"
+    prefix: "/api/users"
+    tags: ["users"]
+    dependencies: ["get_db", "get_current_user"]
+    apis:
+      - method: "POST"
+        path: "/"
+        paramType: "UserCreate"
+        returnType: "UserResponse"
+        status_code: 201
+        response_model: "UserResponse"
+
+      - method: "GET"
+        path: "/{user_id}"
+        returnType: "UserResponse"
+        response_model: "UserResponse"
+
+# 枚举定义
+enums:
+  - name: "UserStatus"
+    file: "app/models/enums.py"
+    baseClass: "str, enum.Enum"
+    values:
+      - name: "ACTIVE"
+        value: "active"
+        description: "正常"
+      - name: "DISABLED"
+        value: "disabled"
+        description: "禁用"
+
+# 跨子任务接口契约定义
+interfaces:
+  serviceContracts:
+    - name: "UserService"
+      methods:
+        - name: "get_user_by_id"
+          params: ["int"]
+          returnType: "UserResponse | None"
+          stability: "frozen"
+```
+
+---
+
+**Go Contract 格式**：
+
+```yaml
+# Design Contract（Go）
+contract_version: "1.0"
+language: "go"
+framework: "Gin"  # 或 Echo / Fiber
+
+# Struct 定义（对应 Java Entity）
+models:
+  - name: "User"
+    file: "internal/model/user.go"
+    tableName: "users"
+    fields:
+      - name: "ID"
+        type: "uint"
+        dbTag: "primaryKey;autoIncrement"
+        jsonTag: "-"
+      - name: "Username"
+        type: "string"
+        dbTag: "type:varchar(50);uniqueIndex;not null"
+        jsonTag: "username"
+      - name: "Status"
+        type: "UserStatus"
+        dbTag: "type:varchar(20);not null"
+        jsonTag: "status"
+      - name: "CreatedAt"
+        type: "time.Time"
+        dbTag: "autoCreateTime"
+        jsonTag: "created_at"
+
+# DTO/Request 结构体定义
+dtos:
+  - name: "CreateUserReq"
+    file: "internal/dto/user_dto.go"
+    purpose: "request"
+    fields:
+      - name: "Username"
+        type: "string"
+        binding: "required,min=1,max=50"
+        jsonTag: "username"
+      - name: "Password"
+        type: "string"
+        binding: "required,min=8"
+        jsonTag: "password"
+
+  - name: "UserResp"
+    file: "internal/dto/user_dto.go"
+    purpose: "response"
+    fields:
+      - name: "ID"
+        type: "uint"
+        jsonTag: "id"
+      - name: "Username"
+        type: "string"
+        jsonTag: "username"
+      - name: "Status"
+        type: "UserStatus"
+        jsonTag: "status"
+
+# Service 定义
+services:
+  - name: "UserService"
+    file: "internal/service/user_service.go"
+    interfaceName: "IUserService"
+    injectDependencies: ["*gorm.DB"]
+    methods:
+      - name: "Create"
+        receiver: "us"
+        params: ["ctx context.Context", "req *CreateUserReq"]
+        returnType: "(*UserResp, error)"
+        errors: ["ErrUserAlreadyExists", "ErrDBError"]
+        description: "创建新用户"
+
+      - name: "GetByID"
+        receiver: "us"
+        params: ["ctx context.Context", "id uint"]
+        returnType: "(*UserResp, error)"
+        errors: ["ErrUserNotFound"]
+        description: "根据 ID 查询用户"
+
+# Handler 定义（对应 Java Controller）
+handlers:
+  - name: "UserHandler"
+    file: "internal/handler/user_handler.go"
+    group: "/api/users"
+    injectDependencies: ["IUserService"]
+    apis:
+      - method: "POST"
+        path: "/"
+        paramType: "CreateUserReq"
+        returnType: "UserResp"
+        statusCode: 201
+        middleware: ["AuthMiddleware()"]
+      - method: "GET"
+        path: "/:id"
+        returnType: "UserResp"
+        middleware: ["AuthMiddleware()"]
+
+# 枚举定义
+enums:
+  - name: "UserStatus"
+    file: "internal/model/enum.go"
+    type: "string"
+    values:
+      - name: "ACTIVE"
+        value: "active"
+        description: "正常"
+      - name: "DISABLED"
+        value: "disabled"
+        description: "禁用"
+    methods:
+      - name: "IsValid"
+        returnType: "bool"
+        description: "验证枚举值是否有效"
+
+# 跨子任务接口契约定义
+interfaces:
+  serviceContracts:
+    - name: "IUserService"
+      methods:
+        - name: "GetByID"
+          params: ["ctx context.Context", "id uint"]
+          returnType: "(*UserResp, error)"
+          stability: "frozen"
+```
+
+#### 方法命名规范检查（Design 阶段必须执行）
 
 **Step 0.5: 方法命名规范检查（🔴 必须执行）**
 
@@ -695,5 +1073,22 @@ interface User { ... }
 ```
 
 **暂停，等待用户确认。**
+
+---
+
+### ✅ 阶段确认清单
+
+| # | 确认项 | 状态 |
+|---|--------|------|
+| 1 | 所有功能点都有对应的 Entity/DTO/Service/Controller 设计覆盖 | ⬜ 待确认 |
+| 2 | Design Contract YAML 已生成且字段完整 | ⬜ 待确认 |
+| 3 | 方法命名规范检查已完成（与实际代码一致） | ⬜ 待确认 |
+| 4 | API 端点设计完整（HTTP 方法/路径/请求体/响应体/错误码） | ⬜ 待确认 |
+| 5 | 跨服务 Feign Client 与目标 Controller 端点匹配（多服务模式） | ⬜ 待确认 |
+| 6 | 分布式事务方案已设计（多服务模式，如需要） | ⬜ 待确认 |
+| 7 | 自检通过（无循环依赖/无不匹配引用） | ⬜ 待确认 |
+| 8 | 设计文档已输出 | ⬜ 待确认 |
+
+**用户操作**：确认无误 → 回复 "确认" 进入 Task Split 阶段；需要修改 → 指出具体问题
 
 ---

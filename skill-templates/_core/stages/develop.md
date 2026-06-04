@@ -496,19 +496,20 @@ type: stage-instruction
   - 服务间依赖顺序是否正确（被依赖的服务先开发）
   - 是否有循环依赖（A 调 B，B 调 A）
 
-### 🔴 Step 4: 实际编译验证（强烈建议执行）
+### 🔴 Step 4: 实际编译验证（🔴 必须执行，不可跳过）
 
-> 自检通过后，强烈建议执行实际编译验证，因为 AI 自检可能遗漏泛型类型、隐式转换等问题。
+> **自检通过后，必须执行实际编译验证。** AI 自检可能遗漏泛型类型、隐式转换、注解缺失等问题。编译验证是确保代码可运行的最后一道防线。
 
 **Java 项目**：
 ```bash
-<!-- TRAE-ONLY-START --># 单服务
-<!-- TRAE-ONLY-END -->mvn compile -pl {module-name} -am -q
+# 单服务
+mvn compile -pl {module-name} -am -q
 
-<!-- TRAE-ONLY-START -->
 # 多服务（仅编译当前服务）
 mvn compile -pl {service-module} -am -q
-<!-- TRAE-ONLY-END -->
+
+# 编译失败自动修复循环（最多 3 次）
+# 循环: 读取错误 → 修复代码 → 重新编译 → 验证通过
 ```
 
 **前端项目**：
@@ -522,8 +523,19 @@ npx tsc --noEmit
 | 结果 | 操作 |
 |------|------|
 | ✅ 编译通过 | 继续下一个文件 |
-| ❌ 编译失败 | 1. 读取错误信息 2. 修复编译错误 3. 重新编译验证 |
+| ❌ 编译失败 | **进入编译修复循环（最多 3 轮）**：<br>1. 读取编译错误信息<br>2. 定位错误源文件和行号<br>3. 修复编译错误<br>4. 重新编译验证<br>5. 如果 3 轮后仍失败 → 暂停并报告用户 |
 | ⚠️ 警告 | 评估是否需要修复（类型安全警告建议修复） |
+
+**编译修复循环记录**（每次修复后追加）：
+```yaml
+# .dev-flow/runtime/compile-fix-log.yaml
+fix_rounds:
+  - round: 1
+    file: "service/impl/XxxServiceImpl.java"
+    error: "cannot find symbol: method getStatus()"
+    fix: "改为 getInspectionBatchStatus()"
+    result: "compile_pass"
+```
 
 ### 🔴 失败恢复策略
 
@@ -712,4 +724,15 @@ checkpoint:
 > | 跨服务一致性 | ✅/❌ |
 > ```
 
----
+### ✅ 阶段确认清单
+
+| # | 确认项 | 状态 |
+|---|--------|------|
+| 1 | 所有设计文档中的文件都已生成 | ⬜ 待确认 |
+| 2 | 所有文件编译通过（Step 4 实际编译验证） | ⬜ 待确认 |
+| 3 | 无 TODO/FIXME/空方法体残留 | ⬜ 待确认 |
+| 4 | Import 路径、方法签名、类型全部验证通过 | ⬜ 待确认 |
+| 5 | 跨服务 Feign Client 与目标 Controller 端点一致 | ⬜ 待确认 |
+| 6 | 开发报告已输出 | ⬜ 待确认 |
+
+**暂停，等待用户确认。**
