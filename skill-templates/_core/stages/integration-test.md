@@ -1,48 +1,42 @@
 ---
-name: integration-test
-description: dev-flow 集成测试专家，负责验证多模块/多服务联调。Use when testing cross-service interactions and integration scenarios.
-tools: Read, Bash, Grep
-model: inherit
-readonly: false
-is_background: true
+stage: Integration Test
+type: stage-instruction
 ---
 
-# Integration Test Expert (集成测试专家)
+## 阶段九：Integration Test（集成测试）
 
-你是 dev-flow 的集成测试专家，负责验证多模块/多服务联调。
+### 🔔 入口 Banner（本阶段开始时输出）
 
-## 核心职责
+```
+▶ Integration Test（集成测试）
+════════════════════════════════════
+目标：验证跨服务/跨模块集成是否正常
+输出：integration-test-report.md
+模式：L3
+预计：5-20 分钟
+════════════════════════════════════
+```
 
-1. **集成点识别**：识别跨服务调用和接口依赖
-2. **接口契约验证**：验证 Feign Client 与目标 Controller 匹配
-3. **跨服务测试**：验证多服务联调场景
-4. **数据一致性验证**：验证跨服务数据一致性
+### 触发条件
+- Smoke Test 阶段通过后
+- 用户输入 `/dev-flow -integration`
 
-## 输入
+### 目的
+验证多模块/多服务联调，验证接口契约，验证数据一致性。
 
-- `.dev-flow/memory/dependency-graph.md` - 服务依赖关系
-- `.dev-flow/docs/{需求简称}-详细设计.md` - 接口设计
-- `.dev-flow/docs/{需求简称}-冒烟测试报告.md` - 冒烟测试结果
+### 执行步骤
 
-## 输出
-
-- `.dev-flow/docs/{需求简称}-集成测试报告.md` - 测试报告
-
-## 工作流
-
-### Step 1: 识别集成点
-
+**Step 1: 识别集成点**
 - 读取 `.dev-flow/memory/dependency-graph.md`
 - 识别当前服务调用的其他服务（Feign Client）
 - 识别被其他服务调用的接口（Controller）
 
-### Step 2: 准备测试环境
-
+**Step 2: 准备测试环境**
 - 启动所有相关服务（或使用 Mock）
 - 准备测试数据
 - 配置测试数据库（使用独立数据库或 H2）
 
-### Step 3: 执行集成测试
+**Step 3: 执行集成测试**
 
 **跨服务调用测试**：
 ```java
@@ -66,11 +60,19 @@ class XxxIntegrationTest {
 - 验证请求/响应 DTO 字段一致
 - 验证错误码处理一致
 
-### Step 4: 记录测试结果
+**数据一致性测试**：
+- 验证跨服务事务（如有）
+- 验证数据同步（如有）
 
-输出集成测试报告：
+**Step 4: 记录测试结果**
+
+**输出文档**：`.dev-flow/docs/{需求简称}-集成测试报告.md`
+
+**文档模板**：
 ```markdown
 # 集成测试报告：{需求标题}
+
+<!-- last-updated: YYYY-MM-DD HH:mm -->
 
 ## 1. 测试概述
 | 项目 | 内容 |
@@ -83,18 +85,27 @@ class XxxIntegrationTest {
 | # | 集成类型 | 调用方 | 被调用方 | 接口 |
 |---|----------|--------|----------|------|
 | 1 | Feign | quality | basedata | ProductApi.getById() |
+| 2 | Feign | quality | workflow | WorkflowApi.startProcess() |
 
 ## 3. 测试用例
 | # | 测试场景 | 涉及服务 | 预期结果 | 实际结果 | 状态 |
 |---|----------|----------|----------|----------|------|
-| 1 | 创建并启动流程 | quality, workflow | 流程启动成功 | 流程启动成功 | ✅ PASS |
+| 1 | 创建不合格品并启动流程 | quality, workflow | 流程启动成功 | 流程启动成功 | ✅ PASS |
 
 ## 4. 接口契约验证
 | Feign Client | 目标 Controller | 契约一致 | 备注 |
 |-------------|-----------------|----------|------|
 | ProductApi | ProductController | ✅ | 字段完全匹配 |
 
-## 5. 结论
+## 5. 问题记录
+| # | 问题描述 | 涉及服务 | 严重程度 | 状态 |
+|---|----------|----------|----------|------|
+
+## 6. 结论
 - 集成测试结果：通过 / 不通过
 - 可否交付：是 / 否
 ```
+
+**暂停，等待用户确认。如有问题，进入 Fix 阶段。**
+
+---

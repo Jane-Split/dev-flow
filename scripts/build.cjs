@@ -1,7 +1,7 @@
 /**
  * dev-flow 跨平台构建脚本
  * 
- * 从 _core/SKILL.md（单一源真相）和 _platforms/ 适配器生成各平台最终文件。
+ * 从 _core/SKILL.md（Router）+ _core/stages/（阶段指令）+ _core/agents/ 生成各平台最终文件。
  * 
  * 用法：
  *   node scripts/build.cjs              # 生成所有平台文件
@@ -22,6 +22,7 @@ const path = require('path');
 const ROOT = path.resolve(__dirname, '..');
 const CORE_SKILL = path.join(ROOT, 'skill-templates', '_core', 'SKILL.md');
 const CORE_AGENTS = path.join(ROOT, 'skill-templates', '_core', 'agents');
+const CORE_STAGES = path.join(ROOT, 'skill-templates', '_core', 'stages');
 const PLATFORMS_DIR = path.join(ROOT, 'skill-templates', '_platforms');
 
 const PLATFORM_CONFIG = {
@@ -68,7 +69,7 @@ function escapeRegex(str) {
 }
 
 /**
- * 处理 SKILL.md 内容
+ * 处理 SKILL.md Router 内容（TRAE-ONLY 标记处理）
  */
 function processSkillContent(content, stripTraeOnly) {
   const TRAE_START = '<!-- TRAE-ONLY-START -->';
@@ -85,12 +86,10 @@ function processSkillContent(content, stripTraeOnly) {
     content = content.replace(/(\r?\n){3,}/g, '\r\n\r\n');
   } else {
     // Trae: 移除标记。若标记独占一行则连同周围换行一起合并
-    // START 独占一行：...\n<!-- START -->\n... → ...\n...
     content = content.replace(
       new RegExp('\\r?\\n' + escapeRegex(TRAE_START) + '\\r?\\n', 'g'),
       '\r\n'
     );
-    // END 独占一行：...\n<!-- END -->\n... → ...\n...
     content = content.replace(
       new RegExp('\\r?\\n' + escapeRegex(TRAE_END) + '\\r?\\n', 'g'),
       '\r\n'
@@ -106,16 +105,24 @@ function processSkillContent(content, stripTraeOnly) {
 }
 
 /**
- * 生成单个平台的 SKILL 文件
+ * 处理 stage 文件内容（TRAE-ONLY 标记处理，用于 stages 目录下的文件）
+ */
+function processStageContent(content, stripTraeOnly) {
+  return processSkillContent(content, stripTraeOnly);
+}
+
+/**
+ * 生成单个平台的输出文件
  */
 function generatePlatform(platform, config) {
   const outputDir = path.join(ROOT, config.outputDir);
   const outputFile = path.join(outputDir, config.outputFile);
   const agentsDir = path.join(outputDir, 'agents');
+  const stagesDir = path.join(outputDir, 'stages');
 
   console.log(`\n[${platform}] 生成中...`);
 
-  // 1. 主 SKILL 文件
+  // 1. 主 SKILL 文件（Router）
   if (!fs.existsSync(CORE_SKILL)) {
     throw new Error(`核心文件不存在: ${CORE_SKILL}`);
   }
@@ -130,9 +137,26 @@ function generatePlatform(platform, config) {
     fs.mkdirSync(outputDir, { recursive: true });
   }
   fs.writeFileSync(outputFile, processed, 'utf-8');
-  console.log(`  \u2713 主文件: ${outputFile} (${processed.split('\n').length} 行)`);
+  console.log(`  \u2713 主文件 (Router): ${outputFile} (${processed.split('\n').length} 行, ${Buffer.byteLength(processed, 'utf-8')} bytes)`);
 
-  // 2. Agents
+  // 2. Stages（阶段指令文件）
+  if (!fs.existsSync(stagesDir)) {
+    fs.mkdirSync(stagesDir, { recursive: true });
+  }
+
+  if (fs.existsSync(CORE_STAGES)) {
+    const stageFiles = fs.readdirSync(CORE_STAGES).filter(f => f.endsWith('.md'));
+    for (const stageFile of stageFiles) {
+      const src = path.join(CORE_STAGES, stageFile);
+      let content = fs.readFileSync(src, 'utf-8');
+      content = processStageContent(content, config.stripTraeOnly);
+      const dst = path.join(stagesDir, stageFile);
+      fs.writeFileSync(dst, content, 'utf-8');
+    }
+    console.log(`  \u2713 stages: ${stageFiles.length} 个阶段指令文件`);
+  }
+
+  // 3. Agents
   if (!fs.existsSync(agentsDir)) {
     fs.mkdirSync(agentsDir, { recursive: true });
   }
@@ -144,23 +168,31 @@ function generatePlatform(platform, config) {
       const dst = path.join(agentsDir, agent);
       fs.copyFileSync(src, dst);
     }
-    console.log(`  \u2713 基准 agents: ${baseAgents.length} 个`);
+    console.log(`  \u2713 agents: ${baseAgents.length} 个`);
   }
 
+  // 4. Trae 额外 agents（仅 TRAE-ONLY 标记相关的 agents，现在已大部分提升到 _core）
   if (config.useExtraAgents) {
     const traeAgentsDir = path.join(PLATFORMS_DIR, 'trae', 'agents');
     if (fs.existsSync(traeAgentsDir)) {
       const extraAgents = fs.readdirSync(traeAgentsDir).filter(f => f.endsWith('.md'));
+      let copied = 0;
       for (const agent of extraAgents) {
         const src = path.join(traeAgentsDir, agent);
         const dst = path.join(agentsDir, agent);
-        fs.copyFileSync(src, dst);
+        // 只复制 _core 中不存在的 agent（避免覆盖已提升的版本）
+        if (!fs.existsSync(dst)) {
+          fs.copyFileSync(src, dst);
+          copied++;
+        }
       }
-      console.log(`  \u2713 Trae \u72ec\u6709 agents: ${extraAgents.length} 个`);
+      if (copied > 0) {
+        console.log(`  \u2713 Trae 额外 agents: ${copied} 个（已提升到 _core 的不再重复）`);
+      }
     }
   }
 
-  console.log(`[${platform}] \u751f\u6210\u5b8c\u6bd5 \u2713`);
+  console.log(`[${platform}] 生成完毕 \u2713`);
 }
 
 /**
@@ -175,37 +207,73 @@ function convertToCodexFormat(content) {
 /**
  * 校验模式
  */
-function verifyPlatform(platform, config, originalContent) {
-  const coreContent = fs.readFileSync(CORE_SKILL, 'utf-8');
-  let generated = processSkillContent(coreContent, config.stripTraeOnly);
-  if (config.formatCodex) {
-    generated = convertToCodexFormat(generated);
+function verifyPlatform(platform, config) {
+  const outputDir = path.join(ROOT, config.outputDir);
+  const outputFile = path.join(outputDir, config.outputFile);
+  const agentsDir = path.join(outputDir, 'agents');
+  const stagesDir = path.join(outputDir, 'stages');
+  let passed = true;
+
+  // 1. 校验主文件
+  if (!fs.existsSync(outputFile)) {
+    console.log(`  \u26a0 主文件不存在: ${outputFile}`);
+    passed = false;
+  } else {
+    const coreContent = fs.readFileSync(CORE_SKILL, 'utf-8');
+    let generated = processSkillContent(coreContent, config.stripTraeOnly);
+    if (config.formatCodex) {
+      generated = convertToCodexFormat(generated);
+    }
+    const original = fs.readFileSync(outputFile, 'utf-8');
+    if (original === generated) {
+      console.log(`  \u2713 主文件一致`);
+    } else {
+      console.log(`  \u2717 主文件不一致!`);
+      const origLines = original.split('\n');
+      const genLines = generated.split('\n');
+      console.log(`    原始: ${origLines.length} 行, 生成: ${genLines.length} 行`);
+      passed = false;
+    }
   }
 
-  if (originalContent === generated) {
-    console.log(`[${platform}] \u2713 \u6821\u9a8c\u901a\u8fc7\uff08\u6587\u4ef6\u5185\u5bb9\u4e00\u81f4\uff09`);
-    return true;
-  } else {
-    const existingLines = originalContent.split('\n');
-    const generatedLines = generated.split('\n');
-    console.log(`[${platform}] \u2717 \u6821\u9a8c\u5931\u8d25\uff01`);
-    console.log(`  \u539f\u59cb\u6587\u4ef6: ${existingLines.length} \u884c`);
-    console.log(`  \u751f\u6210\u6587\u4ef6: ${generatedLines.length} \u884c`);
-    const maxLen = Math.max(existingLines.length, generatedLines.length);
-    let firstDiff = -1;
-    for (let i = 0; i < maxLen; i++) {
-      if (existingLines[i] !== generatedLines[i]) {
-        firstDiff = i + 1;
-        break;
+  // 2. 校验 stages
+  if (fs.existsSync(CORE_STAGES)) {
+    const stageFiles = fs.readdirSync(CORE_STAGES).filter(f => f.endsWith('.md'));
+    for (const sf of stageFiles) {
+      const src = path.join(CORE_STAGES, sf);
+      const dst = path.join(stagesDir, sf);
+      if (!fs.existsSync(dst)) {
+        console.log(`  \u26a0 缺少 stage: ${sf}`);
+        passed = false;
+      } else {
+        let content = fs.readFileSync(src, 'utf-8');
+        content = processStageContent(content, config.stripTraeOnly);
+        const original = fs.readFileSync(dst, 'utf-8');
+        if (content !== original) {
+          console.log(`  \u2717 stage 不一致: ${sf}`);
+          passed = false;
+        }
       }
     }
-    if (firstDiff > 0) {
-      console.log(`  \u9996\u4e2a\u5dee\u5f02\u884c: ${firstDiff}`);
-      console.log(`  \u539f\u59cb: ${(existingLines[firstDiff - 1] || '').substring(0, 80)}`);
-      console.log(`  \u751f\u6210: ${(generatedLines[firstDiff - 1] || '').substring(0, 80)}`);
-    }
-    return false;
+    console.log(`  stages 校验: ${stageFiles.length} 个文件`);
   }
+
+  // 3. 校验 agents（检查 _core agents 是否都存在）
+  if (fs.existsSync(CORE_AGENTS)) {
+    const coreAgents = fs.readdirSync(CORE_AGENTS).filter(f => f.endsWith('.md'));
+    let agentOk = 0;
+    for (const a of coreAgents) {
+      if (fs.existsSync(path.join(agentsDir, a))) {
+        agentOk++;
+      } else {
+        console.log(`  \u26a0 缺少 agent: ${a}`);
+        passed = false;
+      }
+    }
+    console.log(`  agents 校验: ${agentOk}/${coreAgents.length} 个文件`);
+  }
+
+  return passed;
 }
 
 // ============================================================
@@ -217,15 +285,20 @@ function main() {
 
   if (args.includes('--help') || args.includes('-h')) {
     console.log(`
-dev-flow \u8de8\u5e73\u53f0\u6784\u5efa\u811a\u672c
+dev-flow 跨平台构建脚本
 
-\u7528\u6cd5:
-  node scripts/build.cjs              # \u751f\u6210\u6240\u6709\u5e73\u53f0\u6587\u4ef6
-  node scripts/build.cjs <platform>   # \u4ec5\u751f\u6210\u6307\u5b9a\u5e73\u53f0
-  node scripts/build.cjs --verify     # \u6821\u9a8c\u6240\u6709\u5e73\u53f0
-  node scripts/build.cjs <p> --verify # \u6821\u9a8c\u6307\u5b9a\u5e73\u53f0
+用法:
+  node scripts/build.cjs              # 生成所有平台文件
+  node scripts/build.cjs <platform>   # 仅生成指定平台
+  node scripts/build.cjs --verify     # 校验所有平台
+  node scripts/build.cjs <p> --verify # 校验指定平台
 
-\u652f\u6301\u7684\u5e73\u53f0: ${Object.keys(PLATFORM_CONFIG).join(', ')}
+支持的平台: ${Object.keys(PLATFORM_CONFIG).join(', ')}
+
+架构:
+  _core/SKILL.md (Router ~25KB) → 各平台主文件
+  _core/stages/*.md (阶段指令) → 各平台 stages/ 目录
+  _core/agents/*.md (Agent 文件) → 各平台 agents/ 目录
     `);
     return;
   }
@@ -238,49 +311,38 @@ dev-flow \u8de8\u5e73\u53f0\u6784\u5efa\u811a\u672c
     : PLATFORM_CONFIG;
 
   if (isVerify) {
-    console.log('=== \u6821\u9a8c\u6a21\u5f0f ===\n');
+    console.log('=== 校验模式 ===\n');
     let allPassed = true;
     for (const [platform, config] of Object.entries(platforms)) {
       if (config.skipAutoGen) {
-        console.log(`[${platform}] \u23ed \u8df3\u8fc7\uff08\u624b\u52a8\u7ef4\u62a4\u5e73\u53f0\uff09`);
+        console.log(`[${platform}] \u23ed 跳过（手动维护平台）`);
         continue;
       }
-      const outputDir = path.join(ROOT, config.outputDir);
-      const outputFile = path.join(outputDir, config.outputFile);
-
-      if (!fs.existsSync(outputFile)) {
-        console.log(`[${platform}] \u26a0 \u6587\u4ef6\u4e0d\u5b58\u5728\uff0c\u8df3\u8fc7\u6821\u9a8c: ${outputFile}`);
-        continue;
-      }
-
-      try {
-        const originalContent = fs.readFileSync(outputFile, 'utf-8');
-        const passed = verifyPlatform(platform, config, originalContent);
-        if (!passed) allPassed = false;
-      } catch (err) {
-        console.log(`[${platform}] \u2717 \u9519\u8bef: ${err.message}`);
-        allPassed = false;
-      }
+      console.log(`[${platform}]`);
+      const passed = verifyPlatform(platform, config);
+      if (!passed) allPassed = false;
     }
-    console.log(`\n=== \u6821\u9a8c\u7ed3\u679c: ${allPassed ? '\u5168\u90e8\u901a\u8fc7 \u2713' : '\u5b58\u5728\u5dee\u5f02 \u2717'} ===`);
+    console.log(`\n=== 校验结果: ${allPassed ? '全部通过 \u2713' : '存在差异 \u2717'} ===`);
   } else {
-    console.log('=== dev-flow \u8de8\u5e73\u53f0\u6784\u5efa ===\n');
-    console.log(`\u6838\u5fc3\u6587\u4ef6: ${CORE_SKILL}`);
-    console.log(`\u76ee\u6807\u5e73\u53f0: ${Object.keys(platforms).join(', ')}\n`);
+    console.log('=== dev-flow 跨平台构建 ===\n');
+    console.log(`核心文件: ${CORE_SKILL}`);
+    console.log(`阶段指令: ${CORE_STAGES}`);
+    console.log(`Agent文件: ${CORE_AGENTS}`);
+    console.log(`目标平台: ${Object.keys(platforms).join(', ')}\n`);
 
     for (const [platform, config] of Object.entries(platforms)) {
       if (config.skipAutoGen) {
-        console.log(`[${platform}] \u23ed \u8df3\u8fc7\uff08\u624b\u52a8\u7ef4\u62a4\u5e73\u53f0\uff09`);
+        console.log(`[${platform}] \u23ed 跳过（手动维护平台）`);
         continue;
       }
       try {
         generatePlatform(platform, config);
       } catch (err) {
-        console.error(`[${platform}] \u2717 \u751f\u6210\u5931\u8d25: ${err.message}`);
+        console.error(`[${platform}] \u2717 生成失败: ${err.message}`);
       }
     }
 
-    console.log('\n=== \u6784\u5efa\u5b8c\u6210 ===');
+    console.log('\n=== 构建完成 ===');
   }
 }
 

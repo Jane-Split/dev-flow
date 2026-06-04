@@ -1,0 +1,242 @@
+---
+stage: Task Split
+type: stage-instruction
+---
+
+## 阶段四：Task Split（任务拆分）
+
+### 🔔 入口 Banner（本阶段开始时输出）
+
+```
+▶ Task Split（任务拆分）
+════════════════════════════════════
+目标：将设计方案拆分为可执行任务，建立 DAG 依赖图
+输出：task-breakdown.yaml
+模式：L2 / L3
+预计：3-8 分钟
+════════════════════════════════════
+```
+
+### 触发条件
+- 全流程模式（Design 确认后）
+- 用户输入 `/dev-flow -split`
+
+### 目的
+将详细设计拆分为精确的开发任务，解决依赖关系，确定并行/串行执行顺序，为后续并行开发做准备。
+
+### 执行步骤
+
+**Step 1: 读取详细设计文档**
+- 读取 `.dev-flow/docs/{需求简称}-详细设计.md`
+- 提取所有需要新增/修改的文件列表
+- 识别每个文件的依赖关系
+
+**Step 2: 构建任务依赖图（DAG）**
+
+对每个开发任务分析：
+- **输入依赖**：该任务需要哪些其他任务的输出（如 Entity → Service → Controller）
+- **数据依赖**：该任务需要哪些公共模块的数据（如 common-bean 的 Entity）
+- **接口依赖**：该任务需要调用哪些其他服务的接口（如 Feign Client）
+
+**依赖分析规则**：
+
+| 任务类型 | 必须先完成的任务 |
+|----------|-----------------|
+| Entity | 无（可并行） |
+| Enum | 无（可并行） |
+| DTO | Entity（如果引用 Entity） |
+| Mapper | Entity |
+| Service 接口 | Entity, DTO |
+| Service 实现 | Mapper, DTO, Feign Client |
+| Feign Client | 无（可并行，但需目标服务已定义） |
+| Controller | Service, DTO |
+| Config | 无（可并行） |
+
+**Step 3: 划分执行批次**
+
+根据依赖图，将任务划分为多个批次：
+
+```
+批次 1（可并行）：
+  - Task-1: 新增 XxxEntity
+  - Task-2: 新增 XxxEnum
+  - Task-3: 新增 XxxConfig
+  - Task-4: 新增 XxxFeignClient
+
+批次 2（批次 1 完成后可并行）：
+  - Task-5: 新增 XxxMapper
+  - Task-6: 新增 XxxDTO
+
+批次 3（批次 2 完成后可并行）：
+  - Task-7: 新增 XxxService 接口
+  - Task-8: 新增 XxxServiceImpl
+
+批次 4（批次 3 完成后）：
+  - Task-9: 新增 XxxController
+```
+
+**Step 4: 生成任务清单**
+
+为每个任务生成详细描述：
+
+| 任务ID | 任务名称 | 文件路径 | 依赖任务 | 批次 | 预估复杂度 |
+|--------|----------|----------|----------|------|-----------|
+| Task-1 | 新增不合格品实体 | entity/NonConformingProduct.java | 无 | 1 | 低 |
+| Task-2 | 新增处置类型枚举 | enums/DispositionType.java | 无 | 1 | 低 |
+| ... | ... | ... | ... | ... | ... |
+
+**Step 5: 输出任务拆分文档**
+
+> **🔴 必须输出正式文档**：将任务拆分结果写入独立文档文件。
+
+**输出文档**：`.dev-flow/docs/{需求简称}-任务拆分.md`
+
+**文档模板**：
+```markdown
+# 任务拆分：{需求标题}
+
+<!-- last-updated: YYYY-MM-DD HH:mm -->
+
+## 1. 任务总览
+| 维度 | 数量 |
+|------|------|
+| 总任务数 | X |
+| 批次数 | X |
+| 可并行任务 | X |
+| 串行任务 | X |
+
+## 2. 依赖关系图
+```mermaid
+graph TD
+    Task-1[Entity] --> Task-5[Mapper]
+    Task-1 --> Task-7[Service]
+    Task-5 --> Task-8[ServiceImpl]
+    Task-7 --> Task-8
+    Task-8 --> Task-9[Controller]
+```
+
+## 3. 执行批次
+
+### 批次 1（可并行执行）
+| 任务ID | 任务名称 | 文件路径 | 复杂度 | 负责 Subagent |
+|--------|----------|----------|--------|---------------|
+| Task-1 | ... | ... | 低 | @develop-expert-1 |
+| Task-2 | ... | ... | 低 | @develop-expert-2 |
+
+### 批次 2（批次 1 完成后执行）
+| 任务ID | 任务名称 | 文件路径 | 依赖任务 | 复杂度 |
+|--------|----------|----------|----------|--------|
+
+## 4. 任务详情
+
+### Task-1: 新增不合格品实体
+- **文件路径**：`src/main/java/.../entity/NonConformingProduct.java`
+- **依赖任务**：无
+- **所属批次**：1
+- **预估复杂度**：低
+- **实现要点**：
+  - 继承 BaseEntity
+  - 包含字段：recordCode, batchNo, productId, dispositionType, status
+  - 使用 @TableName 注解
+
+## 5. 并行开发建议
+- 建议使用 3-4 个 develop-expert subagent 并行开发
+- 每个 subagent 负责一个批次的多个任务
+- 主 Agent 负责协调和汇总
+```
+
+**Step 6: 派发任务给主 Agent**
+
+输出任务清单后，主 Agent 根据批次顺序调度 develop-expert subagent：
+- 同一批次的任务可并行派发给多个 subagent
+- 下一批次需等待上一批次全部完成
+- 每个 subagent 完成后向主 Agent 汇报
+
+---
+
+### 高级模式：单文件单 Agent（极端拆分）
+
+> **适用场景**：超大型项目（>30 个文件）、上下文极度受限环境
+> **核心思想**：每个文件由一个独立的 develop-expert 生成，彻底避免上下文累积
+
+**模式触发条件**：
+```
+- 总文件数 > 30，或
+- 单个文件预估代码量 > 500 行，或
+- 用户显式指定：/dev-flow -subagent -extreme
+```
+
+**执行流程**：
+
+```
+Task Split 阶段输出（极端模式）：
+
+任务清单（每个任务只包含一个文件）：
+| 任务ID | 文件类型 | 文件路径 | 依赖 | 预估上下文 |
+|--------|----------|----------|------|-----------|
+| T-001 | Entity | User.java | 无 | 5KB |
+| T-002 | DTO | UserRequestDTO.java | T-001 | 3KB |
+| T-003 | DTO | UserResponseDTO.java | T-001 | 3KB |
+| ... | ... | ... | ... | ... |
+
+主 Agent 调度（串行执行，每个任务独立上下文）：
+
+  1. 派发 T-001 → @develop-expert-001
+     - 输入：User.java 的需求描述 + conventions.md
+     - 输出：User.java 文件
+     - 完成后立即释放上下文
+
+  2. 派发 T-002 → @develop-expert-002
+     - 输入：UserRequestDTO.java 需求 + conventions.md + User.java（已生成）
+     - 输出：UserRequestDTO.java 文件
+     - 完成后立即释放上下文
+
+  3. 以此类推...
+```
+
+**优势**：
+- 每个 agent 上下文占用固定（<10KB）
+- 彻底消除多文件累积风险
+- 适合超大型需求和长流程开发
+
+**劣势**：
+- 调度开销增加（任务切换次数多）
+- 总执行时间可能延长（无法利用批次内并行）
+- 不适合文件间强耦合的场景
+
+**建议**：仅在标准 Subagent 模式仍出现上下文问题时启用
+
+---
+
+### 智能负载均衡（动态任务分配）
+
+> **适用场景**：多 develop-expert 并行开发时，动态分配任务以平衡负载
+
+**负载评估指标**：
+| 指标 | 说明 | 权重 |
+|------|------|------|
+| 文件复杂度 | 简单/中等/复杂 | 40% |
+| 依赖深度 | 依赖链长度 | 30% |
+| 预估代码量 | 行数估算 | 30% |
+
+**分配策略**：
+```
+初始化：
+  - 可用 agents: [@dev-1, @dev-2, @dev-3]
+  - 每个 agent 负载: 0
+
+分配算法（贪心）：
+  1. 计算每个未分配任务的负载值
+  2. 选择负载值最高的任务
+  3. 分配给当前负载最低的 agent
+  4. 更新 agent 负载
+  5. 重复直到所有任务分配完成
+
+动态调整：
+  - 如果某个 agent 执行超时，将其任务转移到其他 agent
+  - 如果新 agent 加入，重新平衡负载
+```
+
+**暂停，等待用户确认任务拆分方案。**
+
+---

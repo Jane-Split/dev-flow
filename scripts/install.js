@@ -39,6 +39,30 @@ const AGENT_FILES = [
   'smoke-test.md',
   'integration-test.md',
   'delivery.md',
+  // 防护 agents（从 Trae-only 提升为全平台共享）
+  'step-enforcer.md',
+  'contract-validator.md',
+  'bytecode-analyzer.md',
+  'design-contract-validator.md',
+  'context-manager.md',
+  'error-pattern-learner.md',
+  'task-split-expert.md',
+];
+
+// 阶段指令文件（按需加载，不随 SKILL.md 一起注入上下文）
+const STAGE_FILES = [
+  'research.md',
+  'analyze.md',
+  'design.md',
+  'task-split.md',
+  'develop.md',
+  'unit-test.md',
+  'fix.md',
+  'hotfix.md',
+  'smoke-test.md',
+  'integration-test.md',
+  'delivery.md',
+  'code-reference.md',
 ];
 
 const CODEX_AGENT_FILES = AGENT_FILES.map((file) => file.replace(/\.md$/, '.toml'));
@@ -49,6 +73,14 @@ const AGENT_DEST_MAP = {
   qoder: '.qoder/agents/',
   claude: '.claude/agents/',
   codex: '.codex/agents/',
+};
+
+const STAGE_DEST_MAP = {
+  trae: '.trae/skills/dev-flow/stages/',
+  cursor: '.cursor/stages/',
+  qoder: '.qoder/stages/',
+  claude: '.claude/stages/',
+  codex: '.codex/stages/',
 };
 
 const TOOL_ALIASES = {
@@ -304,10 +336,12 @@ function install(target) {
     for (const key of Object.keys(SKILL_FILES)) {
       installSkill(key);
       installAgents(key);
+      installStages(key);
     }
   } else {
     installSkill(target);
     installAgents(target);
+    installStages(target);
   }
   createMemoryTemplate();
   console.log('\n✅ dev-flow skill 安装完成！');
@@ -369,6 +403,30 @@ function installAgents(tool) {
   }
 
   console.log(`✅ ${tool} agents: ${destDir} (${installedCount} files)`);
+}
+
+function installStages(tool) {
+  const destDir = STAGE_DEST_MAP[tool];
+  if (!destDir) return;
+
+  const stagesSrcDir = resolve(ROOT, `skill-templates/${tool}/stages`);
+  if (!existsSync(stagesSrcDir)) {
+    console.log(`ℹ️ ${tool} stages: 源目录不存在，跳过 (${stagesSrcDir})`);
+    return;
+  }
+
+  let installedCount = 0;
+  for (const file of STAGE_FILES) {
+    const src = resolve(stagesSrcDir, file);
+    if (!existsSync(src)) continue;
+
+    const dest = resolve(PROJECT_ROOT, destDir, file);
+    mkdirSync(dirname(dest), { recursive: true });
+    cpSync(src, dest);
+    installedCount += 1;
+  }
+
+  console.log(`✅ ${tool} stages: ${destDir} (${installedCount} files)`);
 }
 
 function installCodexAgentsMd(src, dest) {
