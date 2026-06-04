@@ -1,9 +1,9 @@
 # dev-flow
 
 [![node](https://img.shields.io/node/v/dev-flow.svg)](https://nodejs.org)
-[![version](https://img.shields.io/badge/version-v1.0.3-blue)]()
+[![version](https://img.shields.io/badge/version-v1.0.4_opt-blue)]()
 
-> **当前版本: v1.0.3** | [更新日志](./CHANGELOG.md)
+> **当前版本: v1.0.4_opt** | [更新日志](./CHANGELOG.md)
 
 AI 开发全流程编排 Skill，适用于 Cursor、Trae、Qoder、Claude Code、OpenAI Codex 等 AI 编程工具。
 
@@ -39,6 +39,20 @@ dev-flow 通过**结构化的流程编排 + 项目记忆 + 长期记忆 + 学习
 - **错误经验学习** - 从编译错误、契约违反、测试失败中提取模式，生成预防策略，持续改进
 - **步骤强制执行** (v1.0.3) - Step Enforcer 验证关键步骤完成质量，防止 AI "偷懒" 跳过，无法跳过必须完成
 - **错误模式自动应用** (v1.0.3) - Error Pattern Learner 自动将学习到的模式应用到 Agent 指导，无需人工更新
+- **三层防御体系** (v1.0.4) - 防止 Import 路径猜测错误，代码生成前 Grep 强制验证 + 编译前阻塞 + 编译后自动修复
+- **上下文智能管理** (v1.0.4_opt) - Context Manager 50KB 硬约束 + 三级监控 + 分段执行 + 串行兜底，防止上下文超限
+- **技术级阻塞机制** (v1.0.4_opt) - `.dev-flow/blocked` 标记文件实现技术级强制阻塞，防止 AI 绕过验证
+- **语义级日志占位检测** (v1.0.4_opt) - 对比设计文档 call action 与代码实际调用，检测日志占位替代业务逻辑
+- **交叉验证机制** (v1.0.4_opt_v2) - 读取验证文件内容与 design-contract.yaml 交叉比对，防止验证文件造假
+- **禁止事项自动化扫描** (v1.0.4_opt_v2) - 自动扫描 TODO 占位符、return null 等 7 条禁止事项
+- **测试执行闭环** (v1.0.4_opt_v2) - 编译通过后强制执行 mvn test，自动修复测试失败（最多 3 轮）
+- **逻辑覆盖率 100% 验证** (v1.0.4_opt_v2) - 验证每个 logic step 都在代码中有对应实现，条件分支全覆盖
+- **design-contract 独立验证** (v1.0.4_opt_v2) - 5 步客观验证设计契约完整性，不依赖 AI 自检
+- **condition 形式化语法** (v1.0.4_opt_v2) - 定义 condition 字段形式化语法（AND/OR/NOT/嵌套/range/in/matches）
+- **基于模型的动态阈值** (v1.0.4_opt_v2) - 根据模型上下文窗口动态计算安全阈值
+- **预读取预算机制** (v1.0.4_opt_v2) - Step 2 读取已有代码最大 20KB，4 级优先读取策略
+- **文件级冲突检测** (v1.0.4_opt_v2) - 调度前检测多任务文件冲突，冲突任务自动串行化
+- **全局编译循环上限** (v1.0.4_opt_v2) - 最多循环 5 次，按错误分类设置修复上限
 - **学习能力** - 从用户反馈、代码修改、测试 Bug 中自动学习，持续优化代码生成策略
 - **记忆强化** - 模式使用 >3 次标记"高频"优先推荐，>5 次标记"标准"必须遵守
 - **阶段确认** - 每个阶段完成后暂停，展示成果并等待用户确认
@@ -87,6 +101,7 @@ npx dev-flow install
 | **contract-validator** | `.codex/agents/contract-validator.toml` / 其他工具的 `agents/contract-validator.md` | **契约一致性校验（方法签名/字段/实现/依赖）** |
 | **error-pattern-learner** | `.codex/agents/error-pattern-learner.toml` / 其他工具的 `agents/error-pattern-learner.md` | **错误模式学习与预防策略生成** |
 | **step-enforcer** | `.codex/agents/step-enforcer.toml` / 其他工具的 `agents/step-enforcer.md` | **步骤强制执行验证器（防止跳过关键步骤）** |
+| **context-manager** | `.codex/agents/context-manager.toml` / 其他工具的 `agents/context-manager.md` | **上下文管理器（智能分配上下文、执行模式决策）** |
 
 同时创建 `.dev-flow/memory/` 目录（12 个 Markdown 记忆模板）和 `.dev-flow/sessions/` 目录（会话记录）。
 

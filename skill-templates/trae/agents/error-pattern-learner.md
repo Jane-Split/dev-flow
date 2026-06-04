@@ -227,6 +227,64 @@ error_patterns:
     severity: medium
     prevention_priority: medium
     
+  - pattern_id: "P009"
+    name: "日志占位替代业务逻辑"
+    category: "logic_errors.placeholder_instead_of_logic"
+    severity: critical
+    prevention_priority: high
+    
+    description: |
+      AI 用 log.info()/log.warn() 等日志调用替代实际业务逻辑（如 SAP 推送、消息发送等），
+      导致代码能编译通过、测试可能通过，但实际功能完全缺失。
+    
+    examples:
+      - invalid: |
+          public void pushToSap(OrderDTO order) {
+              log.info("推送订单到SAP: {}", order);
+          }
+        reason: "仅包含日志，无实际 SAP 推送调用"
+      - valid: |
+          public void pushToSap(OrderDTO order) {
+              log.info("推送订单到SAP: {}", order);
+              SapResponse response = sapFeignClient.pushOrder(order);
+              if (!response.isSuccess()) {
+                  throw new BusinessException("SAP推送失败");
+              }
+          }
+        reason: "包含日志和实际业务调用"
+    
+    detection:
+      - pattern: "方法体仅包含 log.info/log.warn/log.debug 调用"
+      - pattern: "设计文档中的 call action 在代码中无对应的外部调用"
+      - pattern: "方法注释描述业务操作，但实现只有日志"
+    
+    auto_fix:
+      enabled: true
+      trigger: "检测到方法体仅包含日志调用"
+      steps:
+        - step: 1
+          action: "read_design_document"
+          description: "读取设计文档，查找该方法的 logic 定义"
+        - step: 2
+          action: "extract_call_action"
+          description: "提取 call 类型的 action，获取 target 和 method"
+        - step: 3
+          action: "search_target_class"
+          description: "Grep 搜索 target 类的实际位置"
+        - step: 4
+          action: "generate_actual_call"
+          description: "生成实际的业务调用代码，替换日志占位"
+        - step: 5
+          action: "verify_implementation"
+          description: "验证实现包含实质性业务操作"
+    
+    prevention:
+      strategy_id: "S009"
+      name: "禁止日志占位替代业务逻辑"
+      target_agent: "develop-expert"
+      location: "禁止事项表格"
+      rule: "禁止用 log.info()/log.warn() 替代业务逻辑，必须实现完整的业务调用"
+    
   - pattern_id: "P008"
     name: "日志记录缺失"
     category: "contract_violations.implementation_incomplete"

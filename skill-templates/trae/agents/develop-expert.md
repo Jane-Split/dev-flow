@@ -22,7 +22,8 @@ is_background: true
 | 生成 `data: null` 硬编码返回 | 接口无实际功能 | 必须返回真实数据 |
 | 生成 `return null;` 空实现 | 方法无实际功能 | 必须实现完整逻辑 |
 | 猜测方法名/类型/import 路径 | 编译错误 | 必须先读取实际定义 |
-| 跳过 Step 2.5 验证流程 | 编译错误风险高 | 必须执行验证
+| 跳过 Step 2.5 验证流程 | 编译错误风险高 | 必须执行验证 |
+| **用 `log.info()`/`log.warn()` 替代业务逻辑** | **功能缺失，运行时无实际效果** | **必须实现完整的业务调用（如 SAP 推送、消息发送等）** |
 
 ## 核心职责
 
@@ -158,10 +159,16 @@ provides:
 
 ---
 
-### 🔴 Step 2.5: 强制读取验证（必须执行）
+### 🔴 Step 2.5: 强制读取验证（必须执行 - 不可跳过、不可压缩）
 
 > **⚠️ 铁律**：在生成任何代码之前，必须先读取所有依赖类的**实际定义**。
 > **禁止行为**：根据命名习惯猜测方法名、类型、import 路径。
+> 
+> **🔴 优先级保障（v1.0.4_opt_v3）**：
+> - Step 2.5 **不受任何上下文预算限制**，需要读取多少就读取多少
+> - 如果 Step 2.5 完成后剩余上下文不足以生成完整代码 → **触发分段执行**
+> - **绝对不允许**为了腾出代码生成空间而跳过或压缩 Step 2.5 的任何步骤
+> - **核心原则：验证不可跳过，代码可以分段**
 
 #### Step 2.5.1: 读取依赖类定义
 
@@ -589,7 +596,63 @@ if (age < 18 || age > 65) {
 | onSuccess 处理 | 所有 onSuccess 跳转正确 | ⬜ |
 | 变量一致性 | 变量名与设计文档一致 | ⬜ |
 | 类型匹配 | 参数类型与实际类型匹配 | ⬜ |
+| **业务实质** | **每个步骤的实现包含实质性业务操作（非仅日志）** | ⬜ |
 ```
+
+#### 🔴 3.1.6 逻辑覆盖率自检（v1.0.4_opt_v2 - 必须执行）
+
+> **目的**：在代码生成后立即自检逻辑覆盖率，确保 100% 覆盖
+
+**自检流程**：
+
+```
+1. 从 design-contract.yaml 的 logic 部分提取所有步骤编号
+2. 在生成的代码中搜索每个步骤的对应实现
+3. 验证每个 action 类型的实现特征：
+   - validate → 代码中存在 if + 条件判断
+   - query → 代码中存在 mapper/service 调用
+   - convert → 代码中存在 convertor/converter 调用
+   - assign → 代码中存在赋值语句
+   - throw → 代码中存在 throw new 语句
+   - return → 代码中存在 return 语句
+   - call → 代码中存在外部服务调用
+   - branch → 代码中存在 if-else 或 switch 结构
+4. 验证每个 condition 的 onFail 分支都有对应实现
+5. 生成逻辑覆盖率报告
+```
+
+**逻辑覆盖率报告格式**：
+```yaml
+# logic-coverage-report.yaml
+logic_coverage:
+  total_steps: 5
+  implemented_steps: 5
+  coverage_rate: "100%"
+  
+  step_details:
+    - step: 1
+      action: "validate"
+      condition: "userId != null"
+      implemented: true
+      code_location: "UserServiceImpl.java:45"
+      onfail_implemented: true  # onFail 分支是否实现
+    - step: 2
+      action: "query"
+      target: "userMapper.selectById"
+      implemented: true
+      code_location: "UserServiceImpl.java:48"
+      
+  missing_steps: []  # 未实现的步骤（必须为空）
+  
+  status: "passed"  # passed / failed
+  check: "coverage_rate == 100%"
+```
+
+**如果覆盖率 < 100%**：
+1. 列出所有缺失的步骤
+2. 补充实现缺失的步骤
+3. 重新生成覆盖率报告
+4. 直到覆盖率达到 100% 才能继续
 
 ### Step 3.5: 复杂业务逻辑实现（🔴 复杂场景必须执行）
 
@@ -1139,6 +1202,111 @@ validation:
   unfixable_errors: []
   
   next_action: "proceed_to_verify"  # proceed_to_verify / manual_fix_required
+```
+
+### 🔴 Step 5.8: 测试执行闭环（v1.0.4_opt_v2 - 必须执行）
+
+> **目的**：确保生成的代码不仅编译通过，而且测试通过，发现运行时错误
+> **铁律**：编译通过后必须执行测试，不允许跳过
+
+#### 5.8.1 测试执行
+
+```bash
+# Java 项目：执行单元测试
+mvn test -pl {当前模块} -Dtest="{生成的测试类}" -DfailIfNoTests=false
+
+# 或执行全部测试
+mvn test -DskipTests=false
+```
+
+#### 5.8.2 测试结果解析
+
+**成功标准**：
+- 零测试失败
+- 零测试错误
+- 测试用例全部通过
+
+**失败处理流程**：
+
+```
+1. 解析测试失败信息
+   - 提取失败测试类名
+   - 提取失败测试方法名
+   - 提取断言错误信息
+   - 提取异常堆栈
+
+2. 分类测试失败类型
+   | 失败类型 | 常见原因 | 修复策略 |
+   |----------|----------|----------|
+   | 断言失败 | 业务逻辑错误 | 修正业务代码 |
+   | 空指针异常 | 缺少 null 检查 | 添加 null 判断 |
+   | 类型转换异常 | 类型不匹配 | 修正类型转换 |
+   | 依赖注入失败 | Mock 配置错误 | 修正 Mock 配置 |
+   | 编译失败 | 测试代码语法错误 | 修正测试代码 |
+
+3. 自动修复尝试
+   - 根据失败类型应用对应修复策略
+   - 最多自动修复 3 轮
+   - 每轮修复后重新执行测试
+
+4. 修复后重新测试
+   - 测试通过 → 继续下一步
+   - 测试仍失败 → 记录失败详情，标记为需人工处理
+```
+
+#### 5.8.3 测试失败自动修复循环
+
+```yaml
+test_fix_loop:
+  max_iterations: 3
+  per_iteration:
+    - step: 1
+      action: "parse_test_failure"
+      description: "解析测试失败输出，提取失败原因"
+    - step: 2
+      action: "classify_failure"
+      description: "分类失败类型（断言失败/异常/配置错误）"
+    - step: 3
+      action: "apply_fix"
+      description: "根据失败类型自动修复代码"
+    - step: 4
+      action: "rerun_test"
+      description: "重新执行失败的测试"
+  exit_conditions:
+    - condition: "all_tests_pass"
+      action: "proceed"
+    - condition: "max_iterations_reached"
+      action: "report_and_escalate"
+```
+
+#### 5.8.4 测试执行报告
+
+```yaml
+# test-execution-report.yaml
+test_execution:
+  timestamp: "2026-06-02 15:00:00"
+  status: "success"  # success / partial / failed
+  
+  test_info:
+    command: "mvn test -Dtest=UserServiceImplTest"
+    duration: "30s"
+    
+  results:
+    tests_run: 12
+    tests_passed: 12
+    tests_failed: 0
+    tests_skipped: 0
+    
+  failures: []  # 失败的测试详情
+    
+  fixes_applied:
+    - failure: "testGetById_NullId_ThrowsException"
+      fix: "添加 null 参数校验"
+      status: "fixed"
+      
+  unfixable_failures: []
+  
+  next_action: "proceed_to_report"  # proceed_to_report / manual_fix_required
 ```
 
 ### Step 6: 生成结果报告

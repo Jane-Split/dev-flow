@@ -34,9 +34,72 @@ is_background: false
 - `common-modules.md` - 公共模块清单
 - `conventions.md` - 编码规范
 
+## 运行模式
+
+### 模式选择
+| 模式 | 触发条件 | 说明 |
+|------|---------|------|
+| **full** | 首次扫描 / 记忆不存在 / 用户强制 | 完整扫描所有文件 |
+| **incremental** | 记忆存在且配置有变更 | 仅扫描新增/修改的文件 |
+| **skip** | 记忆新鲜且配置无变更 | 跳过扫描，直接使用 memory |
+
+**模式决策流程**：
+```
+输入: task-context.yaml 中的 mode 字段
+  │
+  ├── mode == "full" → 执行完整扫描 (Step 1-5)
+  │
+  ├── mode == "incremental" → 执行增量更新 (Step A-E)
+  │
+  └── mode == "skip" → 直接返回，不执行任何操作
+```
+
 ## 工作流
 
-### Step 1: 技术栈识别
+### 增量更新工作流（模式：incremental）
+
+#### Step A: 读取现有 memory
+- 读取 `.dev-flow/memory/project-overview.md` 获取已扫描的文件列表
+- 读取 `.dev-flow/memory/common-modules.md` 获取已识别的公共模块
+
+#### Step B: 对比文件变更
+- 使用 Glob 获取当前项目文件列表
+- 对比 memory 中记录的文件列表
+- 识别**新增**、**修改**、**删除**的文件
+
+```yaml
+incremental_diff:
+  new_files:
+    - "src/main/java/com/xxx/entity/NewEntity.java"
+    - "src/main/java/com/xxx/dto/NewDTO.java"
+  
+  modified_files:
+    - path: "src/main/java/com/xxx/service/UserService.java"
+      reason: "修改时间 > memory 更新时间"
+    
+  deleted_files:
+    - "src/main/java/com/xxx/entity/OldEntity.java"
+```
+
+#### Step C: 扫描变更部分
+- **新增文件** → 读取并提取信息，追加到 memory
+- **修改文件** → 重新读取并更新对应 memory
+- **删除文件** → 从 memory 中移除相关记录
+
+#### Step D: 合并更新
+- 将增量扫描结果合并到现有 memory 文件
+- 保留未变更的内容
+- 更新所有 memory 文件的时间戳
+
+#### Step E: 时间戳更新
+- 更新每个 memory 文件首行的时间戳标记：
+  ```markdown
+  <!-- last-updated: YYYY-MM-DD HH:mm -->
+  ```
+
+### 完整扫描工作流（模式：full）
+
+#### Step 1: 技术栈识别
 
 读取关键文件：
 - `pom.xml` / `build.gradle` / `package.json` - 依赖和版本

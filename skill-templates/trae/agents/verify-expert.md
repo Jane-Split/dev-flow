@@ -89,6 +89,31 @@ code_quality_score:
 | 依赖注入 | 所有依赖都有 @Autowired / @Resource / 构造器注入 |
 | 配置文件 | 新增的配置项已添加到配置文件 |
 | 数据库脚本 | 需要的 DDL/DML 脚本已提供 |
+| **业务逻辑实质** | **实现包含实质性业务操作，非仅日志占位** |
+
+**日志占位专项检查（🔴 新增）**：
+
+检查方法体是否存在"仅日志无业务"模式：
+```java
+// ❌ 错误示例：日志占位
+public void pushToSap(OrderDTO order) {
+    log.info("推送订单到SAP: {}", order);
+}
+
+// ✅ 正确示例：包含实际业务调用
+public void pushToSap(OrderDTO order) {
+    log.info("推送订单到SAP: {}", order);
+    SapResponse response = sapFeignClient.pushOrder(order);
+    if (!response.isSuccess()) {
+        throw new BusinessException("SAP推送失败");
+    }
+}
+```
+
+**检查步骤**：
+1. 对比设计文档中的 `call` action 与实际代码中的外部调用
+2. 检查方法体是否仅包含 `log.info()` / `log.warn()` / `log.debug()` 而无实质性业务操作
+3. 标记所有"日志占位替代业务逻辑"的问题为 Critical 级别
 
 **完整性验证表**：
 ```markdown

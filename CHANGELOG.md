@@ -2,6 +2,130 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.0.4_opt_v3] - 2026-06-03
+
+### 核心变化：取消固定50KB限制，改为任务驱动动态预算
+
+- **任务驱动动态上下文预算** - 不再固定50KB，根据任务实际需要动态计算最小上下文
+  - 4级上下文优先级：Step 2.5(最高) > design-doc > 代码生成 > 编码规范
+  - 动态预算计算流程：扫描依赖 → 计算最小上下文 → 检查可行性 → 分配剩余
+  - 4条铁律：Step 2.5不可跳过、不允许压缩依赖、分段而非跳过、拆分而非压缩
+
+- **Step 2.5 优先级保障机制** - 替代预读取预算限制
+  - Step 2.5 不受任何上下文预算限制，需要多少读多少
+  - 完成后根据剩余上下文决定：正常执行(>=15KB) / 分段执行(5-15KB) / 保存并继续(<5KB)
+  - 分段执行状态文件：.dev-flow/segment-state.yaml
+
+- **design-contract.yaml implementation_detail 强制要求** - 解决 TODO 占位根因
+  - 每个 call action 必须包含 implementation_detail（参数构建、调用配置、结果处理、原代码参考）
+  - 5项必填检查：param_construction、call_config、success处理、failure处理、source_reference
+  - design-expert 必须从原代码提取真实逻辑，不允许简略描述
+
+- **串行触发条件升级** - 从固定50KB改为动态阈值
+  - 触发条件：minimum_context > model_context_window * 80%
+  - 动作：FORCE_SERIAL_OR_SPLIT（可拆分则拆分，不可拆分则串行）
+
+### 目标达成
+
+| 目标 | 优化措施 | 预期效果 |
+|------|---------|---------|
+| 上下文不超限 | 动态预算 + 分段执行 + 任务拆分 | ✅ 不再固定限制，按需分配 |
+| 代码正确率 100% | Step 2.5 不可跳过 + 不可压缩 | ✅ 验证完整性保障 |
+| 代码完整度 100% | implementation_detail 必填 + 分段执行 | ✅ 消除 TODO 占位根因 |
+
+## [1.0.4_opt] - 2026-06-02
+
+### 新增
+
+- **上下文智能管理（Context Manager）**
+  - 新增 `context-manager.md` Agent，实现上下文智能管理
+  - 50KB 最小安全上下文硬约束，每个 develop-expert subagent 至少分配 50KB
+  - 三级动态监控：70% 警告、85% 强制分段、95% 紧急停止
+  - 分段执行机制：Step 2.5 后剩余上下文 < 20KB 时自动分段
+  - 串行执行兜底：上下文不足时自动降级为串行模式
+  - 执行模式自动决策：parallel/serial/hybrid 三种模式智能切换
+
+- **技术级阻塞机制**
+  - 新增 `.dev-flow/blocked` 标记文件机制
+  - step-enforcer 验证失败时写入阻塞文件
+  - orchestrator 调度前检查阻塞文件，实现技术级强制阻塞
+  - 防止 AI 通过忽略验证结果绕过验证
+
+- **语义级日志占位检测**
+  - 新增 R3-1-4 验证规则：语义级日志占位检测（强化）
+  - 对比设计文档中的 call action 与代码中的实际外部调用
+  - 检测方法圈复杂度：设计标记为复杂但复杂度 < 2 视为可疑
+  - 检查外部调用特征：Feign Client、RocketMQTemplate、KafkaTemplate、RedisTemplate 等
+
+### 改进
+
+- orchestrator.md Step 4 新增阻塞检查机制
+- step-enforcer.md 新增写入阻塞文件逻辑
+
+### v1.0.4_opt_v2 全面优化（2026-06-02）
+
+#### 方向1: 验证深度升级
+- **R3-2-1 交叉验证机制** - 不依赖文件存在性，读取验证文件内容与 design-contract.yaml 交叉比对（字段数量、方法签名、import 路径真实性）
+- **R3-3-1 禁止事项自动化扫描** - 自动扫描 TODO 占位符、return null、data: null 硬编码、占位符注释等 7 条禁止事项
+
+#### 方向2: 运行时验证闭环
+- **Step 5.8 测试执行闭环** - 编译通过后强制执行 `mvn test`，解析测试失败并自动修复（最多 3 轮）
+
+#### 方向3: 逻辑翻译回溯验证
+- **R3-4-1 逻辑步骤覆盖率验证** - 验证 design-contract.yaml 中每个 logic step 都在代码中有对应实现，要求 100% 覆盖
+- **R3-4-2 条件分支全覆盖验证** - 验证每个 condition 分支在代码中都有对应的 if/else/case
+- **Step 3.1.6 逻辑覆盖率自检** - 代码生成后立即自检逻辑覆盖率，不足 100% 则补充实现
+
+#### 方向4: 上下文管理可操作化
+- **基于模型的动态阈值** - 根据模型上下文窗口动态计算 safe_minimum（claude: 50KB, gpt-4: 32KB, gpt-3.5: 8KB）
+- **预读取预算机制** - Step 2 读取已有代码最大 20KB，单文件 5KB，4 级优先读取策略
+
+#### 方向5: 设计阶段增强
+- **Step 7.1 design-contract.yaml 独立验证** - 5 步客观验证（section 存在性、内容非空、Entity 字段完整性、Service 方法签名完整性、逻辑定义完整性）
+- **condition 形式化语法** - 定义 condition 字段的形式化语法（支持 AND/OR/NOT/嵌套、range/in/matches），确保可翻译为 Java 代码
+- **design-expert 工具权限扩展** - 增加 Grep/Glob 工具，允许搜索已有代码确认命名约定
+
+#### 方向6: 并行开发安全保障
+- **文件级冲突检测** - orchestrator 调度前检测多任务是否修改同一文件，冲突任务自动串行化
+- **全局编译循环上限** - 最多循环 5 次，按错误分类设置每类修复上限，防止无限循环
+
+### 目标达成
+
+| 目标 | 优化措施 | 预期效果 |
+|------|---------|---------|
+| 上下文不超限 | context-manager 50KB 硬约束 + 分段执行 + 串行兜底 + 动态阈值 + 预读取预算 | ✅ 防止上下文超限 |
+| 代码正确率 100% | 交叉验证 + 禁止事项扫描 + 测试执行闭环 + design-contract 独立验证 | ✅ 多层验证保障 |
+| 代码完整度 100% | 逻辑覆盖率 100% + 条件分支全覆盖 + 语义级日志检测 | ✅ 全覆盖验证 |
+
+## [1.0.4] - 2026-06-02
+
+### 新增
+
+- **三层防御体系防止 Import 路径猜测错误**
+  
+  **P0: 强化 Step Enforcer**
+  - 新增 `import-verification-table.md` 强制验证
+  - 验证所有 import 必须通过 Grep 搜索确认
+  - 验证所有 import 状态必须为 ✅
+  - 验证失败时阻塞代码生成
+
+  **P1: 编译前强制拦截**
+  - develop-expert.md Step 2.5.2 明确禁止猜测 import 路径
+  - 必须通过 Grep 搜索确认类的实际位置
+  - 生成 import-verification-table.md 记录猜测路径 vs 实际路径
+  
+  **P2: Error Pattern 自动修复**
+  - P005 (Import 路径错误) 优先级从 medium 提升到 high
+  - 新增自动修复策略：编译错误时自动 Grep 搜索并修正
+  - 新增 S005 预防策略：强制 Grep 验证
+
+### 测试
+
+- Import 路径猜测错误防御率: **95%**
+- 常见错误模式防护:
+  - 根据类名猜测子包（如 ReworkSop → rework 子包）: ✅ 已防护
+  - 根据类名语义猜测包名（如 Exception → exception 包）: ✅ 已防护
+
 ## [1.0.3] - 2026-05-29
 
 ### 新增

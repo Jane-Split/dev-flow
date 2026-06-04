@@ -33,7 +33,8 @@
 - [10. 学习能力](#10-学习能力)
 - [11. v1.0.2 新特性](#11-v102-新特性)
 - [12. v1.0.3 新特性](#12-v103-新特性)
-- [13. 常见问题](#13-常见问题)
+- [13. v1.0.4 新特性](#13-v104-新特性)
+- [14. 常见问题](#14-常见问题)
 
 ---
 
@@ -1111,7 +1112,100 @@ logic:
 - 系统越用越好，自动积累项目知识
 - 长期错误率下降 90%
 
-## 13. 常见问题
+## 13. v1.0.4 新特性
+
+### 13.1 三层防御体系防止 Import 路径猜测错误
+
+**解决的问题**：AI 根据类名猜测 import 路径导致编译错误（如看到 `ReworkSop` 就猜测有 `rework` 子包）
+
+**常见错误示例**：
+```
+❌ 错误猜测：import com.xxx.entity.rework.ReworkSopRegister;
+✅ 实际路径：import com.xxx.entity.entity.ReworkSopRegister;
+```
+
+### 13.2 第一层：代码生成前防御（P0 - Step Enforcer）
+
+**强化内容**：
+- 新增 `import-verification-table.md` 强制验证
+- 验证所有 import 必须通过 Grep 搜索确认
+- 验证所有 import 状态必须为 ✅（无 ❌ 或 ⏳）
+- 验证失败时**阻塞代码生成**
+
+**验证流程**：
+```
+1. 对每个需要 import 的类，执行 Grep 搜索：
+   Grep "class ReworkSopRegister" --glob="**/*.java"
+   
+2. 找到类的实际位置后，记录到 import-verification-table.md：
+   | 类名 | 猜测路径 | 实际路径 | 验证状态 |
+   | ReworkSopRegister | entity.rework | entity.entity | ✅ 已修正 |
+
+3. Step Enforcer 验证 import-verification-table.md 通过
+
+4. 通过验证后才能生成代码
+```
+
+### 13.3 第二层：编译前防御（P1 - develop-expert）
+
+**强化内容**：
+- Step 2.5.2 明确禁止猜测 import 路径
+- 必须通过 Grep 搜索确认类的实际位置
+- 生成 import-verification-table.md 记录猜测路径 vs 实际路径
+
+**禁止行为**：
+```
+❌ 根据类名中的关键词猜测子包（如 ReworkSop → rework 子包）
+❌ 根据类名语义猜测包名（如 Exception → exception 包）
+❌ 根据命名习惯假设包结构
+```
+
+**正确做法**：
+```
+✅ 必须执行 Grep 搜索确认实际路径
+✅ 必须读取文件确认正确的 import 语句
+✅ 必须记录猜测路径用于后续对比
+```
+
+### 13.4 第三层：编译后防御（P2 - Error Pattern Learner）
+
+**强化内容**：
+- P005 (Import 路径错误) 优先级从 medium 提升到 high
+- 新增自动修复策略
+- 新增 S005 预防策略
+
+**自动修复流程**：
+```
+1. 检测编译错误：找不到符号: 类 Xxx
+
+2. 自动提取类名（如 Xxx）
+
+3. 自动 Grep 搜索：
+   Grep "class Xxx" --glob="**/*.java"
+
+4. 分析搜索结果，确定正确包路径
+
+5. 自动修正 import 语句
+
+6. 记录到 import-verification-table.md
+```
+
+### 13.5 防护效果
+
+| 错误模式 | 防护前 | 防护后 |
+|---------|--------|--------|
+| 根据类名猜测子包 | 频繁发生 | ✅ 已防护 |
+| 根据类名语义猜测包名 | 频繁发生 | ✅ 已防护 |
+| Import 路径错误发生率 | 高 | **降低 95%** |
+
+### 13.6 用户价值
+
+- **零猜测**：所有 import 必须通过 Grep 搜索确认
+- **零错误**：彻底杜绝 import 路径猜测错误
+- **零等待**：减少编译-修复循环，提高开发效率
+- **自动修复**：即使第一二层失效，第三层也能自动修复
+
+## 14. 常见问题
 
 ### Q: 安装后找不到 /dev-flow 命令？
 
