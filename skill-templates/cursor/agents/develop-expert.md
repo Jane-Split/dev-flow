@@ -278,3 +278,276 @@ test_status: passed|failed|not_tested
 - 文件命名遵循项目规范
 - 代码格式与项目保持一致
 - 所有代码可编译（无语法错误）
+
+---
+
+## 多语言实现规范
+
+> 以下规范与 Java 规范并列，根据 `task-context.yaml` 中的 `language` 字段选择对应路径执行。
+> **原则**：不改动现有 Java 路径，以下为追加的非 Java 语言验证规则。
+
+### 🟦 TypeScript/Node.js 实现规范
+
+#### 项目特征检测
+
+| 文件名 | 项目类型 | 框架提示 |
+|--------|----------|----------|
+| `package.json` + `tsconfig.json` | TypeScript 项目 | 读取 `dependencies` 识别框架 |
+| `package.json`（无 tsconfig） | JavaScript 项目 | 同上 |
+| `next.config.*` | Next.js | React 全栈框架 |
+| `nuxt.config.*` | Nuxt.js | Vue 全栈框架 |
+| `nest-cli.json` | NestJS | Node.js 后端框架 |
+
+#### Step 2.5-TS: 强制读取验证
+
+在生成任何 TypeScript/Node.js 代码之前，执行以下验证：
+
+##### 2.5-TS.1: 读取依赖类定义
+
+| 类类型 | 读取方法 | 验证内容 |
+|--------|---------|---------|
+| Interface/Type | `Read {file}.ts` | 属性名、类型、可选性 |
+| Class | `Read {file}.ts` | 方法签名、参数类型、返回类型 |
+| Enum | `Read {file}.ts` | 枚举成员值 |
+| DTO/Model | `Read {file}.ts` | 字段定义、装饰器 |
+| Service | `Read {file}.ts` | 方法签名、依赖注入 |
+| Config | `Read config/*.ts` | 环境变量、配置结构 |
+
+##### 2.5-TS.2: Import 路径验证
+
+TypeScript/Node.js 的 import 路径规则：
+
+| 导入类型 | 示例 | 验证方法 |
+|---------|------|---------|
+| 相对导入 | `import { User } from './user.entity'` | 确认目标文件存在，扩展名可选 |
+| 路径别名（tsconfig paths） | `import { User } from '@app/entities'` | `Read tsconfig.json` → `compilerOptions.paths` |
+| 包导入 | `import { Injectable } from '@nestjs/common'` | 确认 `package.json` 中已有该依赖 |
+| Barrel 导出 | `import { User } from './entities'` | `Read ./entities/index.ts` 确认重新导出 |
+
+**Import 确认表**：
+```markdown
+| 导入语句 | 目标文件/包 | package.json 已有 | 路径别名映射 | 状态 |
+|---------|------------|-------------------|-------------|------|
+| `import { UserService } from './user.service'` | `user.service.ts` | N/A | N/A | ✅ 文件存在 |
+| `import { PrismaService } from 'src/prisma/prisma.service'` | `src/prisma/prisma.service.ts` | N/A | `"src/*": ["./src/*"]` | ✅ 别名映射正确 |
+```
+
+##### 2.5-TS.3: 方法签名验证
+
+```markdown
+| 调用位置 | 调用代码 | 目标类 | 实际方法签名 | 状态 |
+|---------|---------|--------|-------------|------|
+| user.controller.ts:12 | `userService.create(dto)` | UserService | `create(dto: CreateUserDto): Promise<User>` | ✅ 匹配 |
+```
+
+##### 2.5-TS.4: 类型强制匹配
+
+```markdown
+| 赋值位置 | 赋值代码 | 变量名 | 实际类型 | 状态 |
+|---------|---------|--------|---------|------|
+| user.controller.ts:15 | `const id = req.params.id` | req.params.id | `string` | ⚠️ 若需要 number，需 `parseInt()` |
+| user.service.ts:22 | `user.status = 'active'` | user.status | `UserStatus` (enum) | ⚠️ 需使用 `UserStatus.ACTIVE` |
+```
+
+#### TS 特有检查项
+
+| 检查项 | 检查方法 | 通过标准 |
+|--------|---------|---------|
+| **strictNullChecks** | 检查 `tsconfig.json` 编译选项 | 若开启，所有可能为 null/undefined 的值必须有类型守卫 |
+| **async/await** | 检查函数体内的 await 调用 | 所有返回 Promise 的函数调用必须被 await 或 .then() 处理 |
+| **装饰器** | 确认装饰器参数正确 | 如 NestJS `@Controller('users')`、`@Inject()` |
+| **模块依赖** | 检查模块的 imports 数组 | 确保使用的 Service 所属模块已导入 |
+| **循环依赖** | 检查 import 链 | 避免 A → B → A 的循环引用 |
+
+#### TS 编码规范
+
+```
+- 优先使用 interface 而非 type（除非需要联合类型）
+- 使用 readonly 标记不可变属性
+- 使用 as const 替代枚举（简单场景）
+- 避免 any，至少使用 unknown
+- 使用 optional chaining (?.) 和 nullish coalescing (??)
+- NestJS 项目遵循 Module-Controller-Service 三层架构
+- Express 项目使用 express-async-errors 处理异步异常
+```
+
+---
+
+### 🐍 Python 实现规范
+
+#### 项目特征检测
+
+| 文件名 | 项目类型 | 框架提示 |
+|--------|----------|----------|
+| `pyproject.toml` | Python 项目（现代） | 读取 `[tool.poetry.dependencies]` |
+| `requirements.txt` | Python 项目（传统） | 读取依赖列表 |
+| `setup.py` / `setup.cfg` | Python 包 | 包信息 |
+| `main.py` / `app.py` + FastAPI imports | FastAPI | 异步 Web 框架 |
+| `manage.py` | Django | 全栈 Web 框架 |
+| `app.py` + Flask imports | Flask | 微框架 |
+
+#### Step 2.5-PY: 强制读取验证
+
+##### 2.5-PY.1: 读取依赖类定义
+
+| 类类型 | 读取方法 | 验证内容 |
+|--------|---------|---------|
+| Model (Django/ORM) | `Read models.py` | 字段定义、关联关系、Meta 选项 |
+| Schema/Pydantic Model | `Read schemas.py` | 字段类型、验证器、Config |
+| Service | `Read service.py` | 方法签名、参数类型、返回类型 |
+| Repository/DAO | `Read repository.py` | 查询方法、过滤器 |
+| Enum | `Read enums.py` | 枚举值定义 |
+| Config | `Read config.py` 或 `.env` | 配置变量名 |
+
+##### 2.5-PY.2: Import 路径验证
+
+```markdown
+| 导入语句 | 目标模块 | 验证方式 | 状态 |
+|---------|---------|---------|------|
+| `from app.models.user import User` | `app/models/user.py` | 确认文件存在，确认 User 类存在 | ✅ |
+| `from app.schemas.user import UserCreate, UserResponse` | `app/schemas/user.py` | 确认两个类都已导出 | ✅ |
+| `import redis` | redis 包 | `pip list \| grep redis` 或检查 requirements.txt | ✅ |
+```
+
+##### 2.5-PY.3: 方法签名验证
+
+```markdown
+| 调用位置 | 调用代码 | 目标类 | 实际方法签名 | 状态 |
+|---------|---------|--------|-------------|------|
+| api/v1/users.py:25 | `user_service.create_user(db, user_in)` | UserService | `create_user(db: Session, user_in: UserCreate) -> User` | ✅ 匹配 |
+```
+
+##### 2.5-PY.4: 类型注解验证
+
+```markdown
+| 赋值位置 | 代码 | 变量类型注解 | 实际运行时类型 | 状态 |
+|---------|------|-------------|--------------|------|
+| api/v1/users.py:30 | `user_id = user.id` | `int` | `int` (来自 SQLAlchemy Column) | ✅ 匹配 |
+```
+
+#### Python 特有检查项
+
+| 检查项 | 检查方法 | 通过标准 |
+|--------|---------|---------|
+| **类型注解** | 检查函数签名 | 所有公共方法有完整类型注解 |
+| **async/sync 一致** | 检查调用链 | FastAPI async 端点内不使用同步阻塞调用 |
+| **Pydantic 校验** | 检查 Schema 定义 | 使用 Field() 添加校验规则，非仅类型标注 |
+| **依赖注入** | 检查 FastAPI Depends() | 依赖注入链完整且无循环 |
+| **数据库会话** | 检查 Session 管理 | 使用 `yield` 或 context manager 管理会话生命周期 |
+| **虚拟环境** | 检查是否激活 venv/conda | `which python` 确认在虚拟环境中 |
+
+#### Python 编码规范
+
+```
+- 遵循 PEP 8 代码风格
+- 使用 f-string 格式化字符串（Python 3.6+）
+- 使用 pathlib 替代 os.path
+- 使用 dataclass 或 Pydantic 替代 dict 传递数据
+- FastAPI: 使用依赖注入（Depends）而非全局变量
+- Django: 遵循 MVT 架构，业务逻辑放 Service 层
+- 使用 ruff 或 black 统一代码格式
+```
+
+---
+
+### 🐹 Go 实现规范
+
+#### 项目特征检测
+
+| 文件名 | 含义 | 框架提示 |
+|--------|------|----------|
+| `go.mod` | Go 模块定义 | 模块名 + 依赖列表 |
+| `go.sum` | 依赖校验和 | - |
+| `main.go` | 入口文件 | 检查 import 中的框架（gin/echo/fiber） |
+| `cmd/` 目录 | 标准项目布局 | 多入口项目 |
+| `internal/` 目录 | 内部包 | 不可被外部 import |
+| `pkg/` 目录 | 可导出包 | - |
+
+#### Step 2.5-GO: 强制读取验证
+
+##### 2.5-GO.1: 读取依赖定义
+
+| 类型 | 读取方法 | 验证内容 |
+|------|---------|---------|
+| Struct | `Read {file}.go` | 字段名（首字母大小写决定可见性）、字段类型、tag |
+| Interface | `Read {file}.go` | 方法签名列表 |
+| Func | `Read {file}.go` | 参数类型、返回类型、error 返回值 |
+| Const/Enum | `Read {file}.go` | 常量值、iota 序列 |
+| Config | `Read config/*.go` | 配置结构体字段名和 yaml/json tag |
+
+##### 2.5-GO.2: Import 路径验证
+
+Go 的 import 路径规则：
+
+| 导入类型 | 示例 | 验证方法 |
+|---------|------|---------|
+| 标准库 | `import "net/http"` | 无需验证，Go SDK 自带 |
+| 第三方包 | `import "github.com/gin-gonic/gin"` | `grep` go.mod 确认依赖及版本 |
+| 项目内部包 | `import "myproject/internal/user"` | 确认目录和 .go 文件存在 |
+| 别名导入 | `import userSvc "myproject/internal/user/service"` | 确认别名不冲突 |
+
+**Import 确认表**：
+```markdown
+| 导入路径 | 类型 | go.mod 已有 | 版本 | 状态 |
+|---------|------|------------|------|------|
+| `github.com/gin-gonic/gin` | 第三方 | ✅ | v1.9.1 | ✅ |
+| `myapp/internal/user/model` | 内部包 | N/A | N/A | ✅ 目录存在 |
+```
+
+##### 2.5-GO.3: 方法/函数签名验证
+
+Go 的接收者方法特殊格式：
+
+```markdown
+| 调用位置 | 调用代码 | 目标类型 | 实际签名 | 状态 |
+|---------|---------|---------|---------|------|
+| handler/user.go:30 | `svc.Create(ctx, &user)` | UserService | `func (s *UserService) Create(ctx context.Context, u *User) (*User, error)` | ✅ 匹配 |
+```
+
+##### 2.5-GO.4: 类型兼容性验证
+
+```markdown
+| 赋值位置 | 代码 | 目标类型 | 源类型 | 状态 |
+|---------|------|---------|--------|------|
+| handler/user.go:35 | `id := c.Param("id")` | `int64` | `string` | ⚠️ 需要 `strconv.ParseInt()` 转换 |
+| service/user.go:45 | `u.Status = 1` | `UserStatus` (自定义类型) | `int` | ⚠️ 需要 `UserStatus(1)` 显式转换 |
+```
+
+#### Go 特有检查项
+
+| 检查项 | 检查方法 | 通过标准 |
+|--------|---------|---------|
+| **error 处理** | 检查所有返回 error 的调用 | 每个 error 返回值都被检查，无 `_` 忽略 |
+| **defer 使用** | 检查资源打开后的 defer | 文件、连接等资源打开后立即 defer Close() |
+| **goroutine 泄漏** | 检查 go func() 内的 context | 所有 goroutine 有退出机制（context.Done/channel close） |
+| **nil pointer** | 检查指针/接口使用前 | 所有指针/接口/切片/map 使用前有 nil 检查 |
+| **并发安全** | 检查共享状态访问 | 共享可变状态使用 sync.Mutex 或 channel 保护 |
+| **接口满足** | 检查 struct 是否实现 interface | 使用 `var _ Interface = (*Struct)(nil)` 编译期断言 |
+| **命名可见性** | 检查首字母大小写 | 导出符号首字母大写，内部符号首字母小写 |
+
+#### Go 编码规范
+
+```
+- 遵循 Effective Go 和 Go Code Review Comments
+- 错误处理：`if err != nil { return fmt.Errorf("context: %w", err) }`
+- 使用 context.Context 作为函数第一个参数
+- 优先返回具体类型，接受接口类型
+- 使用 gofumpt 或 gofmt 格式化代码
+- 使用 golangci-lint 进行静态检查
+- 项目布局遵循 golang-standards/project-layout
+```
+
+---
+
+## 全局实现检查清单（编译前必过）
+
+无论何种语言，以下检查项**必须在提交代码前全部通过**：
+
+| # | 检查项 | Java | TypeScript | Python | Go |
+|---|--------|------|------------|--------|-----|
+| 1 | Import/依赖路径确认 | ✅ Grep class | ✅ 确认文件/别名 | ✅ 确认模块 | ✅ 确认 go.mod |
+| 2 | 方法签名匹配 | ✅ Read 源文件 | ✅ Read 源文件 | ✅ Read 源文件 | ✅ Read 源文件 |
+| 3 | 类型兼容 | ✅ 显式转换 | ✅ strict 模式 | ✅ 类型注解 | ✅ 类型安全 |
+| 4 | 无 TODO 占位符 | ✅ | ✅ | ✅ | ✅ |
+| 5 | 错误处理完整 | ✅ | ✅ | ✅ | ✅ |
+| 6 | 编码规范一致 | ✅ | ✅ | ✅ | ✅ |

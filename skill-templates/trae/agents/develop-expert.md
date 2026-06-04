@@ -22,8 +22,7 @@ is_background: true
 | 生成 `data: null` 硬编码返回 | 接口无实际功能 | 必须返回真实数据 |
 | 生成 `return null;` 空实现 | 方法无实际功能 | 必须实现完整逻辑 |
 | 猜测方法名/类型/import 路径 | 编译错误 | 必须先读取实际定义 |
-| 跳过 Step 2.5 验证流程 | 编译错误风险高 | 必须执行验证 |
-| **用 `log.info()`/`log.warn()` 替代业务逻辑** | **功能缺失，运行时无实际效果** | **必须实现完整的业务调用（如 SAP 推送、消息发送等）** |
+| 跳过 Step 2.5 验证流程 | 编译错误风险高 | 必须执行验证
 
 ## 核心职责
 
@@ -35,7 +34,6 @@ is_background: true
 
 ## 输入
 
-### 方案A/B：传统模式
 从 Orchestrator 接收：
 - `task-context.yaml` - 任务上下文
 - `design-result.md` - 详细设计文档
@@ -44,71 +42,6 @@ is_background: true
 ⭐ **必须读取**：
 - `.dev-flow/docs/{需求简称}-design-contract.yaml` - Design → Develop 标准数据交换格式
 > **🔴 铁律**：此文件包含所有 Entity 字段类型、getter/setter 实际方法名、Service 方法签名、DTO 校验注解、Mapper 方法定义、枚举值定义等关键信息。禁止忽略或跳过。
-
-### 方案C：子任务级开发模式（推荐用于复杂任务）
-从 Orchestrator 接收：
-- `task-context.yaml` - 任务上下文（包含 task_type: develop-subtask）
-- `subtask-{id}-design.yaml` - 子任务专属设计文档
-- `interface-registry.yaml` - 接口注册表（用于查找依赖契约）
-
-⭐ **子任务级输入结构**：
-```yaml
-# subtask-task-003-design.yaml 示例
-subtaskId: "task-003"
-name: "UserService"
-type: "ServiceTask"
-
-ownDesign:
-  service:
-    name: "UserService"
-    package: "com.xxx.service"
-    methods:
-      - name: "getById"
-        params:
-          - name: "userId"
-            type: "Long"
-        returnType: "UserDTO"
-        logic:
-          - step: 1
-            action: "validate"
-            detail: "检查 userId 不为 null，否则抛 BusinessException"
-          - step: 2
-            action: "query"
-            detail: "调用 userMapper.selectById(userId) 查询用户"
-          - step: 3
-            action: "convert"
-            detail: "使用 UserConvertor 将 User 转换为 UserDTO"
-          - step: 4
-            action: "return"
-            detail: "返回 UserDTO"
-
-dependencies:
-  - subtaskId: "task-002"
-    name: "UserMapper"
-    interfaceContract:
-      methods:
-        - name: "selectById"
-          params: ["Long"]
-          returnType: "User"
-    dataContract:
-      entity: "User"
-      fields:
-        - name: "id"
-          type: "Long"
-        - name: "username"
-          type: "String"
-
-provides:
-  - interface: "UserService.getById"
-    stability: "frozen"
-    signature: "UserDTO getById(Long userId)"
-```
-
-> **🔴 铁律（方案C）**：
-> 1. 只实现 `ownDesign` 中定义的内容，不多不少
-> 2. 依赖的接口通过 `dependencies.interfaceContract` 获取，禁止猜测
-> 3. 生成的代码必须满足 `provides` 中声明的接口契约
-> 4. 如果依赖任务的输出不可用，标记为阻塞并返回
 
 ## 输出
 
@@ -119,30 +52,9 @@ provides:
 
 ### Step 1: 读取设计文档
 
-#### 方案A/B：读取完整设计文档
 - 理解设计意图
 - 明确接口定义
 - 确认数据模型
-
-#### 方案C：读取子任务级设计
-**读取顺序**：
-1. **读取 `subtask-{id}-design.yaml`** - 获取本任务的 ownDesign、dependencies、provides
-2. **读取 `interface-registry.yaml`** - 获取依赖任务的接口契约
-3. **验证依赖可用性**：
-   - 检查 `dependencies` 中声明的接口是否已在 `interface-registry.yaml` 中注册
-   - 如果依赖任务的接口未注册，标记为 `BLOCKED`，返回等待
-
-**子任务设计理解清单**：
-```markdown
-| 项目 | 内容 | 状态 |
-|------|------|------|
-| 子任务ID | task-003 | ✅ |
-| 子任务名称 | UserService | ✅ |
-| 子任务类型 | ServiceTask | ✅ |
-| ownDesign 方法数 | 3个 | ✅ |
-| 依赖任务数 | 2个 | ✅ |
-| 提供接口数 | 3个 | ✅ |
-```
 
 ### Step 2: 读取已有代码（精准按需）
 
@@ -159,16 +71,10 @@ provides:
 
 ---
 
-### 🔴 Step 2.5: 强制读取验证（必须执行 - 不可跳过、不可压缩）
+### 🔴 Step 2.5: 强制读取验证（必须执行）
 
 > **⚠️ 铁律**：在生成任何代码之前，必须先读取所有依赖类的**实际定义**。
 > **禁止行为**：根据命名习惯猜测方法名、类型、import 路径。
-> 
-> **🔴 优先级保障（v1.0.4_opt_v3）**：
-> - Step 2.5 **不受任何上下文预算限制**，需要读取多少就读取多少
-> - 如果 Step 2.5 完成后剩余上下文不足以生成完整代码 → **触发分段执行**
-> - **绝对不允许**为了腾出代码生成空间而跳过或压缩 Step 2.5 的任何步骤
-> - **核心原则：验证不可跳过，代码可以分段**
 
 #### Step 2.5.1: 读取依赖类定义
 
@@ -189,51 +95,19 @@ provides:
 | XxxDTO | ⏳ 待读取 | - | - |
 ```
 
-#### Step 2.5.2: Import 路径验证（🔴 强化 - 禁止猜测）
+#### Step 2.5.2: Import 路径验证
 
-> **⚠️ 铁律**：在生成任何 import 语句前，必须先通过 Grep 搜索确认类的实际位置。
-> **禁止行为**：根据类名猜测包路径（如看到 ReworkSop 就猜测有 rework 子包）。
-
-**验证流程（必须严格执行）**：
-
-```
 对于每个需要 import 的类：
-  1. 提取类名（如 ReworkSopRegister）
-  2. 执行 Grep 搜索：
-     Grep "class ReworkSopRegister" --glob="**/*.java"
-  3. 分析搜索结果：
-     - 找到 0 个 → 标记为"类不存在，需要创建"
-     - 找到 1 个 → 读取该文件，提取完整包路径
-     - 找到多个 → 读取每个文件，根据上下文确认正确的类
-  4. 记录到 import-verification-table.md
-  5. 使用实际路径生成 import 语句
-```
 
-**输出格式 - import-verification-table.md（必须生成）**：
+1. **搜索确认位置**：`Grep "class Xxx" --glob="**/*.java"`
+2. **读取确认**：如果找到多个，读取每个文件确认哪个是正确的
+3. **记录实际路径**：
 
 ```markdown
-### Import 路径验证表
-
-| 类名 | 猜测路径 | 实际路径 | Grep 搜索结果 | 验证状态 |
-|------|---------|---------|--------------|---------|
-| ReworkSopRegister | com.xxx.entity.rework.ReworkSopRegister | com.xxx.entity.entity.ReworkSopRegister | 找到 1 个 | ✅ 已修正 |
-| QmsBusinessException | com.xxx.common.exception.QmsBusinessException | com.xxx.common.i18n.QmsBusinessException | 找到 1 个 | ✅ 已修正 |
-| UserService | com.xxx.service.UserService | com.xxx.service.UserService | 找到 1 个 | ✅ 正确 |
+| 类名 | import 语句 | 验证方法 | 状态 |
+|------|------------|---------|------|
+| QmsBusinessException | import com.xxx.common.i18n.QmsBusinessException; | Grep 搜索确认 | ✅ 正确 |
 ```
-
-**常见错误模式（必须避免）**：
-
-| 错误猜测 | 实际路径 | 错误原因 |
-|---------|---------|---------|
-| `entity.rework.Xxx` | `entity.entity.Xxx` | 根据类名中的 Rework 猜测子包 |
-| `common.exception.Xxx` | `common.i18n.Xxx` | 根据类名猜测包名 |
-| `service.rework.XxxService` | `service.XxxService` | 假设 rework 是子包 |
-
-**验证检查清单**：
-- [ ] 所有需要 import 的类都已通过 Grep 搜索确认
-- [ ] import-verification-table.md 已生成且包含所有类
-- [ ] 所有 import 状态为 ✅（无 ❌ 或 ⏳）
-- [ ] 没有根据命名习惯猜测的路径
 
 #### Step 2.5.3: 方法签名验证
 
@@ -264,117 +138,6 @@ provides:
 
 ---
 
-### Step 2.5.9: 强制验证（🔴 新增 - 强制执行）
-
-> **目的**：验证 Step 2.5 强制读取验证是否真正完成，防止跳过
-
-**调用 step-enforcer 进行验证**：
-
-```yaml
-verification_request:
-  step_id: "develop.step_2_5"
-  session_id: "{current_session_id}"
-  required_outputs:
-    - file: "entity-verification-table.md"
-      must_contain: 
-        - "Entity类名"
-        - "读取状态"
-        - "关键发现"
-      min_entries: 1
-      
-    - file: "method-signature-check.yaml"
-      must_contain:
-        - "方法名"
-        - "参数类型"
-        - "返回类型"
-      must_have_field: "confirmed: true"
-      
-    - file: "import-verification-table.md"  # 🔴 新增
-      must_contain:
-        - "类名"
-        - "猜测路径"
-        - "实际路径"
-        - "验证状态"
-      min_entries: 1
-      all_verified: true  # 所有 import 必须标记为 ✅
-```
-
-**验证执行**：
-1. 检查 `entity-verification-table.md` 是否存在且有内容
-2. 检查 `method-signature-check.yaml` 是否存在且标记 `confirmed: true`
-3. 🔴 **检查 `import-verification-table.md` 是否存在且全部验证通过（无 ❌）**
-4. 如验证失败，读取 `step-enforcer` 返回的阻塞消息
-5. 根据阻塞消息返回 Step 2.5 重新执行
-
-**验证结果处理**：
-
-| 结果 | 状态 | 下一步 |
-|------|------|--------|
-| ✅ 通过 | 所有检查通过 | 继续执行 Step 2.6 |
-| ❌ 失败 | 缺少文件或标记 | 返回 Step 2.5 重新执行 |
-| ❌ 失败3次 | 重试次数耗尽 | 升级到 orchestrator 人工处理 |
-
-**注意**：
-- 此验证**无法跳过**，必须通过后才能继续
-- 如被阻塞，请严格按照阻塞消息指引修复
-- 不要尝试欺骗验证器，必须真正完成读取和确认
-
----
-
-### Step 2.6: 读取结构化业务逻辑（🔴 方案1优化 - 必须执行）
-
-> **触发条件**：当 `subtask-{id}-design.yaml` 或 `design-contract.yaml` 中包含 `logic` 字段时必须执行
-
-#### 2.6.1 识别结构化逻辑
-
-**检查设计文档中是否包含结构化逻辑**：
-
-```yaml
-# 示例：结构化业务逻辑
-logic:
-  - step: 1
-    action: "validate"
-    condition: "userId != null"
-    onFail:
-      action: "throw"
-      exception: "BusinessException"
-      errorCode: "USER_ID_NULL"
-    onSuccess: "goto_step_2"
-  - step: 2
-    action: "query"
-    target: "userMapper.selectById"
-    params: ["userId"]
-    result: "user"
-```
-
-#### 2.6.2 结构化逻辑解析表
-
-**为每个步骤创建解析记录**：
-
-```markdown
-| 步骤 | Action | 条件 | onFail | onSuccess | 代码生成策略 |
-|------|--------|------|--------|-----------|-------------|
-| 1 | validate | userId != null | throw BusinessException | goto_step_2 | if 条件不满足则抛异常 |
-| 2 | query | - | - | - | 调用 mapper 方法 |
-| 3 | convert | - | - | - | 使用 convertor 转换 |
-| 4 | return | - | - | - | return 结果 |
-```
-
-#### 2.6.3 Action 类型映射表
-
-| Action | Java 代码模板 | 说明 |
-|--------|--------------|------|
-| `validate` | `if (!({condition})) { {onFail} }` | 条件验证 |
-| `query` | `{result} = {target}({params});` | 数据查询 |
-| `convert` | `{result} = {converter}.convert({source});` | 对象转换 |
-| `assign` | `{target} = {value};` | 赋值操作 |
-| `throw` | `throw new {exception}({errorCode}, {message});` | 抛出异常 |
-| `return` | `return {value};` | 返回结果 |
-| `call` | `{result} = {service}.{method}({params});` | 调用服务 |
-| `branch` | `if ({condition}) { {trueBranch} } else { {falseBranch} }` | 条件分支 |
-
----
-
 ### Step 3: 代码实现
 
 **实现顺序**（单服务内）：
@@ -391,510 +154,6 @@ logic:
 - 添加必要的注释（类注释、方法注释、复杂逻辑注释）
 - 正确处理异常
 - 添加日志记录
-
-### Step 3.1: 结构化业务逻辑实现（🔴 方案1优化 - 必须执行）
-
-> **触发条件**：当设计文档中包含 `logic` 结构化逻辑定义时必须执行
-> **目的**：将结构化决策表转换为精确代码，消除自然语言歧义
-
-#### 3.1.1 实现流程
-
-```
-1. 读取 logic 定义
-2. 按 step 顺序生成代码
-3. 处理条件分支 (onFail/onSuccess)
-4. 验证代码完整性
-```
-
-#### 3.1.2 代码生成模板
-
-**完整方法实现模板**：
-
-```java
-@Override
-public {ReturnType} {methodName}({Params}) {
-    // ========== Step 1: 参数验证 ==========
-    if (!({condition})) {
-        throw new {exception}({errorCode}, "{message}");
-    }
-    
-    // ========== Step 2: 数据查询 ==========
-    {EntityType} {resultVar} = {mapper}.{method}({params});
-    
-    // ========== Step 3: 业务校验 ==========
-    if ({resultVar} == null) {
-        throw new {exception}({errorCode}, "{message}");
-    }
-    
-    // ========== Step 4: 对象转换 ==========
-    {ReturnType} {dtoVar} = {converter}.convert({resultVar});
-    
-    // ========== Step 5: 返回结果 ==========
-    return {dtoVar};
-}
-```
-
-#### 3.1.3 Action 详细实现规范
-
-**1. validate - 条件验证**
-
-```java
-// 结构化定义：
-// action: validate
-// condition: "userId != null && userId > 0"
-// onFail:
-//   action: throw
-//   exception: BusinessException
-//   errorCode: INVALID_USER_ID
-
-// 生成代码：
-if (!(userId != null && userId > 0)) {
-    throw new BusinessException("INVALID_USER_ID", "用户ID无效");
-}
-```
-
-**2. query - 数据查询**
-
-```java
-// 结构化定义：
-// action: query
-// target: userMapper.selectById
-// params: ["userId"]
-// result: "user"
-
-// 生成代码：
-User user = userMapper.selectById(userId);
-```
-
-**3. convert - 对象转换**
-
-```java
-// 结构化定义：
-// action: convert
-// source: "user"
-// converter: "UserConvertor"
-// result: "userDTO"
-
-// 生成代码：
-UserDTO userDTO = UserConvertor.convert(user);
-```
-
-**4. assign - 赋值操作**
-
-```java
-// 结构化定义：
-// action: assign
-// target: "order.status"
-// value: "OrderStatus.PAID"
-
-// 生成代码：
-order.setStatus(OrderStatus.PAID);
-```
-
-**5. throw - 抛出异常**
-
-```java
-// 结构化定义：
-// action: throw
-// exception: BusinessException
-// errorCode: USER_NOT_FOUND
-// message: "用户不存在"
-
-// 生成代码：
-throw new BusinessException("USER_NOT_FOUND", "用户不存在");
-```
-
-**6. return - 返回结果**
-
-```java
-// 结构化定义：
-// action: return
-// value: "userDTO"
-
-// 生成代码：
-return userDTO;
-```
-
-**7. call - 调用服务**
-
-```java
-// 结构化定义：
-// action: call
-// target: inventoryService.deductStock
-// params: ["productId", "quantity"]
-// result: "deductResult"
-
-// 生成代码：
-boolean deductResult = inventoryService.deductStock(productId, quantity);
-```
-
-**8. branch - 条件分支**
-
-```java
-// 结构化定义：
-// action: branch
-// condition: "user.getStatus() == UserStatus.ACTIVE"
-// trueBranch:
-//   - action: call
-//     target: sendWelcomeEmail
-// falseBranch:
-//   - action: throw
-//     exception: BusinessException
-
-// 生成代码：
-if (user.getStatus() == UserStatus.ACTIVE) {
-    sendWelcomeEmail(user);
-} else {
-    throw new BusinessException("USER_INACTIVE", "用户未激活");
-}
-```
-
-#### 3.1.4 复杂条件处理
-
-**多条件组合**：
-
-```java
-// 结构化定义：
-// condition:
-//   operator: AND
-//   conditions:
-//     - "amount > 0"
-//     - "amount <= maxLimit"
-//     - "accountStatus == ACTIVE"
-
-// 生成代码：
-if (!(amount > 0 && amount <= maxLimit && accountStatus == AccountStatus.ACTIVE)) {
-    throw new BusinessException("INVALID_AMOUNT", "金额无效");
-}
-```
-
-**范围条件**：
-
-```java
-// 结构化定义：
-// condition:
-//   type: range
-//   field: "age"
-//   min: 18
-//   max: 65
-
-// 生成代码：
-if (age < 18 || age > 65) {
-    throw new BusinessException("AGE_OUT_OF_RANGE", "年龄必须在18-65岁之间");
-}
-```
-
-#### 3.1.5 实现验证清单
-
-```markdown
-| 检查项 | 验证内容 | 状态 |
-|--------|---------|------|
-| 步骤完整性 | 所有 logic.steps 都已实现 | ⬜ |
-| 顺序正确性 | 代码顺序与 step 顺序一致 | ⬜ |
-| 条件覆盖 | 所有 condition 都已实现 | ⬜ |
-| onFail 处理 | 所有 onFail 分支都已实现 | ⬜ |
-| onSuccess 处理 | 所有 onSuccess 跳转正确 | ⬜ |
-| 变量一致性 | 变量名与设计文档一致 | ⬜ |
-| 类型匹配 | 参数类型与实际类型匹配 | ⬜ |
-| **业务实质** | **每个步骤的实现包含实质性业务操作（非仅日志）** | ⬜ |
-```
-
-#### 🔴 3.1.6 逻辑覆盖率自检（v1.0.4_opt_v2 - 必须执行）
-
-> **目的**：在代码生成后立即自检逻辑覆盖率，确保 100% 覆盖
-
-**自检流程**：
-
-```
-1. 从 design-contract.yaml 的 logic 部分提取所有步骤编号
-2. 在生成的代码中搜索每个步骤的对应实现
-3. 验证每个 action 类型的实现特征：
-   - validate → 代码中存在 if + 条件判断
-   - query → 代码中存在 mapper/service 调用
-   - convert → 代码中存在 convertor/converter 调用
-   - assign → 代码中存在赋值语句
-   - throw → 代码中存在 throw new 语句
-   - return → 代码中存在 return 语句
-   - call → 代码中存在外部服务调用
-   - branch → 代码中存在 if-else 或 switch 结构
-4. 验证每个 condition 的 onFail 分支都有对应实现
-5. 生成逻辑覆盖率报告
-```
-
-**逻辑覆盖率报告格式**：
-```yaml
-# logic-coverage-report.yaml
-logic_coverage:
-  total_steps: 5
-  implemented_steps: 5
-  coverage_rate: "100%"
-  
-  step_details:
-    - step: 1
-      action: "validate"
-      condition: "userId != null"
-      implemented: true
-      code_location: "UserServiceImpl.java:45"
-      onfail_implemented: true  # onFail 分支是否实现
-    - step: 2
-      action: "query"
-      target: "userMapper.selectById"
-      implemented: true
-      code_location: "UserServiceImpl.java:48"
-      
-  missing_steps: []  # 未实现的步骤（必须为空）
-  
-  status: "passed"  # passed / failed
-  check: "coverage_rate == 100%"
-```
-
-**如果覆盖率 < 100%**：
-1. 列出所有缺失的步骤
-2. 补充实现缺失的步骤
-3. 重新生成覆盖率报告
-4. 直到覆盖率达到 100% 才能继续
-
-### Step 3.5: 复杂业务逻辑实现（🔴 复杂场景必须执行）
-
-> **触发条件**：设计文档中包含以下任一内容时必须执行
-> - 状态机定义（stateMachine）
-> - 工作流定义（workflow）
-> - 复杂算法定义（algorithm）
-> - 并发控制定义（concurrencyControl）
-
-#### 3.5.1 状态机实现
-
-**实现步骤**：
-
-1. **定义状态枚举**：
-```java
-public enum OrderStatus {
-    CREATED("已创建"),
-    PAID("已支付"),
-    SHIPPED("已发货"),
-    COMPLETED("已完成"),
-    CANCELLED("已取消");
-    
-    private final String description;
-    
-    // 判断是否可以转换到目标状态
-    public boolean canTransitionTo(OrderStatus target) {
-        return TransitionRules.getValidTransitions(this).contains(target);
-    }
-}
-```
-
-2. **实现状态转换服务**：
-```java
-@Service
-public class OrderStateService {
-    
-    @Transactional(rollbackFor = Exception.class)
-    public Order transition(Order order, OrderStatus targetStatus, String event) {
-        // 1. 验证状态转换合法性
-        if (!order.getStatus().canTransitionTo(targetStatus)) {
-            throw new IllegalStateException(
-                String.format("无法从 %s 转换到 %s", order.getStatus(), targetStatus)
-            );
-        }
-        
-        // 2. 执行转换前动作
-        executeBeforeAction(order, event);
-        
-        // 3. 更新状态
-        OrderStatus oldStatus = order.getStatus();
-        order.setStatus(targetStatus);
-        order.setUpdateTime(LocalDateTime.now());
-        
-        // 4. 记录状态历史
-        saveStateHistory(order, oldStatus, targetStatus, event);
-        
-        // 5. 执行转换后动作
-        executeAfterAction(order, event);
-        
-        return order;
-    }
-}
-```
-
-#### 3.5.2 工作流实现
-
-**实现步骤**：
-
-1. **定义工作流步骤**：
-```java
-@Data
-public class WorkflowStep {
-    private String stepId;
-    private String stepName;
-    private String assignee;
-    private StepStatus status;
-    private LocalDateTime startTime;
-    private LocalDateTime endTime;
-    private String comment;
-}
-```
-
-2. **实现工作流引擎**：
-```java
-@Service
-public class WorkflowEngine {
-    
-    public void startWorkflow(String workflowType, Long businessId, String initiator) {
-        // 1. 创建工作流实例
-        WorkflowInstance instance = createInstance(workflowType, businessId, initiator);
-        
-        // 2. 执行第一个步骤
-        executeStep(instance, instance.getCurrentStep());
-    }
-    
-    @Transactional(rollbackFor = Exception.class)
-    public void approve(Long instanceId, String approver, boolean approved, String comment) {
-        // 1. 获取工作流实例
-        WorkflowInstance instance = getInstance(instanceId);
-        
-        // 2. 验证审批人权限
-        validateApprover(instance, approver);
-        
-        // 3. 记录审批结果
-        recordApproval(instance, approver, approved, comment);
-        
-        // 4. 决定下一步
-        if (approved) {
-            moveToNextStep(instance);
-        } else {
-            rejectWorkflow(instance);
-        }
-    }
-}
-```
-
-#### 3.5.3 复杂算法实现
-
-**实现步骤**：
-
-1. **按设计文档逐步实现**：
-```java
-@Service
-public class PricingCalculator {
-    
-    public PricingResult calculate(PricingRequest request) {
-        PricingResult result = new PricingResult();
-        
-        // Step 1: 参数校验
-        validateRequest(request);
-        
-        // Step 2: 计算等级折扣
-        BigDecimal levelDiscount = calculateLevelDiscount(request);
-        
-        // Step 3: 计算促销折扣（如果有）
-        BigDecimal promotionDiscount = BigDecimal.ZERO;
-        if (StringUtils.hasText(request.getPromotionCode())) {
-            promotionDiscount = calculatePromotionDiscount(request);
-        }
-        
-        // Step 4: 组合折扣（取最大值）
-        BigDecimal finalDiscount = levelDiscount.max(promotionDiscount);
-        
-        // Step 5: 计算最终价格
-        BigDecimal finalPrice = request.getBasePrice().multiply(
-            BigDecimal.ONE.subtract(finalDiscount)
-        );
-        
-        // Step 6: 边界检查
-        if (finalPrice.compareTo(BigDecimal.ZERO) < 0) {
-            throw new BusinessException("价格计算异常：最终价格为负");
-        }
-        
-        result.setFinalPrice(finalPrice);
-        result.setDiscountRate(finalDiscount);
-        return result;
-    }
-}
-```
-
-2. **每个步骤必须有单元测试**：
-```java
-@Test
-void testCalculateLevelDiscount_VipUser_Returns10Percent() {
-    PricingRequest request = createRequest(UserLevel.VIP, null);
-    BigDecimal discount = calculator.calculateLevelDiscount(request);
-    assertEquals(new BigDecimal("0.10"), discount);
-}
-
-@Test
-void testCalculatePromotionDiscount_ExpiredCode_ReturnsZero() {
-    PricingRequest request = createRequest(UserLevel.NORMAL, "EXPIRED_CODE");
-    BigDecimal discount = calculator.calculatePromotionDiscount(request);
-    assertEquals(BigDecimal.ZERO, discount);
-}
-```
-
-#### 3.5.4 并发控制实现
-
-**乐观锁实现**：
-```java
-@Service
-public class InventoryService {
-    
-    @Transactional(rollbackFor = Exception.class)
-    public boolean deductStock(Long productId, int quantity) {
-        // 1. 读取库存（包含版本号）
-        Inventory inventory = inventoryMapper.selectById(productId);
-        
-        // 2. 检查库存是否充足
-        if (inventory.getQuantity() < quantity) {
-            throw new BusinessException("库存不足");
-        }
-        
-        // 3. 扣减库存（带版本号校验）
-        int affectedRows = inventoryMapper.deductWithVersion(
-            productId, 
-            quantity, 
-            inventory.getVersion()
-        );
-        
-        // 4. 检查是否成功（并发冲突时 affectedRows = 0）
-        if (affectedRows == 0) {
-            throw new BusinessException("并发冲突，请重试");
-        }
-        
-        return true;
-    }
-}
-```
-
-**分布式锁实现**：
-```java
-@Service
-public class InventoryService {
-    
-    @Autowired
-    private RedissonClient redissonClient;
-    
-    public boolean deductStockWithLock(Long productId, int quantity) {
-        String lockKey = "inventory:lock:" + productId;
-        RLock lock = redissonClient.getLock(lockKey);
-        
-        try {
-            // 1. 尝试获取锁
-            boolean locked = lock.tryLock(10, 30, TimeUnit.SECONDS);
-            if (!locked) {
-                throw new BusinessException("系统繁忙，请稍后重试");
-            }
-            
-            // 2. 执行库存扣减
-            return doDeductStock(productId, quantity);
-            
-        } finally {
-            // 3. 释放锁
-            if (lock.isHeldByCurrentThread()) {
-                lock.unlock();
-            }
-        }
-    }
-}
-```
 
 ### Step 4: 依赖处理
 
@@ -948,370 +207,8 @@ public class InventoryService {
 2. 不要声称"开发完成"
 3. 不要进入下一个文件的开发
 
-### Step 5.5: 测试代码生成（🔴 必须执行）
-
-> **铁律**：每个公开方法至少生成3个测试用例（正常、异常、边界）
-
-#### 5.5.1 测试用例生成规则
-
-**按方法类型生成**：
-
-| 方法类型 | 必须生成的测试 | 最少用例数 | 示例 |
-|----------|----------------|------------|------|
-| 简单查询 | 正常返回、空结果、参数校验 | 3 | `testGetById_Success`, `testGetById_NotFound`, `testGetById_NullId` |
-| 创建方法 | 正常创建、参数校验、重复创建、事务回滚 | 4 | `testCreate_Success`, `testCreate_InvalidParam`, `testCreate_Duplicate`, `testCreate_TransactionRollback` |
-| 更新方法 | 正常更新、数据不存在、并发冲突、部分更新 | 4 | `testUpdate_Success`, `testUpdate_NotFound`, `testUpdate_ConcurrentConflict`, `testUpdate_PartialUpdate` |
-| 删除方法 | 正常删除、数据不存在、级联删除、权限校验 | 4 | `testDelete_Success`, `testDelete_NotFound`, `testDelete_Cascade`, `testDelete_NoPermission` |
-| 业务逻辑 | 正常流程、每个分支、边界值、异常处理 | 5+ | 根据分支数确定 |
-| 复杂业务 | 正常流程、所有分支、边界、并发 | 7+ | 完整场景覆盖 |
-
-#### 5.5.2 Java 测试模板
-
-```java
-// ========== 必须使用的测试模板 ==========
-
-/**
- * 正常场景测试
- */
-@Test
-@DisplayName("正常场景：{方法名} - {场景描述}")
-void test{MethodName}_{Scenario}_Success() {
-    // Given: 准备测试数据
-    {InputType} input = prepareTestData();
-    when({mockDependency}.{mockMethod}()).thenReturn({mockResult});
-    
-    // When: 执行被测方法
-    {ReturnType} result = {service}.{method}(input);
-    
-    // Then: 验证结果
-    assertNotNull(result);
-    assertEquals(expectedValue, result.get{Field}());
-    verify({mockDependency}).{verifyMethod}();  // 验证依赖调用
-}
-
-/**
- * 异常场景测试
- */
-@Test
-@DisplayName("异常场景：{方法名} - {异常描述}")
-void test{MethodName}_{ExceptionCase}_ThrowsException() {
-    // Given: 准备异常触发数据
-    {InputType} input = prepareInvalidData();
-    
-    // When & Then: 验证异常
-    BusinessException exception = assertThrows(
-        BusinessException.class,
-        () -> {service}.{method}(input)
-    );
-    assertEquals("ERROR_CODE", exception.getErrorCode());
-}
-
-/**
- * 边界场景测试
- */
-@Test
-@DisplayName("边界场景：{方法名} - {边界描述}")
-void test{MethodName}_{BoundaryCase}_HandlesCorrectly() {
-    // Given: 准备边界数据（null, empty, max, min）
-    {InputType} input = prepareBoundaryData();
-    
-    // When: 执行被测方法
-    {ReturnType} result = {service}.{method}(input);
-    
-    // Then: 验证边界处理
-    assertNotNull(result);
-    // 边界特定断言...
-}
-```
-
-#### 5.5.3 前端测试模板
-
-```typescript
-// ========== 必须使用的测试模板 ==========
-
-describe('{ComponentName}', () => {
-  // 正常渲染测试
-  it('should render correctly with valid props', () => {
-    render(<{ComponentName} {...defaultProps} />);
-    expect(screen.getByText(/expected text/i)).toBeInTheDocument();
-  });
-
-  // 空数据测试
-  it('should handle empty data gracefully', () => {
-    render(<{ComponentName} {...emptyProps} />);
-    expect(screen.getByText(/no data/i)).toBeInTheDocument();
-  });
-
-  // 加载状态测试
-  it('should show loading state', () => {
-    render(<{ComponentName} {...loadingProps} />);
-    expect(screen.getByRole('progressbar')).toBeInTheDocument();
-  });
-
-  // 错误状态测试
-  it('should display error message on failure', () => {
-    render(<{ComponentName} {...errorProps} />);
-    expect(screen.getByText(/error/i)).toBeInTheDocument();
-  });
-
-  // 交互测试
-  it('should call onClick when button clicked', async () => {
-    const onClick = jest.fn();
-    render(<{ComponentName} {...{ ...defaultProps, onClick }} />);
-    await userEvent.click(screen.getByRole('button'));
-    expect(onClick).toHaveBeenCalledTimes(1);
-  });
-});
-```
-
-#### 5.5.4 Mock 策略
-
-**必须 Mock 的依赖**：
-- 数据库访问层（Mapper/Repository）
-- 外部服务调用（Feign Client）
-- 文件系统操作
-- 时间相关操作
-
-**禁止 Mock 的内容**：
-- 被测类本身
-- 纯数据对象（DTO/Entity）
-- 工具类（除非涉及外部资源）
-
-#### 5.5.5 测试数据准备
-
-**使用 Builder 模式或 Factory 方法**：
-
-```java
-// 推荐：使用 Builder 模式
-UserRequest request = UserRequest.builder()
-    .username("testuser")
-    .email("test@example.com")
-    .status(UserStatus.NORMAL)
-    .build();
-
-// 或使用 Factory 方法
-private UserRequest createValidUserRequest() {
-    return new UserRequest("testuser", "test@example.com", UserStatus.NORMAL);
-}
-
-private UserRequest createInvalidUserRequest() {
-    return new UserRequest(null, "invalid-email", null);  // 触发校验失败
-}
-
-private UserRequest createBoundaryUserRequest() {
-    return new UserRequest("a", "a@b.c", null);  // 边界值：最短用户名
-}
-```
-
-#### 5.5.6 测试覆盖率目标
-
-| 指标 | 目标值 | 检查方式 |
-|------|--------|----------|
-| 行覆盖率 | ≥ 90% | JaCoCo / Istanbul |
-| 分支覆盖率 | ≥ 85% | JaCoCo / Istanbul |
-| 方法覆盖率 | ≥ 95% | 检查公开方法都有测试 |
-
-### Step 5.7: 编译验证闭环（🔴 必须执行 - 方案2优化）
-
-> **目的**：确保生成的代码可以实际编译通过，消除编译级错误
-
-#### 5.7.1 Java 项目编译验证
-
-```bash
-# 编译当前模块及其依赖
-mvn clean compile -DskipTests -pl {当前模块} -am
-
-# 或编译整个项目
-mvn clean compile -DskipTests
-```
-
-#### 5.7.2 前端项目编译验证
-
-```bash
-# TypeScript 类型检查
-npx tsc --noEmit
-
-# 或构建项目
-npm run build --if-present
-```
-
-#### 5.7.3 编译结果解析
-
-**成功标准**：
-- 零编译错误
-- 警告数量在可接受范围内（或已记录可忽略警告）
-
-**失败处理流程**：
-
-```
-1. 解析编译错误信息
-   - 提取错误文件路径
-   - 提取错误行号
-   - 提取错误描述
-
-2. 分类错误类型
-   | 错误类型 | 常见原因 | 修复策略 |
-   |----------|----------|----------|
-   | 找不到符号 | import路径错误、类名拼写错误 | 修正import或类名 |
-   | 类型不匹配 | 赋值类型不兼容 | 添加类型转换或修正类型 |
-   | 方法未找到 | 方法名错误、参数类型不匹配 | 修正方法调用 |
-   | 缺少依赖 | Maven/Gradle依赖缺失 | 添加依赖声明 |
-
-3. 自动修复尝试
-   - 根据错误类型应用对应修复策略
-   - 最多自动修复3轮
-
-4. 修复后重新编译
-   - 编译成功 → 继续下一步
-   - 编译失败 → 记录错误，标记为需人工处理
-```
-
-#### 5.7.4 编译验证报告
-
-```yaml
-# compile-validation-report.yaml
-validation:
-  timestamp: "2026-05-29 14:30:00"
-  status: "success"  # success / partial / failed
-  
-  compile_info:
-    command: "mvn clean compile -DskipTests"
-    duration: "45s"
-    
-  results:
-    errors: 0
-    warnings: 3
-    
-  warnings:
-    - file: "UserServiceImpl.java"
-      line: 45
-      message: "Unchecked cast"
-      severity: "low"
-      ignored: true
-      reason: "已知问题，不影响功能"
-      
-  fixes_applied:
-    - error: "找不到符号 QmsBusinessException"
-      fix: "修正import路径为 com.xxx.common.exception.QmsBusinessException"
-      status: "fixed"
-      
-    - error: "类型不匹配: int 赋值给 byte"
-      fix: "添加显式转换: status = (byte) 1"
-      status: "fixed"
-      
-  unfixable_errors: []
-  
-  next_action: "proceed_to_verify"  # proceed_to_verify / manual_fix_required
-```
-
-### 🔴 Step 5.8: 测试执行闭环（v1.0.4_opt_v2 - 必须执行）
-
-> **目的**：确保生成的代码不仅编译通过，而且测试通过，发现运行时错误
-> **铁律**：编译通过后必须执行测试，不允许跳过
-
-#### 5.8.1 测试执行
-
-```bash
-# Java 项目：执行单元测试
-mvn test -pl {当前模块} -Dtest="{生成的测试类}" -DfailIfNoTests=false
-
-# 或执行全部测试
-mvn test -DskipTests=false
-```
-
-#### 5.8.2 测试结果解析
-
-**成功标准**：
-- 零测试失败
-- 零测试错误
-- 测试用例全部通过
-
-**失败处理流程**：
-
-```
-1. 解析测试失败信息
-   - 提取失败测试类名
-   - 提取失败测试方法名
-   - 提取断言错误信息
-   - 提取异常堆栈
-
-2. 分类测试失败类型
-   | 失败类型 | 常见原因 | 修复策略 |
-   |----------|----------|----------|
-   | 断言失败 | 业务逻辑错误 | 修正业务代码 |
-   | 空指针异常 | 缺少 null 检查 | 添加 null 判断 |
-   | 类型转换异常 | 类型不匹配 | 修正类型转换 |
-   | 依赖注入失败 | Mock 配置错误 | 修正 Mock 配置 |
-   | 编译失败 | 测试代码语法错误 | 修正测试代码 |
-
-3. 自动修复尝试
-   - 根据失败类型应用对应修复策略
-   - 最多自动修复 3 轮
-   - 每轮修复后重新执行测试
-
-4. 修复后重新测试
-   - 测试通过 → 继续下一步
-   - 测试仍失败 → 记录失败详情，标记为需人工处理
-```
-
-#### 5.8.3 测试失败自动修复循环
-
-```yaml
-test_fix_loop:
-  max_iterations: 3
-  per_iteration:
-    - step: 1
-      action: "parse_test_failure"
-      description: "解析测试失败输出，提取失败原因"
-    - step: 2
-      action: "classify_failure"
-      description: "分类失败类型（断言失败/异常/配置错误）"
-    - step: 3
-      action: "apply_fix"
-      description: "根据失败类型自动修复代码"
-    - step: 4
-      action: "rerun_test"
-      description: "重新执行失败的测试"
-  exit_conditions:
-    - condition: "all_tests_pass"
-      action: "proceed"
-    - condition: "max_iterations_reached"
-      action: "report_and_escalate"
-```
-
-#### 5.8.4 测试执行报告
-
-```yaml
-# test-execution-report.yaml
-test_execution:
-  timestamp: "2026-06-02 15:00:00"
-  status: "success"  # success / partial / failed
-  
-  test_info:
-    command: "mvn test -Dtest=UserServiceImplTest"
-    duration: "30s"
-    
-  results:
-    tests_run: 12
-    tests_passed: 12
-    tests_failed: 0
-    tests_skipped: 0
-    
-  failures: []  # 失败的测试详情
-    
-  fixes_applied:
-    - failure: "testGetById_NullId_ThrowsException"
-      fix: "添加 null 参数校验"
-      status: "fixed"
-      
-  unfixable_failures: []
-  
-  next_action: "proceed_to_report"  # proceed_to_report / manual_fix_required
-```
-
 ### Step 6: 生成结果报告
 
-#### 方案A/B：传统结果报告
 ```yaml
 # develop-result.yaml
 task_id: <任务ID>
@@ -1331,63 +228,6 @@ issues:
 compilation_status: success|failed|not_tested
 test_status: passed|failed|not_tested
 ```
-
-#### 方案C：子任务级结果报告
-```yaml
-# develop-result.yaml
-subtask_id: "task-003"
-task_type: "develop-subtask"
-status: success|blocked|failed
-
-# 生成的代码文件
-files_generated:
-  - path: "src/main/java/com/xxx/service/UserService.java"
-    type: "service_interface"
-    description: "用户服务接口"
-  - path: "src/main/java/com/xxx/service/impl/UserServiceImpl.java"
-    type: "service_impl"
-    description: "用户服务实现"
-
-# 实现的接口契约（与 provides 对应）
-interfaces_implemented:
-  - interface: "UserService.getById"
-    signature: "UserDTO getById(Long userId)"
-    status: "implemented"
-  - interface: "UserService.createUser"
-    signature: "UserDTO createUser(UserCreateDTO dto)"
-    status: "implemented"
-
-# 依赖使用情况
-dependencies_used:
-  - subtask_id: "task-002"
-    interface: "UserMapper.selectById"
-    status: "available"  # available | not_found
-
-# 阻塞原因（如果 status 为 blocked）
-blocked_reason: |
-  依赖 task-002 的接口 UserMapper.selectById 未在 interface-registry 中找到
-
-issues:
-  - severity: warning
-    file: "UserServiceImpl.java"
-    message: "缺少用户不存在时的异常处理"
-    suggestion: "添加 BusinessException 抛出"
-
-compilation_status: success
-test_status: not_tested
-```
-
-**方案C特有输出**：
-- `interface-registry-update.yaml` - 更新接口注册表，注册本任务提供的接口
-  ```yaml
-  # 追加到 interface-registry.yaml
-  - subtask_id: "task-003"
-    interfaces:
-      - name: "UserService.getById"
-        signature: "UserDTO getById(Long userId)"
-        stability: "frozen"
-        file: "com.xxx.service.UserService"
-  ```
 
 ## 并行开发注意事项
 
@@ -1438,3 +278,276 @@ test_status: not_tested
 - 文件命名遵循项目规范
 - 代码格式与项目保持一致
 - 所有代码可编译（无语法错误）
+
+---
+
+## 多语言实现规范
+
+> 以下规范与 Java 规范并列，根据 `task-context.yaml` 中的 `language` 字段选择对应路径执行。
+> **原则**：不改动现有 Java 路径，以下为追加的非 Java 语言验证规则。
+
+### 🟦 TypeScript/Node.js 实现规范
+
+#### 项目特征检测
+
+| 文件名 | 项目类型 | 框架提示 |
+|--------|----------|----------|
+| `package.json` + `tsconfig.json` | TypeScript 项目 | 读取 `dependencies` 识别框架 |
+| `package.json`（无 tsconfig） | JavaScript 项目 | 同上 |
+| `next.config.*` | Next.js | React 全栈框架 |
+| `nuxt.config.*` | Nuxt.js | Vue 全栈框架 |
+| `nest-cli.json` | NestJS | Node.js 后端框架 |
+
+#### Step 2.5-TS: 强制读取验证
+
+在生成任何 TypeScript/Node.js 代码之前，执行以下验证：
+
+##### 2.5-TS.1: 读取依赖类定义
+
+| 类类型 | 读取方法 | 验证内容 |
+|--------|---------|---------|
+| Interface/Type | `Read {file}.ts` | 属性名、类型、可选性 |
+| Class | `Read {file}.ts` | 方法签名、参数类型、返回类型 |
+| Enum | `Read {file}.ts` | 枚举成员值 |
+| DTO/Model | `Read {file}.ts` | 字段定义、装饰器 |
+| Service | `Read {file}.ts` | 方法签名、依赖注入 |
+| Config | `Read config/*.ts` | 环境变量、配置结构 |
+
+##### 2.5-TS.2: Import 路径验证
+
+TypeScript/Node.js 的 import 路径规则：
+
+| 导入类型 | 示例 | 验证方法 |
+|---------|------|---------|
+| 相对导入 | `import { User } from './user.entity'` | 确认目标文件存在，扩展名可选 |
+| 路径别名（tsconfig paths） | `import { User } from '@app/entities'` | `Read tsconfig.json` → `compilerOptions.paths` |
+| 包导入 | `import { Injectable } from '@nestjs/common'` | 确认 `package.json` 中已有该依赖 |
+| Barrel 导出 | `import { User } from './entities'` | `Read ./entities/index.ts` 确认重新导出 |
+
+**Import 确认表**：
+```markdown
+| 导入语句 | 目标文件/包 | package.json 已有 | 路径别名映射 | 状态 |
+|---------|------------|-------------------|-------------|------|
+| `import { UserService } from './user.service'` | `user.service.ts` | N/A | N/A | ✅ 文件存在 |
+| `import { PrismaService } from 'src/prisma/prisma.service'` | `src/prisma/prisma.service.ts` | N/A | `"src/*": ["./src/*"]` | ✅ 别名映射正确 |
+```
+
+##### 2.5-TS.3: 方法签名验证
+
+```markdown
+| 调用位置 | 调用代码 | 目标类 | 实际方法签名 | 状态 |
+|---------|---------|--------|-------------|------|
+| user.controller.ts:12 | `userService.create(dto)` | UserService | `create(dto: CreateUserDto): Promise<User>` | ✅ 匹配 |
+```
+
+##### 2.5-TS.4: 类型强制匹配
+
+```markdown
+| 赋值位置 | 赋值代码 | 变量名 | 实际类型 | 状态 |
+|---------|---------|--------|---------|------|
+| user.controller.ts:15 | `const id = req.params.id` | req.params.id | `string` | ⚠️ 若需要 number，需 `parseInt()` |
+| user.service.ts:22 | `user.status = 'active'` | user.status | `UserStatus` (enum) | ⚠️ 需使用 `UserStatus.ACTIVE` |
+```
+
+#### TS 特有检查项
+
+| 检查项 | 检查方法 | 通过标准 |
+|--------|---------|---------|
+| **strictNullChecks** | 检查 `tsconfig.json` 编译选项 | 若开启，所有可能为 null/undefined 的值必须有类型守卫 |
+| **async/await** | 检查函数体内的 await 调用 | 所有返回 Promise 的函数调用必须被 await 或 .then() 处理 |
+| **装饰器** | 确认装饰器参数正确 | 如 NestJS `@Controller('users')`、`@Inject()` |
+| **模块依赖** | 检查模块的 imports 数组 | 确保使用的 Service 所属模块已导入 |
+| **循环依赖** | 检查 import 链 | 避免 A → B → A 的循环引用 |
+
+#### TS 编码规范
+
+```
+- 优先使用 interface 而非 type（除非需要联合类型）
+- 使用 readonly 标记不可变属性
+- 使用 as const 替代枚举（简单场景）
+- 避免 any，至少使用 unknown
+- 使用 optional chaining (?.) 和 nullish coalescing (??)
+- NestJS 项目遵循 Module-Controller-Service 三层架构
+- Express 项目使用 express-async-errors 处理异步异常
+```
+
+---
+
+### 🐍 Python 实现规范
+
+#### 项目特征检测
+
+| 文件名 | 项目类型 | 框架提示 |
+|--------|----------|----------|
+| `pyproject.toml` | Python 项目（现代） | 读取 `[tool.poetry.dependencies]` |
+| `requirements.txt` | Python 项目（传统） | 读取依赖列表 |
+| `setup.py` / `setup.cfg` | Python 包 | 包信息 |
+| `main.py` / `app.py` + FastAPI imports | FastAPI | 异步 Web 框架 |
+| `manage.py` | Django | 全栈 Web 框架 |
+| `app.py` + Flask imports | Flask | 微框架 |
+
+#### Step 2.5-PY: 强制读取验证
+
+##### 2.5-PY.1: 读取依赖类定义
+
+| 类类型 | 读取方法 | 验证内容 |
+|--------|---------|---------|
+| Model (Django/ORM) | `Read models.py` | 字段定义、关联关系、Meta 选项 |
+| Schema/Pydantic Model | `Read schemas.py` | 字段类型、验证器、Config |
+| Service | `Read service.py` | 方法签名、参数类型、返回类型 |
+| Repository/DAO | `Read repository.py` | 查询方法、过滤器 |
+| Enum | `Read enums.py` | 枚举值定义 |
+| Config | `Read config.py` 或 `.env` | 配置变量名 |
+
+##### 2.5-PY.2: Import 路径验证
+
+```markdown
+| 导入语句 | 目标模块 | 验证方式 | 状态 |
+|---------|---------|---------|------|
+| `from app.models.user import User` | `app/models/user.py` | 确认文件存在，确认 User 类存在 | ✅ |
+| `from app.schemas.user import UserCreate, UserResponse` | `app/schemas/user.py` | 确认两个类都已导出 | ✅ |
+| `import redis` | redis 包 | `pip list \| grep redis` 或检查 requirements.txt | ✅ |
+```
+
+##### 2.5-PY.3: 方法签名验证
+
+```markdown
+| 调用位置 | 调用代码 | 目标类 | 实际方法签名 | 状态 |
+|---------|---------|--------|-------------|------|
+| api/v1/users.py:25 | `user_service.create_user(db, user_in)` | UserService | `create_user(db: Session, user_in: UserCreate) -> User` | ✅ 匹配 |
+```
+
+##### 2.5-PY.4: 类型注解验证
+
+```markdown
+| 赋值位置 | 代码 | 变量类型注解 | 实际运行时类型 | 状态 |
+|---------|------|-------------|--------------|------|
+| api/v1/users.py:30 | `user_id = user.id` | `int` | `int` (来自 SQLAlchemy Column) | ✅ 匹配 |
+```
+
+#### Python 特有检查项
+
+| 检查项 | 检查方法 | 通过标准 |
+|--------|---------|---------|
+| **类型注解** | 检查函数签名 | 所有公共方法有完整类型注解 |
+| **async/sync 一致** | 检查调用链 | FastAPI async 端点内不使用同步阻塞调用 |
+| **Pydantic 校验** | 检查 Schema 定义 | 使用 Field() 添加校验规则，非仅类型标注 |
+| **依赖注入** | 检查 FastAPI Depends() | 依赖注入链完整且无循环 |
+| **数据库会话** | 检查 Session 管理 | 使用 `yield` 或 context manager 管理会话生命周期 |
+| **虚拟环境** | 检查是否激活 venv/conda | `which python` 确认在虚拟环境中 |
+
+#### Python 编码规范
+
+```
+- 遵循 PEP 8 代码风格
+- 使用 f-string 格式化字符串（Python 3.6+）
+- 使用 pathlib 替代 os.path
+- 使用 dataclass 或 Pydantic 替代 dict 传递数据
+- FastAPI: 使用依赖注入（Depends）而非全局变量
+- Django: 遵循 MVT 架构，业务逻辑放 Service 层
+- 使用 ruff 或 black 统一代码格式
+```
+
+---
+
+### 🐹 Go 实现规范
+
+#### 项目特征检测
+
+| 文件名 | 含义 | 框架提示 |
+|--------|------|----------|
+| `go.mod` | Go 模块定义 | 模块名 + 依赖列表 |
+| `go.sum` | 依赖校验和 | - |
+| `main.go` | 入口文件 | 检查 import 中的框架（gin/echo/fiber） |
+| `cmd/` 目录 | 标准项目布局 | 多入口项目 |
+| `internal/` 目录 | 内部包 | 不可被外部 import |
+| `pkg/` 目录 | 可导出包 | - |
+
+#### Step 2.5-GO: 强制读取验证
+
+##### 2.5-GO.1: 读取依赖定义
+
+| 类型 | 读取方法 | 验证内容 |
+|------|---------|---------|
+| Struct | `Read {file}.go` | 字段名（首字母大小写决定可见性）、字段类型、tag |
+| Interface | `Read {file}.go` | 方法签名列表 |
+| Func | `Read {file}.go` | 参数类型、返回类型、error 返回值 |
+| Const/Enum | `Read {file}.go` | 常量值、iota 序列 |
+| Config | `Read config/*.go` | 配置结构体字段名和 yaml/json tag |
+
+##### 2.5-GO.2: Import 路径验证
+
+Go 的 import 路径规则：
+
+| 导入类型 | 示例 | 验证方法 |
+|---------|------|---------|
+| 标准库 | `import "net/http"` | 无需验证，Go SDK 自带 |
+| 第三方包 | `import "github.com/gin-gonic/gin"` | `grep` go.mod 确认依赖及版本 |
+| 项目内部包 | `import "myproject/internal/user"` | 确认目录和 .go 文件存在 |
+| 别名导入 | `import userSvc "myproject/internal/user/service"` | 确认别名不冲突 |
+
+**Import 确认表**：
+```markdown
+| 导入路径 | 类型 | go.mod 已有 | 版本 | 状态 |
+|---------|------|------------|------|------|
+| `github.com/gin-gonic/gin` | 第三方 | ✅ | v1.9.1 | ✅ |
+| `myapp/internal/user/model` | 内部包 | N/A | N/A | ✅ 目录存在 |
+```
+
+##### 2.5-GO.3: 方法/函数签名验证
+
+Go 的接收者方法特殊格式：
+
+```markdown
+| 调用位置 | 调用代码 | 目标类型 | 实际签名 | 状态 |
+|---------|---------|---------|---------|------|
+| handler/user.go:30 | `svc.Create(ctx, &user)` | UserService | `func (s *UserService) Create(ctx context.Context, u *User) (*User, error)` | ✅ 匹配 |
+```
+
+##### 2.5-GO.4: 类型兼容性验证
+
+```markdown
+| 赋值位置 | 代码 | 目标类型 | 源类型 | 状态 |
+|---------|------|---------|--------|------|
+| handler/user.go:35 | `id := c.Param("id")` | `int64` | `string` | ⚠️ 需要 `strconv.ParseInt()` 转换 |
+| service/user.go:45 | `u.Status = 1` | `UserStatus` (自定义类型) | `int` | ⚠️ 需要 `UserStatus(1)` 显式转换 |
+```
+
+#### Go 特有检查项
+
+| 检查项 | 检查方法 | 通过标准 |
+|--------|---------|---------|
+| **error 处理** | 检查所有返回 error 的调用 | 每个 error 返回值都被检查，无 `_` 忽略 |
+| **defer 使用** | 检查资源打开后的 defer | 文件、连接等资源打开后立即 defer Close() |
+| **goroutine 泄漏** | 检查 go func() 内的 context | 所有 goroutine 有退出机制（context.Done/channel close） |
+| **nil pointer** | 检查指针/接口使用前 | 所有指针/接口/切片/map 使用前有 nil 检查 |
+| **并发安全** | 检查共享状态访问 | 共享可变状态使用 sync.Mutex 或 channel 保护 |
+| **接口满足** | 检查 struct 是否实现 interface | 使用 `var _ Interface = (*Struct)(nil)` 编译期断言 |
+| **命名可见性** | 检查首字母大小写 | 导出符号首字母大写，内部符号首字母小写 |
+
+#### Go 编码规范
+
+```
+- 遵循 Effective Go 和 Go Code Review Comments
+- 错误处理：`if err != nil { return fmt.Errorf("context: %w", err) }`
+- 使用 context.Context 作为函数第一个参数
+- 优先返回具体类型，接受接口类型
+- 使用 gofumpt 或 gofmt 格式化代码
+- 使用 golangci-lint 进行静态检查
+- 项目布局遵循 golang-standards/project-layout
+```
+
+---
+
+## 全局实现检查清单（编译前必过）
+
+无论何种语言，以下检查项**必须在提交代码前全部通过**：
+
+| # | 检查项 | Java | TypeScript | Python | Go |
+|---|--------|------|------------|--------|-----|
+| 1 | Import/依赖路径确认 | ✅ Grep class | ✅ 确认文件/别名 | ✅ 确认模块 | ✅ 确认 go.mod |
+| 2 | 方法签名匹配 | ✅ Read 源文件 | ✅ Read 源文件 | ✅ Read 源文件 | ✅ Read 源文件 |
+| 3 | 类型兼容 | ✅ 显式转换 | ✅ strict 模式 | ✅ 类型注解 | ✅ 类型安全 |
+| 4 | 无 TODO 占位符 | ✅ | ✅ | ✅ | ✅ |
+| 5 | 错误处理完整 | ✅ | ✅ | ✅ | ✅ |
+| 6 | 编码规范一致 | ✅ | ✅ | ✅ | ✅ |

@@ -255,7 +255,9 @@ Step 0: 检测需求规模
 - ❌ 生成 `// TODO: 实现业务逻辑` 等占位符
 - ❌ 生成 `{/* 描述 */}` 等空 JSX（前端项目）
 - ❌ 生成 `expect(true).toBe(true)` 等无效测试
-- ❌ 返回硬编码的 `{ code: 0, data: null }` 或 `ApiResponse.success(null)`
+- ❌ 返回硬编码的 `{ code: 0, data: null }` 或 `ApiResponse.success(null)`<!-- TRAE-ONLY-START -->
+- ❌ **用 `log.info()`/`log.warn()`/`log.debug()` 替代实际业务调用**（如 SAP 推送、消息发送、邮件通知等）
+- ❌ **方法体仅包含日志记录而无实质性业务操作**<!-- TRAE-ONLY-END -->
 - ❌ 跳过任何阶段（除非用户明确要求）
 - ❌ 在未读取项目记忆的情况下生成代码
 
@@ -940,9 +942,15 @@ Step 0: 检测需求规模
 - 全流程模式（Analyze 确认后）
 - 用户输入 `/dev-flow -design <需求>`
 
+<!-- TRAE-ONLY-START -->
+---
+
+### ⚠️ 重要：Design 输出规范（必须遵守）
+
+<!-- TRAE-ONLY-END -->
 > **Design 阶段的所有输出必须遵循以下规范，否则 Develop 阶段无法正确解析。**
 
-#### Design 输出 JSON Schema
+#### <!-- TRAE-ONLY-START -->3.1 <!-- TRAE-ONLY-END -->Design 输出 JSON Schema
 
 Design 阶段输出的所有设计必须包含以下结构化字段，用于 Develop 阶段自动解析：
 
@@ -981,7 +989,7 @@ entity:
 - 常见命名模式：`get{ClassName}{Field}()` 而非 `get{Field}()`
 - 示例：`getUserStatus()` 而非 `getStatus()`
 
-#### Design → Develop 数据交换格式
+#### <!-- TRAE-ONLY-START -->3.2 <!-- TRAE-ONLY-END -->Design → Develop 数据交换格式
 
 Design 阶段完成后，生成标准交换文件 `.dev-flow/docs/{需求简称}-design-contract.yaml`：
 
@@ -1091,12 +1099,12 @@ mappers:
       - name: "selectByCondition"
         params: ["UserQueryDTO"]
         returnType: "List<User>"
-        sqlType: "XML"
+        sqlType: "XML"<!-- TRAE-ONLY-START -->           # XML / Annotation<!-- TRAE-ONLY-END -->
         description: "条件查询"
       - name: "checkExistsByName"
         params: ["String"]
         returnType: "boolean"
-        sqlType: "Annotation"
+        sqlType: "Annotation"<!-- TRAE-ONLY-START -->    # @Select<!-- TRAE-ONLY-END -->
         description: "检查名称是否存在"
 
 # 异常类定义
@@ -1111,10 +1119,46 @@ exceptions:
       - code: "USER_ALREADY_EXISTS"
         message: "用户已存在"
         httpStatus: 409
+<!-- TRAE-ONLY-START -->
 
+# 跨子任务接口契约定义（方案C新增）
+interfaces:
+  serviceContracts:
+    - name: "UserService"
+      package: "com.xxx.service"
+      methods:
+        - name: "getById"
+          params: ["Long"]
+          returnType: "User"
+          stability: "frozen"  # frozen = 设计确认后不可随意修改
+          description: "根据ID查询用户"
+          
+  eventContracts:
+    - name: "OrderCreatedEvent"
+      topic: "order-events"
+      payload:
+        - name: "orderId"
+          type: "Long"
+        - name: "userId"
+          type: "Long"
+        - name: "totalAmount"
+          type: "BigDecimal"
+      stability: "frozen"
+      
+  dataContracts:
+    - name: "UserSummary"
+      fields:
+        - name: "id"
+          type: "Long"
+        - name: "username"
+          type: "String"
+        - name: "status"
+          type: "UserStatus"
+      stability: "frozen"
+<!-- TRAE-ONLY-END -->
 ```
 
-#### 方法命名规范检查（Design 阶段必须执行）
+#### <!-- TRAE-ONLY-START -->3.3 <!-- TRAE-ONLY-END -->方法命名规范检查（Design 阶段必须执行）
 
 **Step 0.5: 方法命名规范检查（🔴 必须执行）**
 
@@ -2290,8 +2334,13 @@ Task Split 阶段输出（极端模式）：
 
 **Java 项目**：
 ```bash
-mvn compile -pl {module-name} -am -q
+<!-- TRAE-ONLY-START --># 单服务
+<!-- TRAE-ONLY-END -->mvn compile -pl {module-name} -am -q
 
+<!-- TRAE-ONLY-START -->
+# 多服务（仅编译当前服务）
+mvn compile -pl {service-module} -am -q
+<!-- TRAE-ONLY-END -->
 ```
 
 **前端项目**：
@@ -2586,6 +2635,24 @@ checkpoint:
 
 **测试覆盖度要求（所有项目）**：
 
+<!-- TRAE-ONLY-START -->
+**强制覆盖矩阵**：
+
+| 方法类型 | 必须覆盖场景 | 最少用例数 | 检查方式 |
+|----------|--------------|------------|----------|
+| 查询方法 | 正常返回、空结果、参数为null | 3 | 检查测试方法名包含对应场景 |
+| 创建方法 | 正常创建、参数校验失败、重复创建 | 3 | 检查异常测试用例 |
+| 更新方法 | 正常更新、数据不存在、并发冲突 | 3 | 检查乐观锁/版本号测试 |
+| 删除方法 | 正常删除、数据不存在、级联删除 | 3 | 检查关联数据处理测试 |
+| 业务逻辑 | 正常流程、每个异常分支、边界值 | 5+ | 检查分支覆盖率 |
+| 复杂业务 | 正常流程、所有分支、边界、并发 | 7+ | 检查完整场景覆盖 |
+
+**覆盖率阈值**：
+- 行覆盖率 ≥ 90%
+- 分支覆盖率 ≥ 85%
+- 方法覆盖率 ≥ 95%
+<!-- TRAE-ONLY-END -->
+
 **测试质量要求**：
 - 每个功能点必须至少有一个对应的测试用例
 - Java 项目：每个 public 方法至少一个测试（getter/setter 除外）
@@ -2593,6 +2660,19 @@ checkpoint:
 - API 测试必须覆盖成功流程、参数验证失败、权限不足、服务器错误
 - 禁止只测试渲染而不测试交互（浅层测试）
 - 测试数据必须使用有意义的模拟数据，禁止使用随机字符串
+
+<!-- TRAE-ONLY-START -->
+**禁止生成的测试**：
+- ❌ `expect(true).toBe(true)` 无效测试
+- ❌ 只测试渲染不测试交互
+- ❌ 没有断言的测试
+- ❌ 恒真断言测试
+- ❌ 过于宽松的断言（只验证非null，不验证具体字段）
+
+**测试命名规范**：
+- Java: `test{MethodName}_{Scenario}_{ExpectedResult}`
+- TypeScript: `should {expectedBehavior} when {condition}`
+<!-- TRAE-ONLY-END -->
 
 **Step 2: 执行测试**
 - 运行 `mvn test`（Java 项目）
