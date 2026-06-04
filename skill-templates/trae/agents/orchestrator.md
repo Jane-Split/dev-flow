@@ -165,7 +165,71 @@ pre_research_check:
 - 识别涉及的服务和模块
 - 判断任务复杂度（是否需要拆分）
 
+### 🔴 Step 2 前置检查（Task Split 专用 - 防止重复扫描）
+
+> **目的**：Task Split 阶段只需要设计文档，不需要重新扫描项目结构。
+
+**前置条件检查**：
+
+```yaml
+task_split_prerequisites:
+  step_1_check_design_contract:
+    action: "检查设计契约文件是否存在"
+    command: "[ -f '.dev-flow/docs/{需求简称}-design-contract.yaml' ] && echo 'exists' || echo 'missing'"
+    decision:
+      - condition: "missing"
+        action: "返回 Design 阶段"
+        message: "缺少 design-contract.yaml，需要先完成 Design 阶段"
+        next_step: "proceed_to_design"
+      - condition: "exists"
+        next_step: "step_2_check_existing_split"
+        
+  step_2_check_existing_split:
+    action: "检查是否已存在任务拆分"
+    command: "[ -f '.dev-flow/docs/{需求简称}-task-split/task-dag.yaml' ] && echo 'exists' || echo 'missing'"
+    decision:
+      - condition: "exists"
+        action: "跳过 Task Split，使用已有拆分结果"
+        message: "任务拆分已存在，直接进入 Develop 阶段"
+        next_step: "proceed_to_develop"
+      - condition: "missing"
+        next_step: "step_3_confirm_skip_research"
+        
+  step_3_confirm_skip_research:
+    action: "确认跳过项目扫描"
+    note: "Task Split 阶段禁止执行项目结构扫描"
+    required_files_for_task_split:
+      - "design-contract.yaml"
+      - "design-result.md"
+      - "task-context.yaml"
+    files_NOT_required:
+      - "项目源码扫描"
+      - "memory 文件读取（除非设计文档缺失信息）"
+      - "Glob/Read 对项目文件的任意扫描"
+```
+
+**判断结果汇总**：
+
+| 条件 | 操作 |
+|------|------|
+| design-contract.yaml 不存在 | 返回 Design 阶段 |
+| task-dag.yaml 已存在 | 跳过 Task Split，使用已有结果 |
+| design-contract.yaml 存在 + task-dag.yaml 不存在 | **直接调用 task-split-expert，跳过项目扫描** |
+
 ### Step 2: 任务拆分（调用 task-split-expert）
+
+**🔴 关键约束：Task Split 阶段不扫描项目结构**
+
+> Task Split 专家的职责是拆分任务，不负责项目研究。
+> 所有项目结构信息必须从设计契约和 memory 文件中获取，不执行任何源码扫描。
+
+**调用 task-split-expert 前**：
+- ✅ 读取 `design-contract.yaml`（Design 阶段输出）
+- ✅ 读取 `design-result.md`（Design 阶段输出）
+- ✅ 读取 `task-context.yaml`
+- ❌ **不要执行 Glob 扫描项目文件**
+- ❌ **不要执行 Read 读取项目源码**
+- ❌ **不要重新扫描 memory**（除非设计文档信息不足）
 
 **方案C：智能任务拆分 + 子任务级设计**
 
