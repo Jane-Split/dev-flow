@@ -79,6 +79,60 @@ type: stage-instruction
 [切换到 Subagent 模式] [仍使用标准模式（不推荐）] [取消]
 ```
 
+### Step 0.5: 代码生成规划与分段决策（v3.0 结构化分段协议）
+
+> **目的**：在开始编码前，预估目标代码量，决定是否启用"骨架 + 逐方法填充"分段模式。
+> **触发条件**：Subagent 模式下，或预估单个文件输出 > 20KB 时。
+
+**决策流程**：
+
+```
+1. 从子任务设计文档分析目标文件和方法数量
+2. 估算每个方法的代码量（简单 ~2KB / 中等 ~4KB / 复杂 ~8KB）
+3. 计算预估总输出量 = 方法总和 + imports/class/fields 开销（~5KB）
+
+判断：
+  ├── 预估输出 ≤ 20KB → 标准模式（一次生成）
+  │
+  └── 预估输出 > 20KB → 分段模式（骨架 + 逐方法填充）
+        │
+        ├── 如果存在 code-gen-plan-{taskId}.yaml → 按计划执行
+        │
+        └── 否则 → 先运行 segment-code.cjs --plan 生成计划
+```
+
+**分段模式执行步骤**：
+
+| 阶段 | 操作 | 输出量 | 说明 |
+|------|------|--------|------|
+| Phase 0: 规划 | 运行 `segment-code.cjs --plan` | ~2KB YAML | 生成 code-generation-plan.yaml |
+| Phase 1: 骨架 | 生成 imports + class + fields + 方法签名（空体） | ~10KB | 所有方法体 = `// TODO: implement {method_name}` |
+| Phase 2: 填充 | 逐方法读取文件 + 生成方法体 + Edit 替换 TODO | 5-8KB/次 | 每次只实现一个方法，始终在安全输出区 |
+| Phase 3: 验证 | 读取完整文件 + 编译 + 契约校验 + 完整性验证 | 0KB（只读） | 确保最终文件无 TODO、无空方法、编译通过 |
+
+**分段模式的核心规则**：
+
+```yaml
+segmented_execution_rules:
+  rule_1_skeleton_first: "必须先生成完整骨架，不能直接生成某个方法"
+  rule_2_one_method_per_call: "每次调用只实现一个方法体，不重新生成其他代码"
+  rule_3_edit_not_write: "使用 Edit 工具替换 TODO 行，不使用 Write 覆盖整个文件"
+  rule_4_read_before_fill: "每次填充前必须 Read 当前文件获取最新状态"
+  rule_5_verify_after_all: "所有方法填充完成后，执行完整验证（Step 5 自检）"
+  rule_6_context_budget: "每次填充调用：system(~15KB) + method_spec(~20KB) + file(~10-45KB) = 45-80KB"
+```
+
+**与 prepare-context.cjs 的协作**：
+
+```
+标准模式:  prepare-context.cjs 生成 task-brief → subagent 一次性生成代码
+分段模式:  prepare-context.cjs 生成 task-brief → subagent 执行 Phase 1 骨架
+           → segment-code.cjs --fill 为每个方法提取最小化规格
+           → subagent 逐方法填充
+```
+
+---
+
 ### 执行模式
 
 **标准模式**：单个 develop-expert subagent 顺序执行所有任务
@@ -455,6 +509,42 @@ Step 1.1.1: 检查上下文注入文件是否存在
 - 包含类/方法 Javadoc 注释
 - 遵守项目已有的编码风格
 - 每个文件生成后，简要说明实现思路
+
+**Step 3.1: 分段执行模式（仅当 Step 0.5 判定为分段模式时执行）**
+
+> **前置条件**：Step 0.5 已判定预估输出 > 20KB，且 code-generation-plan.yaml 已生成。
+
+**Phase 1: 骨架生成**
+
+1. 生成目标文件的完整骨架：
+   - 所有 import 语句
+   - 类/接口声明和注解
+   - 字段声明和注入
+   - 所有方法签名（参数、返回类型、注解）
+   - 每个方法体只包含：`// TODO: implement {methodName}`
+2. Write 骨架到目标文件
+3. 验证骨架编译通过（如有编译错误立即修复）
+
+**Phase 2: 逐方法填充（按 code-generation-plan.yaml 中的 seg 顺序）**
+
+对于每个 method_fill segment：
+
+1. `Read` 当前目标文件（获取骨架 + 已填充的方法）
+2. `Read` 方法规格（从 task-brief 或 segment-code.cjs --fill 输出）
+3. 用 Edit 工具将 `// TODO: implement {method}` 替换为完整方法体
+4. 方法体必须包含逻辑步骤标注（Step 3 的标注规范）
+5. 方法体完成后，执行 Step 3.5 完整性防线（仅扫描当前方法）
+6. 确认当前方法无 TODO/空实现/log-only 后，继续下一个方法
+
+**Phase 3: 全量验证**
+
+所有方法填充完成后：
+1. `Read` 完整目标文件
+2. 扫描确认：无任何 TODO/FIXME/空方法体/log-only 方法体
+3. 执行编译验证
+4. 执行 Step 4.3 逻辑回溯验证
+
+---
 
 #### 🔴🔴 每个方法的完整性要求（关键！）
 

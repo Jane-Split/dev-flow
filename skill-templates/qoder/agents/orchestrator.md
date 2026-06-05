@@ -75,6 +75,27 @@ Step 0.4: 准备 subagent 上下文注入（🔴 必须执行）
 > Orchestrator 必须先运行调度引擎获取调度计划，再按计划执行调度。
 > 调度引擎支持 `--dry-run` 模式预览、`--platform` 指定平台。
 
+**Step 0.5: 代码生成分段规划（v3.0）**
+
+> **目的**：在派发 develop-expert 前，为需要生成大量代码的任务（预估 > 20KB）预先规划分段策略。
+
+```
+对于每个 develop 任务：
+  1. 检查是否存在 code-generation-plan-{taskId}.yaml
+  2. 不存在时，运行 segment-code.cjs --plan：
+     node scripts/segment-code.cjs --plan --task {taskId} --demand {demandName}
+  3. 检查 segmentation_mode：
+     - "single_pass" → 标准模式，无需分段
+     - "skeleton_plus_fill" → 分段模式，将 code-gen-plan 写入 task-context
+```
+
+**分段模式的 dispatch 调整**：
+- 骨架阶段（seg-skeleton）：正常派发 develop-expert，但在 task-context.yaml 中标记 `segmentation: skeleton`
+- 填充阶段（seg-method_fill）：每次派发 develop-expert 只负责一个方法，在 task-context.yaml 中标记 `segmentation: method_fill` + `target_segment: {segId}`
+- 验证阶段：orchestrator 自行执行，不需要派发 subagent
+
+---
+
 ### Step 1: 需求理解
 - 与用户确认需求细节
 - 识别涉及的服务和模块

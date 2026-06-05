@@ -32,6 +32,22 @@ All notable changes to this project will be documented in this file.
 - **develop.md Step 4.5**：移除 50KB 相关引用，改为基于模型实际上下文窗口监控
 - **SKILL.md Router**：移除上下文管理章节中的 50KB 硬性约束描述
 
+#### 结构化代码分段生成（segment-code.cjs）
+
+- **新增 `scripts/segment-code.cjs`**：解决 AI 模型单次生成超过 20KB 代码时质量急剧下降的问题
+  - 四阶段协议：Phase 0 代码架构规划 → Phase 1 骨架生成 → Phase 2 逐方法填充 → Phase 3 全量验证
+  - 自动判断是否需要分段（预估输出 > 20KB 时启用）
+  - 每次 method fill 输出 5-10KB（始终在安全区），质量保持 85-95%
+  - 上下文预算：system(15KB) + spec(20KB) + file(10-45KB) = 45-80KB
+  - 产出 `code-generation-plan-{taskId}.yaml`，含完整 segments 列表和执行指令
+  - 用法：`node scripts/segment-code.cjs --plan --task Task-5 --demand user-mgmt`
+
+- **develop.md 新增 Step 0.5**：代码生成规划与分段决策（预估输出量、决策流程、分段模式核心规则）
+- **develop.md 新增 Step 3.1**：分段执行模式的完整工作流（骨架生成、逐方法填充、全量验证）
+- **develop-expert.md 新增分段生成协议**：分段工作流定义 + 分段模式铁律（骨架先行、一次一方法、Edit 替换）
+- **context-manager.md 升级 SEGMENTED_EXECUTION**：从被动触发升级为主动规划（骨架 + 逐方法填充四阶段）
+- **orchestrator.md 新增 Step 0.5**：dispatch 前代码分段规划，支持骨架/填充/验证三种 dispatch 模式
+
 #### Subagent 通信协议升级
 
 - **task-protocol.md 新增 4.3 Context Injection Protocol**
@@ -57,12 +73,13 @@ All notable changes to this project will be documented in this file.
 **新增**：
 - `scripts/prepare-context.cjs` — Subagent 上下文自动注入脚本
 - `scripts/validate-result.cjs` — Subagent 产出自动校验脚本
+- `scripts/segment-code.cjs` — 结构化代码分段生成脚本（骨架+逐方法填充）
 
 **修改**：
 - `skill-templates/_core/SKILL.md` — Router：移除 50KB 硬约束描述
 - `skill-templates/_core/agents/context-manager.md` — 50KB → auto，新增上下文注入模式
-- `skill-templates/_core/agents/develop-expert.md` — 集成上下文注入
-- `skill-templates/_core/stages/develop.md` — 新增 Step 1.1 上下文注入，修改 Step 4.5
+- `skill-templates/_core/agents/develop-expert.md` — 集成上下文注入 + 新增"结构化代码分段生成协议"
+- `skill-templates/_core/stages/develop.md` — 新增 Step 1.1 上下文注入，修改 Step 4.5，新增 Step 0.5/3.1 分段生成
 - `skill-templates/_core/agents/orchestrator.md` — 新增 Step 0.4/5.0 集成新脚本
 - `skill-templates/_core/agents/task-protocol.md` — 新增 4.3 Context Injection Protocol
 - `scripts/dispatch.cjs` — 集成 prepare-context.cjs / validate-result.cjs

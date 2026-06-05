@@ -167,12 +167,15 @@ step_2_5_priority_guarantee:
         
       - condition: "remaining >= 5KB AND remaining < 15KB"
         action: "SEGMENTED_EXECUTION"
-        description: "分段执行：先生成核心代码，再生成辅助代码"
+        description: "v3.0 主动分段：骨架 + 逐方法填充"
         segments:
-          - segment_1: "生成核心业务逻辑代码（Service 方法实现）"
-          - segment_2: "生成辅助代码（DTO、常量、工具方法）"
-          - segment_3: "生成测试代码"
-        state_passing: "通过 .dev-flow/segment-state.yaml 传递状态"
+          - segment_1: "Phase 0: 运行 segment-code.cjs --plan 生成代码架构规划"
+          - segment_2: "Phase 1: 生成骨架（imports + class + fields + 方法签名 TODO 体）"
+          - segment_3: "Phase 2: 逐方法填充（每次 5-8KB 输出，始终在安全区）"
+          - segment_4: "Phase 3: 全量验证（读取完整文件，编译 + 契约校验）"
+        protocol: "详见 code-generation-plan-{taskId}.yaml 和 segment-code.cjs"
+        quality_per_segment: "85-95% (vs 55% if single-pass >30KB)"
+        state_passing: "通过文件系统传递（目标文件即为状态载体）"
         
       - condition: "remaining < 5KB"
         action: "SAVE_AND_CONTINUE"

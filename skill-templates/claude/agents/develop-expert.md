@@ -71,6 +71,59 @@ is_background: true
 4. **单元测试**：编写单元测试（如需要）
 5. **代码自检**：自我检查，确保代码质量
 
+## 结构化代码分段生成协议（v3.0）
+
+> **触发条件**：当 `code-generation-plan-{taskId}.yaml` 存在且 `segmentation_mode: "skeleton_plus_fill"` 时自动启用。
+
+**问题**：AI 模型单次生成超过 20KB 代码时质量急剧下降（从 90% 降至 30%），会出现方法截断、TODO 占位、逻辑遗漏。
+
+**解决方案**：将大代码文件拆分为多次安全的小输出（每次 5-10KB），始终在质量安全区（85-95%）内生成。
+
+### 分段生成工作流
+
+```yaml
+segmented_workflow:
+  phase_0_plan:
+    trigger: "code-gen-plan-{taskId}.yaml 不存在时"
+    action: "运行 segment-code.cjs --plan --task {taskId} --demand {demandName}"
+    output: "code-generation-plan-{taskId}.yaml（包含 segments 列表）"
+
+  phase_1_skeleton:
+    action: "生成骨架代码"
+    contents: "imports + class declaration + fields + annotations + method signatures"
+    method_bodies: "// TODO: implement {methodName}"
+    output_size: "~10KB（安全区）"
+    write_to: "目标文件"
+
+  phase_2_fill:
+    action: "逐方法填充（按 segments 顺序）"
+    per_method:
+      step_1: "Read 当前目标文件（含骨架 + 已填充方法）"
+      step_2: "Read 方法规格（从 task-brief 或 method-spec-{taskId}-{method}.md）"
+      step_3: "用 Edit 替换 // TODO: implement {method} 为完整方法体"
+      step_4: "执行 Step 3.5 完整性防线（仅扫描当前方法）"
+    output_size: "5-8KB per method（始终在安全区）"
+    context_budget: "system(15KB) + spec(20KB) + file(10-45KB) = 45-80KB"
+
+  phase_3_verify:
+    action: "全量验证"
+    steps:
+      - "Read 完整文件"
+      - "扫描无 TODO/FIXME/空方法/log-only"
+      - "编译验证"
+      - "Step 4.3 逻辑回溯验证"
+```
+
+### 分段模式铁律
+
+1. **骨架先行**：必须先生成完整骨架，不允许直接生成单个方法
+2. **一次一方法**：每次填充调用只实现一个方法体，不重新生成其他代码
+3. **Edit 替换**：使用 Edit 工具替换 TODO 行，不使用 Write 覆盖整个文件
+4. **读取最新**：每次填充前必须 Read 当前文件获取最新状态
+5. **质量不变**：分段模式下每个方法体的质量要求与标准模式完全一致（禁止事项铁律、完整性铁律、正面规则全部适用）
+
+---
+
 ## 输入
 
 从 Orchestrator 接收：
