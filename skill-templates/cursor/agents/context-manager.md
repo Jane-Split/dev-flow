@@ -23,9 +23,37 @@ type: background
 ```yaml
 context_management_principles:
   accuracy_first: true  # 准确性优先
-  minimum_safe_context: "50KB"  # 最小安全上下文（硬约束）
+  minimum_safe_context: "auto"  # 由 prepare-context.cjs 根据任务需求自动计算，无人工硬限制
   parallel_only_when_safe: true  # 只在安全时并行
   dynamic_fallback: true  # 动态降级（并行→串行）
+```
+
+### 上下文注入模式（v3.0）
+
+> **核心变化**：subagent 的上下文不再通过 AI 自觉读取文件获取，而是由 `prepare-context.cjs` 预先准备并注入。
+
+```yaml
+context_injection_model:
+  trigger: "Orchestrator 在派发 subagent 前自动执行"
+  script: "node scripts/prepare-context.cjs --task {taskId} --demand {demandName}"
+  output: ".dev-flow/runtime/task-brief-{taskId}.md"
+
+  subagent_behavior:
+    before: "subagent 需要自行读取多个文件获取上下文（不可靠）"
+    after: "subagent 打开即有完整上下文（task-brief.md），直接开始工作"
+
+  brief_content:
+    - task_description: "任务目标和范围"
+    - subtask_design: "子任务详细设计"
+    - design_contract_relevant: "与本任务相关的契约定义"
+    - develop_rules: "开发阶段核心规则（禁止事项、完整性要求）"
+    - coding_conventions: "项目编码规范"
+    - error_patterns: "需要避免的错误模式"
+    - parent_results: "依赖的前置任务产出"
+    - dependency_definitions: "依赖类的实际代码定义"
+
+  size_limit: "120KB (给 subagent 保留足够模型上下文空间)"
+  no_hard_floor: true  # 不再有 50KB 硬下限
 ```
 
 ## 上下文分配策略
@@ -67,7 +95,7 @@ task_driven_context_budget:
           design_doc_size +             # 子任务设计文档（实际大小）
           actual_dependencies_size +     # Step 2.5 实际需要读取的依赖类（动态）
           min_code_space                # 最小代码生成空间（5KB）
-      note: "这个值就是任务的最小安全上下文，不再固定为 50KB"
+      note: "最小安全上下文根据实际任务需求动态计算（依赖文件 + 设计契约 + 阶段指令），无人工硬下限"
       
     step_3_check_feasibility:
       action: "检查模型上下文是否足够"
@@ -106,9 +134,9 @@ task_driven_context_budget:
 > 需要计算动态阈值或分配上下文预算时读取该文件。
 
 **快速参考**：
-- Claude (200KB): safe_minimum=50KB, warning=70%, critical=85%
-- GPT-4 (128KB): safe_minimum=32KB, warning=70%, critical=85%
-- DeepSeek/Qwen (128KB): safe_minimum=32KB, warning=70%, critical=85%
+- Claude (200KB): safe_minimum=auto (由 prepare-context.cjs 计算), warning=70%, critical=85%
+- GPT-4 (128KB): safe_minimum=auto (由 prepare-context.cjs 计算), warning=70%, critical=85%
+- DeepSeek/Qwen (128KB): safe_minimum=auto (由 prepare-context.cjs 计算), warning=70%, critical=85%
 - 简单任务 40-45KB / 中等任务 50-60KB / 复杂任务 60-70KB
 - 设计文档目标 15KB，最大 20KB
 
@@ -182,19 +210,19 @@ step_2_5_priority_guarantee:
 开始任务分配
     │
     ▼
-评估每个任务的上下文需求
+评估每个任务的上下文需求（由 prepare-context.cjs 基于实际任务依赖计算）
     │
-    ├── 所有任务需求 <= 50KB 且总任务数 <= 3 ──► 并行模式
-    │                                               (效率优先)
+    ├── 所有任务上下文已由 prepare-context.cjs 自动准备 ──► 并行模式
+    │                                                   （效率优先）
     │
-    ├── 任一任务需求 > 50KB ───────────────────► 串行模式
-    │                                               (准确性优先)
+    ├── 任务复杂度高或依赖链长 ───────────────────────► 串行模式
+    │                                                   （准确性优先）
     │
-    ├── 总任务数 > 3 ──────────────────────────► 混合模式
-    │                                               (分批并行)
+    ├── 总任务数 > 3 ──────────────────────────────────► 混合模式
+    │                                                   （分批并行）
     │
-    └── 上下文总量不足 ────────────────────────► 强制串行
-                                                    (安全兜底)
+    └── 上下文总量不足 ────────────────────────────────► 强制串行
+                                                      （安全兜底）
 ```
 
 ### 执行模式定义
@@ -204,21 +232,21 @@ execution_modes:
   parallel_mode:
     condition:
       - "total_tasks <= 3"
-      - "each_task_min_context >= 50KB"
+      - "all_tasks_context_auto_prepared_by_prepare_context"
       - "total_required_context <= available_context"
     max_parallel: 3
     benefit: "效率提升 2-3x"
     risk: "低（满足所有安全条件）"
-    
+
   serial_mode:
     condition:
-      - "any_task_min_context < 50KB"
+      - "task_complexity_high OR long_dependency_chain"
       - "OR total_tasks > 3"
       - "OR complex_dependencies"
     benefit: "准确性保证 100%"
     risk: "无"
     optimization: "按依赖链排序，减少等待"
-    
+
   hybrid_mode:
     condition: "mixed_dependencies"
     strategy:
@@ -289,9 +317,10 @@ split_strategy:
     
   rule_4:
     name: "复杂任务拆分"
-    condition: "estimated_context > 70KB"
+    condition: "context_auto_preparation_exceeds_threshold"
     action: "split_subtasks"
     method: "按方法拆分或按功能模块拆分"
+    note: "当 prepare-context.cjs 报告任务上下文超出可用模型空间时触发"
 ```
 
 ## 动态监控与保护机制
@@ -373,14 +402,15 @@ forced_serial_triggers:
     priority: "CRITICAL"
     action: "FORCE_SERIAL_OR_SPLIT"
     message: "任务所需上下文超过模型容量的80%，强制串行执行或拆分任务"
+    note: "prepare-context.cjs 负责上下文预准备，50KB 硬限制已不再适用，阈值基于模型实际上下文窗口动态评估"
     decision_logic: |
       如果任务可拆分 → 拆分为多个子任务串行执行
       如果任务不可拆分 → 串行执行（单个任务独占全部上下文）
     
-  - condition: "task_complexity == HIGH AND estimated_context > 70KB"
+  - condition: "task_complexity == HIGH AND context_auto_preparation_exceeds_threshold"
     priority: "HIGH"
     action: "SUGGEST_SERIAL"
-    message: "任务复杂度高，建议串行执行或拆分任务"
+    message: "任务复杂度高，prepare-context.cjs 报告上下文超出可用空间，建议串行执行或拆分任务"
     
   - condition: "step_2_5_history_failure > 2"
     priority: "MEDIUM"
@@ -423,7 +453,7 @@ phase_4_task_split:
 phase_5_develop:
   parallel_mode:
     - "同时启动多个 develop-expert subagent"
-    - "每个 subagent 分配 50KB+ 上下文"
+    - "每个 subagent 的上下文由 prepare-context.cjs 自动准备"
     - "context-manager 监控每个 subagent 的上下文使用"
     
   serial_mode:

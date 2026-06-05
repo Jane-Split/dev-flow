@@ -107,6 +107,8 @@ dev-flow 支持两种运行模式：
 **Subagent 通信**：
 - 通过文件系统传递信息（task-context.yaml / task-result.yaml）
 - 主 agent 只保留任务状态，详细内容外置到文件
+- **v3.0 上下文自动注入**：Subagent 派发前由 `prepare-context.cjs` 自动生成 `task-brief-{taskId}.md`，包含完整上下文信息
+- **v3.0 产出自动校验**：Subagent 完成后由 `validate-result.cjs` 自动校验产出质量
 - 详见 `{{AGENTS_PATH}}task-protocol.md`
 
 **何时使用 Subagent 模式**：
@@ -133,6 +135,7 @@ dev-flow 支持两种运行模式：
 | 🔴 **高** | 标准模式处理多文件 | 需求涉及 >5 个文件 |
 | 🔴 **高** | Research 扫描大项目 | 项目 >200 个文件 |
 | 🟡 **中** | 复杂需求分析 | 涉及 3+ 服务，10+ 功能点 |
+| 🟢 **已解决** | Subagent 上下文不足 | v3.0 上下文自动注入系统（prepare-context.cjs） |
 
 ### 强制模式选择规则
 

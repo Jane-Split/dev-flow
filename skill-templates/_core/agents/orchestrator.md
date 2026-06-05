@@ -57,6 +57,18 @@ Step 0.3: 生成调度计划
   ├── Bash: node scripts/dispatch.cjs --dry-run
   ├── 读取输出的调度计划（批次划分、并行命令）
   └── 展示给用户确认调度策略
+
+Step 0.4: 准备 subagent 上下文注入（🔴 必须执行）
+  ├── 对当前批次的每个任务执行：
+  │     Bash: node scripts/prepare-context.cjs --task {taskId} --demand {demandName}
+  │     确认 task-brief-{taskId}.md 已生成
+  ├── 上下文注入文件包含：
+  │     - 任务描述和子任务设计
+  │     - 相关的 Design Contract 定义
+  │     - 依赖类的实际代码定义
+  │     - 编码规范和错误模式
+  │     - 前置任务产出结果
+  └── 注入文件路径: .dev-flow/runtime/task-brief-{taskId}.md
 ```
 
 > **调度引擎（scripts/dispatch.cjs）**：提供可执行的 DAG 解析、拓扑排序、冲突检测和跨平台调度命令生成。
@@ -137,6 +149,11 @@ tasks:
 批次 5: [T6]                    ← 依赖 T4, T5
 ```
 
+**🔴 上下文注入规则（每批次派发前必须执行）**：
+> 在派发任何 develop-expert 之前，必须先运行 `prepare-context.cjs` 为每个任务准备上下文。
+> subagent 启动时，Orchestrator 应在派发命令中明确指示 subagent 读取对应的 task-brief 文件。
+> 这样 subagent 打开即有完整上下文，不依赖 AI 自觉读取文件。
+
 **执行命令**：
 - 串行任务：`/research-expert` 或 `/analyze-expert`
 - 并行任务：同时发送多个 `/develop-expert` 调用
@@ -150,6 +167,19 @@ tasks:
 
 ```
 develop-expert 完成代码生成
+  │
+  ▼
+Step 5.0: 自动产出校验（🔴 批次完成后必须执行）
+  ├── 对当前批次的每个任务执行结果校验：
+  │     Bash: node scripts/validate-result.cjs --task {taskId} --demand {demandName}
+  ├── 校验内容：
+  │   ├── task-result.yaml 存在且格式正确（status 字段）
+  │   ├── completed_files 中每个文件实际存在且非空
+  │   ├── 无 TODO/FIXME/空方法体残留
+  │   ├── 无日志替代业务逻辑
+  │   └── Design Contract 方法签名一致性
+  ├── 校验失败 → 阻止进入后续验证（Step 5.1/5.2/5.3），返回 develop-expert 修复
+  └── 校验报告写入: .dev-flow/runtime/validation-report.yaml
   │
   ▼
 Step 5.1: 开发自检（develop-expert 内部执行）
@@ -254,6 +284,7 @@ next_tasks_hint: [建议的后续任务]
 | 依赖任务失败 | 阻塞后续依赖任务，报告用户 |
 | 输出不完整 | 要求 subagent 补充 |
 | 超时 | 后台模式继续，或询问用户 |
+| 产出校验失败 | 返回 develop-expert 修复，最多 2 轮 |
 
 ## 上下文管理原则
 
@@ -440,6 +471,9 @@ next_tasks_input:
   - task_id: "Task-7"
     needs_to_know: "XxxMapper 已就绪，可直接注入"
 ```
+
+> **🔴 产出校验**：Orchestrator 在收集 task-result.yaml 后，自动运行 `validate-result.cjs`
+> 进行格式校验和代码质量扫描。校验失败的任务会被打回 develop-expert 修复。
 
 ### 平台检测方法
 

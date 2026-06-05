@@ -354,12 +354,19 @@ thresholds:
     no_external_calls_when_expected: "CRITICAL"
 ```
 
-## 与 design-contract-validator 的关系
+## 与其他验证 Agent 的关系
 
-- **bytecode-analyzer**: 从代码层面检测"仅日志无业务"模式
-- **design-contract-validator**: 从设计层面验证"设计有调用，实现只有日志"
+> **验证 Agent 分工矩阵**（v2.1 明确）：
 
-两者结合，形成双重防护：
-1. bytecode-analyzer 检测代码质量问题
-2. design-contract-validator 验证设计一致性
-3. 任何一方发现问题都阻塞流程
+| Agent | 验证维度 | 执行时机 | 执行者 |
+|-------|---------|---------|--------|
+| bytecode-analyzer | 编译后字节码/源码深度分析 | 编译完成后（可选） | verify-expert |
+| design-contract-validator | 设计文档 call action 完整性 | 开发过程中（可选） | develop-expert |
+| step-enforcer | 文件存在性、禁止事项、早期覆盖率 | 开发过程中（强制） | develop-expert |
+| contract-validator | 结构一致性 + 逻辑覆盖率最终验证 | 开发完成后（强制） | orchestrator |
+| verify-expert | 代码质量、编译验证、需求满足度 | 最终验证阶段（强制） | orchestrator |
+
+- **bytecode-analyzer**：方法级深度分析（复杂度、外部调用特征）
+- **design-contract-validator**：设计文档完整性验证（call action 定义）
+- **contract-validator R5**：设计→代码覆盖率验证（最终仲裁）
+- 三者层层递进，bytecode-analyzer 是最深层的代码质量防线

@@ -226,6 +226,110 @@ grep -E "\w+\.\w+\s*\(" UserServiceImpl.java
 # 与契约对比
 ```
 
+### 🔴 规则5: 逻辑步骤覆盖率校验（v2.1 新增）
+
+> **目的**：确保 design-contract.yaml 中定义的每个 logic step / condition / call action
+> 都在生成的代码中有对应的实现，覆盖率必须达到 100%。
+
+**校验内容**：
+```yaml
+validation_rules:
+  - rule_id: "R5"
+    name: "逻辑步骤覆盖率"
+    source: "design-contract.yaml.services[].methods[].logic_steps[]"
+    target: "生成的 ServiceImpl 代码"
+    checks:
+      - check_id: "R5-1"
+        item: "每个 logic step 有对应实现"
+        description: "design-contract.yaml 中定义的每个 logic step 在代码中都能找到实现"
+        operator: "coverage"
+        threshold: 100
+        required: true
+        detection_method: |
+          对每个 logic step:
+          1. 提取 step 编号和 action 类型
+          2. 在 ServiceImpl 中搜索 "// Step {N}:" 标注或对应逻辑段落
+          3. 验证代码特征与 action 类型匹配（validate→if, query→mapper, call→service等）
+          4. 未找到匹配 → 标记为 uncovered
+
+      - check_id: "R5-2"
+        item: "每个 condition 分支有 if/else 实现"
+        description: "design-contract.yaml 中定义的每个 condition 在代码中有对应 if/else/case"
+        operator: "coverage"
+        threshold: 100
+        required: true
+        detection_method: |
+          对每个 condition:
+          1. 提取 condition 的 field + operator
+          2. 在代码中搜索 if (xxx.field == value) 类似结构
+          3. 验证 onSuccess 和 onFail 分支都有代码实现
+          4. onFail 要求有 throw 或 else 分支
+          5. 未找到匹配 → 标记为 uncovered
+
+      - check_id: "R5-3"
+        item: "每个 call action 有实际外部调用（非 log 占位）"
+        description: "design-contract.yaml 中定义的每个 call action 在代码中有 target.method(...) 调用"
+        operator: "coverage"
+        threshold: 100
+        required: true
+        detection_method: |
+          对每个 call action:
+          1. 提取 target + method + params
+          2. 在代码中 Grep "{target}.{method}" 确认调用存在
+          3. 如果只找到 log.info 含 method 名但无实际调用 → 标记为 log_placeholder
+          4. 验证调用参数数量与设计一致
+          5. 未找到匹配 → 标记为 uncovered
+
+      - check_id: "R5-4"
+        item: "逻辑覆盖率矩阵完整性"
+        description: "logic-coverage-matrix.yaml 文件存在且所有覆盖率指标为 100%"
+        operator: "file_check"
+        required: true
+        detection_method: |
+          1. 检查 .dev-flow/runtime/logic-coverage-matrix.yaml 存在
+          2. 读取 coverage_summary 确认：
+             - logic_step_coverage == "100%"
+             - condition_coverage == "100%"
+             - call_action_coverage == "100%"
+             - overall_status == "passed"
+             - uncovered_items 为空列表
+          3. 任一指标不达标 → R5 整体失败
+```
+
+**校验方法**：
+```bash
+# R5-1: 验证 logic step 标注存在
+grep -c "// Step [0-9]" UserServiceImpl.java
+
+# R5-2: 验证 condition 分支覆盖
+grep -c "if\s*(" UserServiceImpl.java
+
+# R5-3: 验证 call action 实际调用（排除 log）
+grep -E "feignClient\.\w+\(|service\.\w+\(" UserServiceImpl.java
+```
+
+**R5 失败处理**：
+```yaml
+failure_handling:
+  severity: "critical"
+  action: "block_and_return_to_develop"
+  message: |
+    ❌ 逻辑覆盖率验证失败：{uncovered_count} 个设计逻辑未在代码中实现
+
+    未覆盖项：
+    {uncovered_items_list}
+
+    必须修复以下问题后重新验证：
+    1. 补充未实现的 logic step 代码
+    2. 补充缺失的 condition 分支处理
+    3. 将 log 占位替换为实际外部调用
+
+    修复后重新执行 Step 4.3 逻辑回溯验证。
+
+  max_retries: 2
+  escalation: "orchestrator人工处理"
+```
+
 ## 工作流
 
 ### Step 1: 读取输入文件
@@ -236,11 +340,12 @@ grep -E "\w+\.\w+\s*\(" UserServiceImpl.java
 
 ### Step 2: 执行验证规则
 
-按顺序执行4个验证规则：
+按顺序执行5个验证规则：
 1. R1: 方法签名一致性
 2. R2: Entity字段一致性
 3. R3: 接口实现完整性
 4. R4: 依赖调用一致性
+5. **R5: 逻辑步骤覆盖率（🔴 关键）**
 
 ### Step 3: 生成验证报告
 
@@ -251,8 +356,8 @@ validation:
   status: "passed"  # passed / failed / partial
   
   summary:
-    total_rules: 4
-    passed: 4
+    total_rules: 5
+    passed: 5
     failed: 0
     warnings: 1
     

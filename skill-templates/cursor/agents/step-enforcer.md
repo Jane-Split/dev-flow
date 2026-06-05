@@ -271,6 +271,13 @@ validation_rules:
     name: "逻辑步骤覆盖率验证"
     description: "验证 design-contract.yaml 中定义的每个 logic step 都在代码中有对应实现"
     check_method: "logic_step_coverage_check"
+    relation_to_contract_validator_R5: |
+      此规则是开发过程中的早期预警，与 contract-validator R5 形成双层防御：
+      - R3-4-1：开发阶段即时检查（由 develop-expert 调用 step-enforcer 执行）
+      - R5：开发完成后独立验证（由 orchestrator 调用 contract-validator 执行）
+      - 两者验证维度相同，但执行时机和执行者不同
+      - 如果 R3-4-1 已通过，R5 通常也会通过
+      - 但 R5 的检测更严格（包含 logic-coverage-matrix.yaml 文件完整性检查）
     validation_steps:
       - step: 1
         action: "extract_logic_steps"
@@ -306,6 +313,11 @@ validation_rules:
     name: "条件分支全覆盖验证"
     description: "验证结构化逻辑决策表中的每个 condition 分支在代码中都有对应的 if/else/case"
     check_method: "condition_branch_coverage_check"
+    relation_to_contract_validator_R5: |
+      此规则与 contract-validator R5-2 形成双层防御：
+      - R3-4-2：开发过程中检查 condition 分支覆盖
+      - R5-2：开发完成后独立验证 condition → if/else 实现
+      - R5-2 的检测更严格（要求 onSuccess 和 onFail 都有代码实现）
     validation_steps:
       - step: 1
         action: "extract_conditions"

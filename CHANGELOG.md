@@ -2,6 +2,73 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.0.0] - 2026-06-05
+
+### 上下文注入革命 + 自动产出校验 + 50KB 硬约束全面移除
+
+**核心变化**：v3.0 从"AI 自读取文件"升级为"自动化上下文注入"，Subagent 不再有 50KB 硬约束限制，新增自动产出校验脚本，全面保障代码正确性和完整性。
+
+#### 上下文自动注入系统（prepare-context.cjs）
+
+- **新增 `scripts/prepare-context.cjs`**：Subagent 派发前自动收集上下文并生成 `task-brief-{taskId}.md`
+  - 自动收集内容：任务信息（DAG）、子任务设计文档、Design Contract 相关定义、开发核心规则、编码规范、历史错误模式、父任务产出、依赖类定义
+  - 最大 brief 大小：120KB（为 subagent 模型上下文预留充足空间）
+  - 零外部依赖，内置增强 YAML 解析器
+  - 用法：`node scripts/prepare-context.cjs --task Task-5 --demand user-management`
+
+#### 自动产出校验系统（validate-result.cjs）
+
+- **新增 `scripts/validate-result.cjs`**：Subagent 完成后自动校验产出质量
+  - 校验项：文件存在性+非空、TODO/FIXME 检测、空方法体检测、log-only 方法体检测、return null 检测、Design Contract 方法签名一致性
+  - 支持 `--compile` 标志执行实际编译验证（mvn/npm）
+  - 输出 `validation-report-{taskId}.yaml`
+  - 用法：`node scripts/validate-result.cjs --task Task-5 --demand user-management` 或 `--all --compile`
+
+#### 50KB 硬约束全面移除
+
+- **context-manager.md**：`minimum_safe_context: "50KB"` 全部改为 `"auto"`
+  - 删除所有基于 50KB 阈值的执行模式决策逻辑
+  - 上下文预算改为基于任务实际需要和模型上下文窗口动态计算
+- **develop.md Step 4.5**：移除 50KB 相关引用，改为基于模型实际上下文窗口监控
+- **SKILL.md Router**：移除上下文管理章节中的 50KB 硬性约束描述
+
+#### Subagent 通信协议升级
+
+- **task-protocol.md 新增 4.3 Context Injection Protocol**
+  - Orchestrator → Subagent 新增 `context_injection:` 字段
+  - Subagent → Orchestrator 新增 `validation:` 字段
+  - 定义 task-brief.md 标准格式和 validation protocol YAML 格式
+
+#### 开发流程增强
+
+- **develop.md 新增 Step 1.1**：优先读取上下文注入文件（task-brief），如存在则跳过 Step 1.5 依赖扫描
+- **orchestrator.md 新增 Step 0.4**：Subagent 派发前自动运行 prepare-context.cjs
+- **orchestrator.md 新增 Step 5.0**：验证链之前运行 validate-result.cjs 自动校验产出
+
+#### dispatch.cjs 调度引擎升级（v3.0）
+
+- 集成 prepare-context.cjs：DAG 解析后自动为每个任务生成上下文注入文件
+- 集成 validate-result.cjs：执行说明中添加产出校验步骤
+- YAML 解析器增强：支持 `task:`、`context_injection:` 字段
+- collectResults 增强：自动关联验证报告文件
+
+#### 改动文件清单
+
+**新增**：
+- `scripts/prepare-context.cjs` — Subagent 上下文自动注入脚本
+- `scripts/validate-result.cjs` — Subagent 产出自动校验脚本
+
+**修改**：
+- `skill-templates/_core/SKILL.md` — Router：移除 50KB 硬约束描述
+- `skill-templates/_core/agents/context-manager.md` — 50KB → auto，新增上下文注入模式
+- `skill-templates/_core/agents/develop-expert.md` — 集成上下文注入
+- `skill-templates/_core/stages/develop.md` — 新增 Step 1.1 上下文注入，修改 Step 4.5
+- `skill-templates/_core/agents/orchestrator.md` — 新增 Step 0.4/5.0 集成新脚本
+- `skill-templates/_core/agents/task-protocol.md` — 新增 4.3 Context Injection Protocol
+- `scripts/dispatch.cjs` — 集成 prepare-context.cjs / validate-result.cjs
+- `package.json` — 版本号 2.0.0 → 3.0.0
+- `CHANGELOG.md` — 新增 v3.0.0 条目
+
 ## [2.1.0] - 2026-06-05
 
 ### 验证闭环强化：逻辑回溯验证 + 调度引擎增强 + 验证 Agent 整合

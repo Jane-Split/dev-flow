@@ -1,8 +1,9 @@
 /**
- * dev-flow 平台调度引擎
+ * dev-flow 平台调度引擎 (v3.0)
  *
  * 从 task-dag.yaml 读取任务依赖图，根据当前平台选择最优调度策略，
  * 自动派发 subagent 并收集结果。
+ * v3.0: 集成 prepare-context.cjs（上下文注入）和 validate-result.cjs（产出校验）
  *
  * 用法：
  *   node scripts/dispatch.cjs                    # 交互式：自动检测平台
@@ -144,6 +145,12 @@ function parseTaskDag(dagContent) {
 
     const nameMatch = trimmed.match(/^name:\s*["']?(.+?)["']?\s*$/);
     if (nameMatch) { currentTask.name = nameMatch[1]; continue; }
+
+    const taskMatch = trimmed.match(/^task:\s*["']?(.+?)["']?\s*$/);
+    if (taskMatch) { currentTask.task = taskMatch[1]; continue; }
+
+    const ctxInjMatch = trimmed.match(/^context_injection:\s*(true|false|yes|no)\s*$/i);
+    if (ctxInjMatch) { currentTask.context_injection = ctxInjMatch[1].toLowerCase() === 'true' || ctxInjMatch[1].toLowerCase() === 'yes'; continue; }
   }
 
   // 清理内部字段
@@ -479,6 +486,10 @@ function collectResults(batchIndex, taskIds) {
       const statusMatch = content.match(/status:\s*(success|partial|failed)/);
       const status = statusMatch ? statusMatch[1] : 'unknown';
       results.push({ task_id: taskId, file: resultFile, status, content_length: content.length });
+      // 🔴 v3.0: 检查是否存在验证报告
+      const validationFile = path.join(RUNTIME_DIR, `validation-report-${taskId}.yaml`);
+      const hasValidation = fs.existsSync(validationFile);
+      results[results.length - 1].validation = hasValidation ? validationFile : null;
     } else {
       results.push({ task_id: taskId, file: null, status: 'pending' });
     }
@@ -529,6 +540,27 @@ dev-flow 平台调度引擎
   // 解析 DAG
   const dagContent = fs.readFileSync(dagFile, 'utf-8');
   let tasks = parseTaskDag(dagContent);
+
+  // 🔴 v3.0: 为每个任务准备上下文注入文件
+  const prepareContextScript = path.join(__dirname, 'prepare-context.cjs');
+  if (fs.existsSync(prepareContextScript)) {
+    console.log('');
+    console.log('[INFO] 正在为每个任务生成上下文注入文件（prepare-context.cjs）...');
+    for (const task of tasks) {
+      try {
+        const { execSync } = require('child_process');
+        const demandName = dagFileName.replace('-task-dag.yaml', '').replace('task-dag.yaml', 'current');
+        execSync(`node "${prepareContextScript}" --task ${task.id} --demand ${demandName}`, {
+          cwd: projectRoot,
+          stdio: 'pipe',
+          timeout: 30000
+        });
+        console.log(`  ✅ ${task.id} 上下文注入文件已生成`);
+      } catch (e) {
+        console.warn(`  ⚠️ ${task.id} 上下文注入生成失败: ${e.message}`);
+      }
+    }
+  }
 
   if (tasks.length === 0) {
     console.error('[ERROR] task-dag.yaml 中未解析到任何任务');
@@ -666,7 +698,11 @@ function generateAndOutputPlan(platform, batches, taskMap, dagFile, conflicts, i
   console.log('执行说明：');
   console.log('  1. 按批次顺序执行上述调度命令');
   console.log('  2. 每个批次完成后，检查 task-result-{taskId}.yaml 确认所有任务成功');
-  console.log('  3. 如有任务失败，参考冲突检测结果调整后重新执行');
+  console.log('  3. 每个任务完成后，运行 validate-result.cjs 自动校验产出质量：');
+  console.log('     node scripts/validate-result.cjs --task <taskId> --demand <需求名>');
+  console.log('  4. 全部完成后，运行批量校验：');
+  console.log('     node scripts/validate-result.cjs --all --demand <需求名> --compile');
+  console.log('  5. 如有任务失败，参考冲突检测结果调整后重新执行');
 }
 
 function findDagFile(docsDir) {

@@ -64,6 +64,7 @@ is_background: false
 | 接口签名一致 | Controller 与 Service 接口签名一致 |
 | 数据模型一致 | Entity 与 DTO 字段一致 |
 | 跨服务调用一致 | Feign Client 与被调用方接口一致 |
+| 🔴 逻辑覆盖率矩阵 | `logic-coverage-matrix.yaml` 中所有覆盖率为 100%（如有） |
 
 ### 4. 可编译性检查
 

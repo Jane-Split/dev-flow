@@ -46,7 +46,7 @@ dev-flow 支持两种运行模式：
 
 ### 平台能力分级
 
-> **所有五大平台均支持 Subagent 并行执行**，Orchestrator 根据当前平台自动选择最优调度策略。
+> **不同 AI 编程平台的 Subagent 能力差异很大，系统必须根据当前平台选择合适的调度策略。**
 
 | 平台 | Subagent 支持 | 并行能力 | 调度策略 |
 |------|--------------|---------|---------|
@@ -55,6 +55,8 @@ dev-flow 支持两种运行模式：
 | **Claude Code** | Dynamic Workflows JS 编排 + `.claude/agents/*.md` | 16 并发 + 1000 总量 + 对抗验证 | Claude 并行模式 |
 | **Qoder** | Quest Mode 主从 Agent 架构 | 前端/后端/测试/部署方向并行 | Qoder 主从并行模式 |
 | **Codex** | `.codex/agents/*.toml` + `AGENTS.md` | 6 线程 + CSV 批量 | Codex 有限并行模式 |
+
+> **所有五大平台均支持 Subagent 并行执行**，Orchestrator 根据当前平台自动选择最优调度策略。
 
 **并行开发适配规则**：
 - **Trae**：同批次任务同时启动多个 `/develop-expert`，通过 `task-result.yaml` 传递产出
@@ -105,6 +107,8 @@ dev-flow 支持两种运行模式：
 **Subagent 通信**：
 - 通过文件系统传递信息（task-context.yaml / task-result.yaml）
 - 主 agent 只保留任务状态，详细内容外置到文件
+- **v3.0 上下文自动注入**：Subagent 派发前由 `prepare-context.cjs` 自动生成 `task-brief-{taskId}.md`，包含完整上下文信息
+- **v3.0 产出自动校验**：Subagent 完成后由 `validate-result.cjs` 自动校验产出质量
 - 详见 `.cursor/agents/task-protocol.md`
 
 **何时使用 Subagent 模式**：
@@ -131,6 +135,7 @@ dev-flow 支持两种运行模式：
 | 🔴 **高** | 标准模式处理多文件 | 需求涉及 >5 个文件 |
 | 🔴 **高** | Research 扫描大项目 | 项目 >200 个文件 |
 | 🟡 **中** | 复杂需求分析 | 涉及 3+ 服务，10+ 功能点 |
+| 🟢 **已解决** | Subagent 上下文不足 | v3.0 上下文自动注入系统（prepare-context.cjs） |
 
 ### 强制模式选择规则
 
@@ -239,6 +244,57 @@ Step 0: 检测需求规模
 
 > **每个阶段完成后，必须输出结构化确认 Checklist，等待用户逐项确认。未确认不得进入下一阶段。**
 
+**🔴 确认持久化规则（文件级硬约束）**：
+
+> 阶段确认不仅是 prompt 软约束，必须写入确认文件作为硬约束。
+> 后续阶段在开始执行前，必须检查前一阶段的确认文件是否存在。
+
+```
+每个阶段确认后，必须写入确认文件：
+
+.dev-flow/stage-confirmations/
+├── research.confirmed      # Research 阶段确认文件
+├── analyze.confirmed       # Analyze 阶段确认文件
+├── design.confirmed        # Design 阶段确认文件
+├── task-split.confirmed    # Task Split 阶段确认文件
+├── develop.confirmed       # Develop 阶段确认文件
+├── unit-test.confirmed     # Unit Test 阶段确认文件
+├── smoke-test.confirmed    # Smoke Test 阶段确认文件
+├── integration-test.confirmed  # Integration Test 阶段确认文件
+└── e2e-test.confirmed      # E2E Test 阶段确认文件
+```
+
+**确认文件格式**：
+```yaml
+# .dev-flow/stage-confirmations/{stage}.confirmed
+stage: research
+confirmed_at: "2026-06-05T11:30:00"
+confirmed_by: user
+session_id: "session-xxx"
+checklist:
+  - item: "项目架构已识别"
+    status: confirmed
+  - item: "技术栈已确认"
+    status: confirmed
+  - item: "影响范围已评估"
+    status: confirmed
+notes: ""
+```
+
+**🔴 阶段门禁检查（下一阶段开始前必须执行）**：
+
+```
+进入 Analyze 阶段前 → 检查 research.confirmed 是否存在
+进入 Design 阶段前 → 检查 analyze.confirmed 是否存在
+进入 Task Split 阶段前 → 检查 design.confirmed 是否存在
+进入 Develop 阶段前 → 检查 task-split.confirmed 是否存在
+进入 Unit Test 阶段前 → 检查 develop.confirmed 是否存在
+进入 E2E Test 阶段前 → 检查 smoke-test.confirmed 是否存在
+进入 Integration Test 阶段前 → 检查 e2e-test.confirmed 是否存在
+
+如果确认文件不存在 → 拒绝进入下一阶段，提示用户先确认前一阶段
+```
+
 **标准确认 Checklist 模板**：
 ```markdown
 ## ✅ 阶段确认清单
@@ -251,7 +307,7 @@ Step 0: 检测需求规模
 | 4 | [后续阶段准备就绪] | ⬜ 待确认 |
 
 **用户操作**：
-- 确认无误 → 回复 "确认" 或 "继续" 进入下一阶段
+- 确认无误 → 回复 "确认" 或 "继续" 进入下一阶段（系统自动写入确认文件）
 - 需要修改 → 指出具体问题，返回当前阶段修正
 - 需要重新执行 → 回复 "重新执行"
 ```
@@ -259,7 +315,9 @@ Step 0: 检测需求规模
 **硬性阻断规则**：
 - ❌ 禁止跳过确认直接进入下一阶段
 - ❌ 禁止用"看起来没问题"等模糊描述代替逐项确认
+- ❌ 禁止在确认文件不存在的情况下进入下一阶段
 - ✅ 如果用户说"继续"但 Checklist 未全部确认，补充确认遗漏项
+- ✅ 用户确认后，立即将确认文件写入 `.dev-flow/stage-confirmations/`
 
 ### 项目类型检测
 
@@ -317,20 +375,104 @@ Step 0: 检测需求规模
 > **按需加载机制**：每个阶段的详细指令已拆分为独立文件。进入对应阶段时，读取对应文件获取详细指令。
 > 这样做可以将 SKILL.md 的体积从 140KB 降低到 ~9KB，为代码生成释放 90%+ 的上下文空间。
 
-| 阶段 | 指令文件 | 加载时机 |
-|------|---------|---------|
-| Research（项目调研） | `.cursor/stages/research.md` | 进入阶段一 |
-| Analyze（需求分析） | `.cursor/stages/analyze.md` | 进入阶段二 |
-| Design（详细设计） | `.cursor/stages/design.md` | 进入阶段三 |
-| Task Split（任务拆分） | `.cursor/stages/task-split.md` | 进入阶段四 |
-| **Develop（开发执行）** | **`.cursor/stages/develop.md`** | **进入阶段五** |
-| Unit Test（单元测试） | `.cursor/stages/unit-test.md` | 进入阶段六 |
-| Fix（Bug 修复） | `.cursor/stages/fix.md` | 进入阶段七 |
-| Hotfix（独立模式） | `.cursor/stages/hotfix.md` | 使用 Hotfix 模式 |
-| Smoke Test（冒烟测试） | `.cursor/stages/smoke-test.md` | 进入阶段八 |
-| E2E Test（端到端测试） | `.cursor/stages/e2e-test.md` | 进入阶段九 |
-| Integration Test（集成测试） | `.cursor/stages/integration-test.md` | 进入阶段十 |
-| Delivery（交付报告） | `.cursor/stages/delivery.md` | 进入阶段十一 |
+### 🔴🔴 Router 层硬性门禁（最高优先级，任何阶段进入前必须执行）
+
+> **这是系统级硬约束，不是 prompt 级软约束。无论通过何种方式进入某阶段，都必须先执行此门禁检查。**
+> **此检查在读取阶段指令文件之前执行，确保即使 AI 跳过阶段指令中的门禁描述，也无法绕过检查。**
+
+**门禁检查流程（进入任何阶段前，第一条执行的逻辑）**：
+
+```
+🔴 阶段门禁硬性检查（Router 层执行）
+
+进入目标阶段 X 之前：
+
+  Step Gate-1: 读取确认文件目录
+    ├── 执行：Bash "ls .dev-flow/stage-confirmations/" 或 Glob ".dev-flow/stage-confirmations/*.confirmed"
+    └── 获取已确认的阶段列表
+
+  Step Gate-2: 匹配前置阶段确认
+    ├── 根据「阶段依赖链」检查前置阶段确认文件是否存在
+    │
+    │  阶段依赖链（严格顺序）：
+    │  Research ← (无前置) ← 第一个阶段，无需检查
+    │  Analyze  ← Research.confirmed 必须存在
+    │  Design   ← analyze.confirmed 必须存在
+    │  TaskSplit ← design.confirmed 必须存在
+    │  Develop  ← task-split.confirmed 必须存在
+    │  UnitTest ← develop.confirmed 必须存在
+    │  SmokeTest ← unit-test.confirmed 必须存在
+    │  E2ETest  ← smoke-test.confirmed 必须存在
+    │  IntegrationTest ← e2e-test.confirmed 必须存在
+    │  Fix      ← 由 Test 阶段触发，无前置确认要求
+    │  Delivery ← integration-test.confirmed 必须存在
+    │
+    └── 读取对应的确认文件，校验内容：
+        ├── 文件必须包含 stage 字段且值匹配
+        ├── 文件必须包含 confirmed_at 时间戳
+        └── 文件必须包含 checklist 且每个 item 状态为 confirmed
+
+  Step Gate-3: 门禁判定
+    ├── ✅ 前置确认文件存在且内容完整 → 允许进入目标阶段
+    ├── ❌ 确认文件不存在 → 拒绝进入，输出以下信息并停止：
+    │
+    │   【🔴 阶段门禁阻止】
+    │   当前尝试进入：{目标阶段}
+    │   缺少前置确认：{前置阶段}.confirmed
+    │   原因：{前置阶段} 尚未完成用户确认
+    │   操作：请先完成 {前置阶段} 并确认后，再进入 {目标阶段}
+    │
+    └── ❌ 确认文件内容不完整 → 拒绝进入，提示补充确认
+```
+
+**特殊场景处理**：
+
+| 场景 | 门禁规则 |
+|------|---------|
+| `/dev-flow -research` | 无前置要求，直接执行 |
+| `/dev-flow -analyze <需求>` | 检查 research.confirmed |
+| `/dev-flow -design <需求>` | 检查 analyze.confirmed |
+| `/dev-flow -split <需求>` | 检查 design.confirmed |
+| `/dev-flow -develop <需求>` | 检查 task-split.confirmed（全流程时）/ 无前置（直接开发时） |
+| `/dev-flow -fix` | 无前置确认要求（由 Bug 触发） |
+| `/dev-flow --resume` | 读取最后一个 confirmed 文件，从下一阶段继续 |
+| 跳过某阶段（用户明确要求） | 自动跳过该阶段的门禁检查，但后续阶段的门禁仍检查最后一个已确认的阶段 |
+| L0 轻量模式 | 仅检查 research.confirmed（如存在） |
+
+**确认文件内容校验规则**：
+
+```yaml
+# 有效的确认文件必须包含以下所有字段：
+stage: "research"              # 必填：阶段名称
+confirmed_at: "2026-06-05T..." # 必填：确认时间
+confirmed_by: "user"            # 必填：确认人
+session_id: "session-xxx"       # 必填：会话 ID
+checklist:                      # 必填：确认清单
+  - item: "项目架构已识别"
+    status: "confirmed"         # 每个item必须为confirmed
+# 至少包含以下校验：
+artifacts_checksum: "abc123"    # 可选：产出物校验和（防伪造）
+```
+
+> **⚠️ 关键规则**：即使阶段指令文件（如 research.md）中也包含门禁检查描述，**Router 层的检查仍然必须执行**。这是双重保险机制。
+> **执行顺序**：先执行 Router 层门禁检查（本节）→ 通过后 → 再读取目标阶段指令文件 → 阶段指令中的门禁作为二次确认。
+
+---
+
+| 阶段 | 指令文件 | 加载时机 | 前置确认文件 |
+|------|---------|---------|------------|
+| Research（项目调研） | `.cursor/stages/research.md` | 进入阶段一 | 无 |
+| Analyze（需求分析） | `.cursor/stages/analyze.md` | 进入阶段二 | `research.confirmed` |
+| Design（详细设计） | `.cursor/stages/design.md` | 进入阶段三 | `analyze.confirmed` |
+| Task Split（任务拆分） | `.cursor/stages/task-split.md` | 进入阶段四 | `design.confirmed` |
+| **Develop（开发执行）** | **`.cursor/stages/develop.md`** | **进入阶段五** | `task-split.confirmed` |
+| Unit Test（单元测试） | `.cursor/stages/unit-test.md` | 进入阶段六 | `develop.confirmed` |
+| Fix（Bug 修复） | `.cursor/stages/fix.md` | 进入阶段七 | 无（Bug 触发） |
+| Hotfix（独立模式） | `.cursor/stages/hotfix.md` | 使用 Hotfix 模式 | 无 |
+| Smoke Test（冒烟测试） | `.cursor/stages/smoke-test.md` | 进入阶段八 | `unit-test.confirmed` |
+| E2E Test（端到端测试） | `.cursor/stages/e2e-test.md` | 进入阶段九 | `smoke-test.confirmed` |
+| Integration Test（集成测试） | `.cursor/stages/integration-test.md` | 进入阶段十 | `e2e-test.confirmed` |
+| Delivery（交付报告） | `.cursor/stages/delivery.md` | 进入阶段十一 | `integration-test.confirmed` |
 
 ### 加载规则
 
