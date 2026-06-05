@@ -9,7 +9,7 @@ AI 开发全流程编排 Skill，适用于 Cursor、Trae、Qoder、Claude Code�
 
 通过 `/dev-flow` 命令，AI 将按照结构化流程逐步执行：**项目调研 → 需求分析 → 详细设计 → 代码开发 → 测试验证 → Bug 修复**，每个阶段完成后暂停等待确认，确保产出质量。
 
-**v3.1.0 核心架构**：主 Agent 作为纯调度枢纽（零编辑），所有文件操作由专门的阶段 Subagent 执行。
+**v3.1.0 核心架构**：主 Agent 作为纯调度枢纽（零编辑），所有文件操作由专门的阶段 Subagent 执行。Research 阶段采用 **pre-scanner + 13 文件子代理分批并行架构**，微服务项目扫描完整度从采样模式升级为全量覆盖。
 
 ## 为什么需要 dev-flow？
 
@@ -34,6 +34,24 @@ dev-flow 通过**结构化的流程编排 + 项目记忆 + 长期记忆 + 学习
 - **业务代码优先铁律** — Develop 阶段强制 P0 业务代码优先、P1 测试代码仅在业务代码完成后作为验证手段生成，防止 AI 优先写测试
 - **Orchestrator 工具权限硬分离** — 移除 Write 权限，Orchestrator 与主 Agent 同样零编辑
 - **主 Agent 调度协议** — develop.md 新增主 Agent 调度协议（Step D1-D9），明确主 Agent 在 Develop 阶段的合法操作范围
+
+#### 阶段交付物审批机制
+- **独立交付物文档** — 每个阶段产出独立审批文档（`.dev-flow/deliverables/01-research-report.md` ~ `11-delivery-report.md`），而非仅在对话栏输出
+- **交付物存在性检查（Gate-1.5）** — 阶段门禁新增交付物存在性检查，缺失则拒绝进入下一阶段
+- **主 Agent 审批流程** — 读取并打开交付物文档供用户审批，替代"对话栏展示"
+- **执行者审计链** — `.confirmed` 文件新增 `execution_trail` 字段，记录 executor/files_produced/zero_edit_violation
+
+#### Subagent 失败硬阻断规则
+- **三级失败处理协议** — Level 1 自动重试（1 次）→ Level 2 诊断重试（1 次）→ Level 3 人工升级（停止自动化），硬阻断主 Agent 越权
+- **零编辑铁律 v2.0** — 从"协议级约束"升级为"可验证硬约束"：文件白名单 + @generated-by 溯源注释 + 每阶段文件修改审计
+- **主 Agent 禁止行为表** — 7 项违规场景 P0/P1 分级，强制执行决策树
+
+#### Research 多子代理分批架构
+- **pre-scanner + 13 文件子代理** — 从单 research-expert 串行扫描升级为 pre-scanner 全局索引 + 13 个独立文件子代理分批并行
+- **file-index.yaml 中间格式** — pre-scanner 一次 Glob → 全局文件索引 → 每个文件子代理直接查索引精确定位，消除重复扫描
+- **5 批次语义分组** — 基础层(3) → 数据层(3) → 行为层(3) → 横切层(2) → 模板层(2)，批次内并行、批次间等待
+- **无聚合器架构** — 每个子代理独立上下文（~25-40KB），直接写入目标 memory 文件，互不依赖，故障隔离
+- **平台自适应** — Claude/Trae/Cursor 全额 14 并行 / Qoder 5 批次 / Codex 3 批次合并
 
 ### v3.0.0 上下文注入革命 + 结构化分段生成
 
@@ -76,9 +94,9 @@ dev-flow 通过**结构化的流程编排 + 项目记忆 + 长期记忆 + 学习
 - **智能任务拆分** - Design 输出全局契约，Task Split 生成子任务级设计 + DAG 依赖图 + 文件冲突检测，每个 subagent 只接收必要信息
 - **接口契约机制** - 跨子任务接口定义（serviceContracts/eventContracts/dataContracts），契约冻结（stability: frozen）防止随意修改
 - **多 Subagent 并行** - 复杂任务拆分为独立 subagent 并行执行，上下文隔离，支持 Trae 原生并行和 Cursor/Claude/Qoder 顺序模拟并行
-- **智能 Research** - 自动评估项目规模，选择标准模式或 4 subagent 并行扫描
+- **智能 Research** - 自动评估项目规模，pre-scanner 全局索引 + 13 文件级 subagent 分批并行扫描，微服务全量覆盖
 - **深层依赖扫描** - 自动扫描微服务项目的依赖项目（common-bean、basedata-api 等）
-- **项目记忆** - Research 阶段自动扫描并记录项目结构、组件、API、编码规范（16 个文件）
+- **项目记忆** - Research 阶段自动扫描并记录项目结构、组件、API、编码规范（13 个 memory 文件 + file-index.yaml）
 - **长期记忆** - 记录常见代码模式、错误修复方案、用户偏好、架构决策（6 个文件），跨会话持久化
 - **结构化业务逻辑** - 设计阶段输出结构化决策表（8 种 Action 类型），开发阶段精确翻译为代码，消除自然语言歧义
 - **编译验证闭环** - 开发完成后必须编译验证（Java/前端），解析错误并自动修复（最多 3 轮循环）
@@ -123,12 +141,11 @@ npx dev-flow install
 | Claude Code | `.claude/commands/dev-flow.md` + `stages/*.md` + `agents/*.md` + `references/*.md` | 输入框输入 `/dev-flow` |
 | OpenAI Codex | `AGENTS.md` + `.agents/skills/dev-flow/SKILL.md` + `.codex/agents/*.toml` + `.codex/references/*.md` | 终端输入 `codex` 后使用自然语言或 `$dev-flow` |
 
-**Subagent 文件**（用于 `-subagent` 模式和 Research 并行扫描；Codex 使用 `.codex/agents/*.toml`）：
+**Subagent 文件**（用于 `-subagent` 模式和 Research 分批并行扫描；Codex 使用 `.codex/agents/*.toml`）：
 
 | Agent | 文件路径 | 职责 |
 |-------|----------|------|
 | orchestrator | `agents/orchestrator.md` | 主协调者，DAG 调度和依赖检查 |
-| research-expert | `agents/research-expert.md` | 项目研究，调度子 subagent 扫描 |
 | analyze-expert | `agents/analyze-expert.md` | 需求分析，影响评估 |
 | design-expert | `agents/design-expert.md` | 详细设计，接口定义 |
 | task-split-expert | `agents/task-split-expert.md` | 智能任务拆分，生成子任务级设计 + DAG |
@@ -140,11 +157,13 @@ npx dev-flow install
 | error-pattern-learner | `agents/error-pattern-learner.md` | 错误模式学习与预防策略 |
 | step-enforcer | `agents/step-enforcer.md` | 步骤强制执行验证器 |
 | context-manager | `agents/context-manager.md` | 上下文管理器 |
-| dependency-scanner | `agents/dependency-scanner.md` | 依赖项目深层扫描 |
-| service-scanner | `agents/service-scanner.md` | 当前服务源码扫描 |
-| structure-analyzer | `agents/structure-analyzer.md` | 项目结构和依赖关系分析 |
-| config-analyzer | `agents/config-analyzer.md` | 配置和编码规范分析 |
 | task-protocol | `agents/task-protocol.md` | 任务拆分协议定义 |
+| on-demand-loader | `agents/on-demand-loader.md` | 按需加载器（utility，平台构建使用） |
+| runtime-state-manager | `agents/runtime-state-manager.md` | 运行时状态管理（utility，平台构建使用） |
+
+> **v3.1.0 Research 重构**：原 `research-expert` + `dependency-scanner` + `service-scanner` + `structure-analyzer` + `config-analyzer` 合并为 Research 阶段内部架构——指令定义在 `stages/research.md` 中，通过主 Agent 分批调度 pre-scanner（×1）+ 文件级子代理（×13）执行，不再需要独立 Agent 文件。
+> **Legacy Agent 文件**（5 个，仍保留在 `_core/agents/` 中但不被引用）：
+> `research-expert.md` / `dependency-scanner.md` / `service-scanner.md` / `structure-analyzer.md` / `config-analyzer.md`
 
 **参考文件**（v2.0.0 新增，按需加载的深度参考文档）：
 
@@ -257,11 +276,9 @@ AI 将按阶段逐步执行，每个阶段完成后等待你确认。
 ```
 用户 ←→ 主 Agent（纯调度枢纽，零编辑）
               │
-              ├── research-expert  → 扫描项目，输出 memory/
-              │     ├── dependency-scanner   → 深层扫描依赖项目
-              │     ├── service-scanner      → 扫描当前服务
-              │     ├── structure-analyzer   → 分析项目结构
-              │     └── config-analyzer      → 分析配置规范
+              ├── [Research: pre-scanner + 13 file-level subagents, 5 batches]
+              │     Phase 0: pre-scanner × 1          → file-index.yaml
+              │     Phase 1: Batch 1-5, 13 subagents  → 13 memory 文件
               ├── analyze-expert   → 分析需求，输出分析文档
               ├── design-expert    → 详细设计，输出 design-contract.yaml
               ├── task-split-expert → 智能拆分，输出 DAG + 子任务设计
@@ -292,7 +309,7 @@ Hotfix（独立模式，随时可用，直接输出无需等待确认）
 
 | 阶段 | AI 做什么 | 产出 |
 |------|----------|------|
-| **Research** | 扫描项目文件、识别技术栈、深层扫描依赖项目、提取编码规范 | `.dev-flow/memory/` 长期记忆 + 会话记忆 |
+| **Research** | pre-scanner 全局索引 + 13 文件级 subagent 分批并行扫描，Smart Sampling 按服务独立采样，关键类强制全量读取，记忆完整性 A/B/C/D 四级评级 | `.dev-flow/memory/` 13 个 memory 文件 + file-index.yaml + 阶段交付物 |
 | **Analyze** | 解析需求、关联已有代码、识别歧义、**一致性校验**、评估影响范围 | 需求分析文档 |
 | **Design** | 读取项目记忆、设计数据模型、API 接口、组件树、业务流程 | `design-contract.yaml`（含接口契约，支持多语言） |
 | **Task Split** | 拆分为子任务、**冲突检测**、构建 DAG、**双维度选择**、生成子任务级设计 | `task-dag.yaml` + `subtask-{id}-design.yaml` + `interface-registry.yaml` |
@@ -332,7 +349,7 @@ v2.0.0 在 v1.0.5 三层架构基础上，新增了 references 层，将 Router 
 第四层：Agent 文件（Subagent 模式下加载）
   ├── develop-expert.md  ← Subagent 模式下加载
   ├── step-enforcer.md   ← 验证步骤完整性
-  └── ...共 18 个 agent
+  └── ...共 20 个 agent（含 legacy Research agent）
 ```
 
 **与 v1.0.5 对比**：
@@ -467,7 +484,7 @@ dev-flow/
 │   ├── _core/             # 核心模板源（所有平台的公共基础）
 │   │   ├── SKILL.md       # Router（17KB 骨架文件）
 │   │   ├── stages/        # 13 个阶段指令文件（按需加载）
-│   │   ├── agents/        # 20 个 agent 定义（全平台共享）
+│   │   ├── agents/        # 20 个 agent 定义（全平台共享，含 legacy Research agent）
 │   │   └── references/    # 4 个参考文档（按需加载）← v2.0.0 新增
 │   │       ├── memory-system.md
 │   │       ├── learning-system.md

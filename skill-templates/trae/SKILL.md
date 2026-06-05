@@ -11,39 +11,199 @@ description: AI开发全流程编排技能 - 在AI编程工具对话框中结构
 
 **核心价值**：让 AI 编程工具按结构化流程工作，避免遗漏步骤，确保产出质量。
 
-### 🔴🔴 主 Agent 零编辑铁律（最高优先级，不可违反）
+### 🔴🔴 主 Agent 零编辑铁律 v2.0（最高优先级，不可违反，可验证硬约束）
 
 > **核心原则**：主 Agent 的角色是**交互枢纽 + 纯调度器**，绝不直接编辑任何文件。
 > **所有文件操作（Write/Edit）必须由专门的阶段 subagent 执行。**
+> **v2.0 升级**：从"协议级约束"升级为"可验证级硬约束"，引入文件白名单和产出溯源机制。
 
-**主 Agent 权限定义**：
+**主 Agent 权限定义（v2.0 增强版）**：
 
 | 操作类型 | 主 Agent 是否允许 | 说明 |
 |---------|------------------|------|
-| 读取文件（Read） | ✅ 允许 | 读取配置、结果、确认文件、用户需求 |
+| 读取文件（Read） | ✅ 允许 | 读取配置、结果、确认文件、用户需求、交付物文档 |
 | 执行编译命令（Bash） | ✅ 允许 | `mvn compile`、`npm run build` 等验证命令 |
 | 编辑文件（Edit/Write） | 🔴 **绝对禁止** | 所有代码、文档、配置的编辑必须由 subagent 执行 |
-| 创建/删除文件 | 🔴 **绝对禁止** | 除 `.dev-flow/stage-confirmations/*.confirmed` 外 |
+| 创建/删除文件 | 🔴 **绝对禁止** | 仅允许写入 `.confirmed` 确认文件（见白名单） |
+
+**🔴 文件写入白名单（唯一例外，穷举列表）**：
+
+> 主 Agent **仅允许**写入以下类型的文件，其他任何文件写入均属违规：
+
+| 允许写入的文件 | 路径规则 | 用途 |
+|--------------|---------|------|
+| 阶段确认文件 | `.dev-flow/stage-confirmations/*.confirmed` | 记录用户阶段确认 |
+| 会话初始化文件 | `.dev-flow/sessions/{id}/session-init.yaml` | 创建新会话 |
+
+> **禁止写入的文件（非穷举示例）**：
+> - ❌ 任何源代码文件（`.java`, `.ts`, `.py`, `.go`, `.rs` 等）
+> - ❌ 任何配置文件（`.yaml`, `.yml`, `.json`, `.xml`, `.toml` 等）
+> - ❌ 任何文档文件（`.md` 除白名单外）
+> - ❌ 任何构建/部署脚本（`.sh`, `.cjs`, `.js` 等）
+> - ❌ `.dev-flow/memory/` 目录下的任何文件
+> - ❌ `.dev-flow/docs/` 目录下的任何文件
+> - ❌ `.dev-flow/deliverables/` 目录下的任何文件
+
+**🔴 产出文件溯源（v2.0 新增）**：
+
+> 每个由 subagent 产生的文件必须包含溯源信息，用于审计主 Agent 是否违规编辑。
+> 
+> **溯源要求**：
+> - 每个产出文件的第一行注释必须包含执行者标识：
+>   ```
+>   // @generated-by: {stage}-expert subagent | session: {session-id} | stage: {stage}
+>   ```
+> - `.confirmed` 文件必须记录 `subagent_execution_trail` 字段：
+>   ```yaml
+>   execution_trail:
+>     executor: "pre-scanner + file-level subagents (13 total, 5 batches)"
+>     files_produced:
+>       - path: ".dev-flow/memory/project-overview.md"
+>         generated_by: "project-overview-subagent"
+>         checksum: "abc123..."
+>     zero_edit_violation: false  # 主 Agent 是否违规编辑
+>   ```
+
+**🔴 文件修改审计（v2.0 新增）**：
+
+> 每个阶段结束后，自动执行文件修改审计，验证白名单合规性。
+>
+> ```
+> 审计流程（每阶段结束时自动执行）：
+> 1. 扫描本阶段产生的所有新文件和修改的文件
+> 2. 对每个文件检查：
+>    ├── 是否在白名单中？→ ✅ 合法（如 .confirmed 文件）
+>    ├── 是否包含 @generated-by 溯源注释？→ 检查执行者是否为 subagent
+>    │   ├── 是 subagent → ✅ 合法
+>    │   └── 否 → 🔴 违规！标记 zero_edit_violation = true
+>    └── 无溯源注释且不在白名单中 → 🔴 违规！
+> 3. 审计结果写入 .dev-flow/sessions/{id}/audit-log.yaml
+> ```
 
 **每个阶段都必须由专门的 subagent 执行**：
 
 | 阶段 | 执行者 | 主 Agent 职责 |
 |------|--------|-------------|
-| Research | `research-expert` | 调度 + 展示结果 |
-| Analyze | `analyze-expert` | 调度 + 展示结果 |
-| Design | `design-expert` | 调度 + 展示结果 |
-| Task Split | `task-split-expert` | 调度 + 展示结果 |
+| Research | `pre-scanner` + 13 文件子代理 | 分批调度 + 读取交付物 + 展示审批 |
+| Analyze | `analyze-expert` | 调度 + 读取交付物 + 展示审批 |
+| Design | `design-expert` | 调度 + 读取交付物 + 展示审批 |
+| Task Split | `task-split-expert` | 调度 + 读取交付物 + 展示审批 |
 | Develop | `develop-expert`（可并行多个） | 调度 + 进度监控 + 汇总 |
-| Unit Test | `test-expert` | 调度 + 展示结果 |
-| Fix | `fix-expert` | 调度 + 展示结果 |
-| Smoke Test | `smoke-test-expert` | 调度 + 展示结果 |
-| E2E Test | `e2e-test-expert` | 调度 + 展示结果 |
-| Integration Test | `integration-test-expert` | 调度 + 展示结果 |
-| Delivery | `delivery-expert` | 调度 + 展示结果 |
+| Unit Test | `test-expert` | 调度 + 读取交付物 + 展示审批 |
+| Fix | `fix-expert` | 调度 + 读取交付物 + 展示审批 |
+| Smoke Test | `smoke-test-expert` | 调度 + 读取交付物 + 展示审批 |
+| E2E Test | `e2e-test-expert` | 调度 + 读取交付物 + 展示审批 |
+| Integration Test | `integration-test-expert` | 调度 + 读取交付物 + 展示审批 |
+| Delivery | `delivery-expert` | 调度 + 读取交付物 + 展示审批 |
 
-**违反检测与纠正**：
+**违反检测与纠正（v2.0 增强版）**：
 - 如果主 Agent 在执行中发现自己正在输出 `Edit` 或 `Write` 操作 → **立即停止**，改为创建对应 subagent 执行
 - 如果主 Agent 已在某个阶段直接编辑了文件 → 该阶段产出标记为无效，要求由 subagent 重新执行
+- 每个阶段结束时的文件修改审计自动检测违规 → 违规文件标记为无效，阶段必须由 subagent 重新执行
+- 连续 3 次文件修改审计发现违规 → 🔴 强制终止会话，输出违规报告
+
+### 🔴🔴 Subagent 失败硬阻断规则（最高优先级，不可违反）
+
+> **核心原则**：Subagent 执行失败后，主 Agent **绝对禁止**直接介入执行任务。
+> 必须遵循三级失败处理协议，逐步升级，最终由人工介入。
+
+#### 三级失败处理协议
+
+```
+🔴 三级失败处理协议（硬阻断，不可跳过任何级别）
+
+Level 1 — 自动重试（Auto-Retry）
+  触发：Subagent 返回错误状态或产出不完整
+  ├── 操作：主 Agent 自动重新创建同一个 subagent，传递相同的上下文
+  ├── 信息传递：将上一次失败的诊断信息附加到 subagent 的 prompt 中
+  │   ├── 上一次失败的错误类型（编译错误/运行时错误/产出不完整/超时）
+  │   ├── 上一次失败的详细错误信息
+  │   └── 建议的修复方向（如有）
+  ├── 最大重试次数：1 次（即总共最多执行 2 次）
+  └── 成功 → 继续流程 ｜ 仍失败 → 升级到 Level 2
+
+Level 2 — 诊断重试（Diagnose & Retry）
+  触发：Level 1 自动重试后仍失败
+  ├── 操作：主 Agent 创建诊断型 subagent（同类型 expert），但 prompt 侧重于诊断
+  │   ├── 读取失败阶段的完整上下文和错误信息
+  │   ├── 分析失败根因（环境问题/上下文不足/指令歧义/任务复杂度超出能力）
+  │   ├── 输出诊断报告：`.dev-flow/sessions/{id}/diagnosis-{stage}.md`
+  │   └── 基于诊断结果，调整 subagent 的 prompt 和上下文后重新执行
+  ├── 最大重试次数：1 次（诊断 + 重试）
+  └── 成功 → 继续流程 ｜ 仍失败 → 升级到 Level 3
+
+Level 3 — 🔴 人工升级（Escalate to Human）
+  触发：Level 2 诊断重试后仍失败
+  ├── 操作：主 Agent **停止一切自动化操作**，不执行任何文件编辑
+  ├── 输出升级报告给用户：
+  │
+  │   【🔴 Subagent 执行失败 — 需要人工介入】
+  │   ═══════════════════════════════════════
+  │   失败阶段：{stage}
+  │   失败 Subagent：{stage}-expert
+  │   已尝试次数：{attempt_count} 次（含自动重试 + 诊断重试）
+  │   
+  │   失败摘要：
+  │   - 第 1 次（原始执行）：{error_summary_1}
+  │   - 第 2 次（Level 1 自动重试）：{error_summary_2}
+  │   - 第 3 次（Level 2 诊断重试）：{error_summary_3}
+  │   
+  │   诊断结果：
+  │   - 根因分析：{root_cause}
+  │   - 诊断报告：.dev-flow/sessions/{id}/diagnosis-{stage}.md
+  │   
+  │   当前状态：流程暂停，等待人工决策
+  │   
+  │   可选操作：
+  │   1. 回复「重试」→ 再次尝试执行（使用优化后的 prompt）
+  │   2. 回复「跳过」→ 跳过当前阶段，继续下一阶段
+  │   3. 回复「手动」→ 用户自行描述要求和上下文，由主 Agent 创建新的 subagent
+  │   4. 回复「终止」→ 结束本次 dev-flow 会话
+  │   ═══════════════════════════════════════
+  │
+  └── 主 Agent 进入等待状态，不再执行任何自动化操作
+```
+
+#### 🔴 主 Agent 禁止行为表（Subagent 失败场景）
+
+> **Subagent 失败后，主 Agent 的以下行为属于严重违规，触发违规告警机制。**
+
+| 违规行为 | 严重级别 | 说明 |
+|---------|---------|------|
+| 主 Agent 直接使用 Edit/Write 工具编辑代码文件 | 🔴 P0 严重违规 | 违反零编辑铁律，立即终止 |
+| 主 Agent 在对话中直接输出代码代替 Subagent 执行 | 🔴 P0 严重违规 | 代码输出视为文件编辑 |
+| 主 Agent 跳过 Level 1 直接升级到 Level 3 | 🟡 P1 违规 | 未执行自动重试 |
+| 主 Agent 跳过 Level 2 直接升级到 Level 3 | 🟡 P1 违规 | 未执行诊断分析 |
+| 主 Agent 自行修改 subagent 的产出文件 | 🔴 P0 严重违规 | 违反零编辑铁律 |
+| 主 Agent 在 Level 3 等待期间自行执行任务 | 🔴 P0 严重违规 | 越过人工决策 |
+| 主 Agent 向用户隐瞒 Subagent 失败的事实 | 🟡 P1 违规 | 透明度违规 |
+
+#### 强制执行流程（Subagent 失败后主 Agent 的决策树）
+
+```
+主 Agent 检测到 Subagent 返回失败状态
+  │
+  ├── Step 1: 记录失败信息
+  │   ├── 错误类型
+  │   ├── 错误详情
+  │   ├── 失败的 subagent 名称和阶段
+  │   └── 写入 .dev-flow/sessions/{id}/subagent-failures.yaml
+  │
+  ├── Step 2: 判断当前尝试次数
+  │   ├── 第 1 次失败（原始执行）→ 执行 Level 1 自动重试
+  │   ├── 第 2 次失败（Level 1 重试后）→ 执行 Level 2 诊断重试
+  │   └── 第 3 次失败（Level 2 重试后）→ 执行 Level 3 人工升级
+  │
+  └── Step 3: 🔴 自检 — 在每一步操作前检查：
+      "我是否正在准备直接编辑文件？"
+      "我是否正在准备在对话中输出代码？"
+      "我是否正在准备跳过某个级别的协议？"
+      如果任一答案为"是" → 立即停止，回退到正确的协议步骤
+```
+
+> **⚠️ 关键规则**：上述三级协议是**硬阻断机制**，不可被任何条件覆盖。
+> 即使用户说"直接帮我修复"或"你自己做吧"，主 Agent 也必须遵循此协议，不得越权执行。
+> 主 Agent 应回复：「根据 Subagent 失败硬阻断规则 Level {N}，我需要先执行 {协议步骤}。我会尽快完成并汇报结果。」
 
 ## 使用方式
 
@@ -109,11 +269,13 @@ description: AI开发全流程编排技能 - 在AI编程工具对话框中结构
 ```
 用户 ←→ 主 Agent（纯调度枢纽，零编辑）
               │
-              ├── research-expert    → 扫描项目，输出 memory/
-              │     ├── @dependency-scanner   → 深层扫描依赖项目
-              │     ├── @service-scanner      → 扫描当前服务
-              │     ├── @structure-analyzer   → 分析项目结构
-              │     └── @config-analyzer      → 分析配置规范
+              ├── research（多子代理分批架构）
+              │     ├── pre-scanner           → 全局 Quick Scan → file-index.yaml
+              │     ├── batch-1 (基础层 ×3)   → project-overview / service-registry / architecture
+              │     ├── batch-2 (数据层 ×3)   → common-modules / models / config
+              │     ├── batch-3 (行为层 ×3)   → apis / utils / conventions
+              │     ├── batch-4 (横切层 ×2)   → dependency-graph / decisions
+              │     └── batch-5 (模板层 ×2)   → mistakes / patterns
               ├── analyze-expert     → 分析需求，输出需求分析文档
               ├── design-expert      → 详细设计，输出设计文档
               ├── task-split-expert  → 任务拆分，输出任务清单（DAG）
@@ -172,7 +334,7 @@ description: AI开发全流程编排技能 - 在AI编程工具对话框中结构
 | 风险等级 | 场景 | 触发条件 | 处理方式 |
 |---------|------|----------|---------|
 | 🟢 **已解决** | 简单需求直接编辑 | 任何需求规模 | 统一 Subagent 执行，主 Agent 零编辑 |
-| 🟢 **已解决** | Research 扫描大项目 | 项目 >200 个文件 | research-expert 在独立上下文执行 |
+| 🟢 **已解决** | Research 扫描大项目 | 项目 >200 个文件 | pre-scanner + 13 文件子代理分 5 批并行执行，每个子代理独立上下文（~25-40KB） |
 | 🟡 **中** | 复杂需求分析 | 涉及 3+ 服务，10+ 功能点 | analyze-expert 独立上下文 + subagent-only |
 | 🟢 **已解决** | Subagent 上下文不足 | 任何 subagent | v3.0 上下文自动注入系统（prepare-context.cjs） |
 
@@ -320,7 +482,7 @@ Step R4: 升级时通知用户
 ## 全局规则
 
 ### 执行原则
-1. **每个阶段完成后必须暂停，向用户展示成果并等待确认**
+1. **每个阶段完成后必须暂停，生成交付物文档 → 打开文档供用户审阅 → 输出结构化确认 Checklist → 等待用户确认**
 2. **阶段确认采用结构化 Checklist**：每个阶段末尾必须输出确认清单，用户逐项确认后方可进入下一阶段
 3. **生成任何代码前，必须先读取项目记忆和已有代码**
 4. **所有代码必须完整可运行，禁止生成空壳**
@@ -330,6 +492,65 @@ Step R4: 升级时通知用户
 ### 阶段确认机制（硬性阻断）
 
 > **每个阶段完成后，必须输出结构化确认 Checklist，等待用户逐项确认。未确认不得进入下一阶段。**
+
+### 🔴 阶段交付物协议（v3.1 新增 — 硬性约束）
+
+> **核心原则**：每个阶段完成后，必须生成独立的交付物文档（存放于 `.dev-flow/deliverables/`），
+> 主 Agent 读取并打开交付物文档供用户审阅，用户确认后写入 `.confirmed` 文件方可进入下一阶段。
+
+**交付物目录结构**：
+
+```
+.dev-flow/deliverables/
+├── 01-research-report.md         # Research 阶段交付物
+├── 02-analyze-result.md          # Analyze 阶段交付物
+├── 03-design-result.md           # Design 阶段交付物（含 design-contract.yaml）
+├── 04-task-breakdown.md          # Task Split 阶段交付物（含 task-dag.yaml）
+├── 05-develop-result.md          # Develop 阶段交付物
+├── 06-unit-test-report.md        # Unit Test 阶段交付物
+├── 07-fix-report.md              # Fix 阶段交付物
+├── 08-smoke-test-report.md       # Smoke Test 阶段交付物
+├── 09-e2e-test-report.md         # E2E Test 阶段交付物
+├── 10-integration-test-report.md # Integration Test 阶段交付物
+└── 11-delivery-report.md         # Delivery 阶段交付物
+```
+
+> **⚠️ 目录自动创建规则（v3.1 新增）**：
+> 每个阶段生成交付物前，subagent 必须先检查 `.dev-flow/deliverables/` 目录是否存在。
+> 如不存在，执行 `Bash "mkdir -p .dev-flow/deliverables/"` 创建目录后再写入文件。
+> 此规则适用于所有阶段交付物生成步骤（Step X.Y）。
+
+**主 Agent 审批流程（每阶段统一执行）**：
+
+```
+Step A: Subagent 完成 → 交付物已生成到 .dev-flow/deliverables/
+  │
+Step B: 主 Agent 读取交付物文档（Read 工具）
+  │
+Step C: 主 Agent 使用 open_result_view 打开交付物文档
+  │   ├── 用户可以在 IDE 中直接查看交付物内容
+  │   └── 这是结构化的文档，不是对话栏的简短摘要
+  │
+Step D: 主 Agent 输出结构化确认 Checklist
+  │   ├── Checklist 中明确引用交付物文件路径
+  │   ├── 示例："📄 交付物：.dev-flow/deliverables/01-research-report.md"
+  │   └── 提示用户打开文档查看详情
+  │
+Step E: 等待用户逐项确认
+  │
+Step F: 用户确认后 → 写入两样东西：
+  │   ├── .dev-flow/stage-confirmations/{stage}.confirmed（确认文件）
+  │   └── 确认文件中记录交付物路径和校验和
+  │
+Step G: 进入下一阶段（Router 层门禁检查交付物存在性）
+```
+
+> **⚠️ 关键规则**：
+> - ❌ 禁止仅在对话栏展示结果而不生成交付物文档
+> - ❌ 禁止在交付物文档未生成时请求用户确认
+> - ❌ 禁止用"已在对话中展示"代替打开交付物文档
+> - ✅ 每个阶段必须生成独立的 `.dev-flow/deliverables/` 下的文档
+> - ✅ 主 Agent 必须主动打开交付物文档供用户查看
 
 **🔴 确认持久化规则（文件级硬约束）**：
 
@@ -351,13 +572,15 @@ Step R4: 升级时通知用户
 └── e2e-test.confirmed      # E2E Test 阶段确认文件
 ```
 
-**确认文件格式**：
+**确认文件格式（v3.1 增强版）**：
 ```yaml
 # .dev-flow/stage-confirmations/{stage}.confirmed
 stage: research
 confirmed_at: "2026-06-05T11:30:00"
 confirmed_by: user
 session_id: "session-xxx"
+deliverable: ".dev-flow/deliverables/01-research-report.md"  # v3.1 新增：关联交付物路径
+deliverable_checksum: "abc123..."                            # v3.1 新增：交付物校验和
 checklist:
   - item: "项目架构已识别"
     status: confirmed
@@ -365,6 +588,14 @@ checklist:
     status: confirmed
   - item: "影响范围已评估"
     status: confirmed
+execution_trail:              # v3.1 新增：执行溯源
+  executor: "pre-scanner + file-level subagents (13 total, 5 batches)"
+  files_produced:
+    - path: ".dev-flow/memory/project-overview.md"
+      checksum: "def456..."
+    - path: ".dev-flow/deliverables/01-research-report.md"
+      checksum: "abc123..."
+  zero_edit_violation: false
 notes: ""
 ```
 
@@ -384,17 +615,22 @@ notes: ""
 
 **标准确认 Checklist 模板**：
 ```markdown
-## ✅ 阶段确认清单
+## ✅ 阶段确认清单 — {阶段名称}
+
+📄 **交付物文档**：`.dev-flow/deliverables/{序号}-{阶段}-{文档名}.md`
+   → 已自动打开，请切换到文档Tab查看完整内容
 
 | # | 确认项 | 状态 |
 |---|--------|------|
 | 0 | **执行者审计**：本阶段由 {stage}-expert subagent 执行，主 Agent 未直接编辑任何文件 | ⬜ 待确认 |
+| 0.5 | **交付物完整性**：交付物文档已生成且内容非空，文件修改审计通过 | ⬜ 待确认 |
 | 1 | [阶段核心产出描述] | ⬜ 待确认 |
 | 2 | [完整性检查描述] | ⬜ 待确认 |
 | 3 | [与需求一致性检查] | ⬜ 待确认 |
 | 4 | [后续阶段准备就绪] | ⬜ 待确认 |
 
 **用户操作**：
+- 📖 请先查看已打开的交付物文档（`.dev-flow/deliverables/` 下的对应文件）
 - 确认无误 → 回复 "确认" 或 "继续" 进入下一阶段（系统自动写入确认文件）
 - 需要修改 → 指出具体问题，返回当前阶段修正
 - 需要重新执行 → 回复 "重新执行"
@@ -480,6 +716,29 @@ notes: ""
     └── 获取已确认的阶段列表
 
   Step Gate-2: 匹配前置阶段确认
+  Step Gate-1.5: 🔴 交付物存在性检查（v3.1 新增）
+    ├── 根据「阶段依赖链」检查目标阶段的前置阶段交付物是否存在
+    │
+    │  交付物检查表（与阶段对应）：
+    │  Analyze  ← .dev-flow/deliverables/01-research-report.md 必须存在
+    │  Design   ← .dev-flow/deliverables/02-analyze-result.md 必须存在
+    │  TaskSplit ← .dev-flow/deliverables/03-design-result.md 必须存在
+    │  Develop  ← .dev-flow/deliverables/04-task-breakdown.md 必须存在
+    │  UnitTest ← .dev-flow/deliverables/05-develop-result.md 必须存在
+    │  SmokeTest ← .dev-flow/deliverables/06-unit-test-report.md 必须存在
+    │  E2ETest  ← .dev-flow/deliverables/08-smoke-test-report.md 必须存在
+    │  IntegrationTest ← .dev-flow/deliverables/09-e2e-test-report.md 必须存在
+    │  Delivery ← .dev-flow/deliverables/10-integration-test-report.md 必须存在
+    │
+    └── 交付物判定：
+        ├── ✅ 交付物存在且非空 → 检查通过
+        └── ❌ 交付物不存在或为空 → 拒绝进入，输出：
+            【🔴 交付物缺失】
+            当前尝试进入：{目标阶段}
+            缺失交付物：{交付物文件路径}
+            原因：前置阶段的交付物尚未生成
+            操作：请先完成前置阶段，确保 .dev-flow/deliverables/ 下文档已生成
+
     ├── 根据「阶段依赖链」检查前置阶段确认文件是否存在
     │
     │  阶段依赖链（严格顺序）：
@@ -582,22 +841,22 @@ artifacts_checksum: "abc123"    # 可选：产出物校验和（防伪造）
 > **主 Agent 在整个流程中不直接编辑任何文件，仅负责调度、读取结果和与用户交互。**
 
 ```
-Step 1: 创建 research-expert subagent → 执行 Research 阶段
-Step 2: 等待 research-expert 完成 → 读取结果
-Step 3: 向用户展示调研结果 → 等待用户确认
-  ↓ 用户确认
-Step 4: 创建 analyze-expert subagent → 执行 Analyze 阶段
-Step 5: 等待 analyze-expert 完成 → 读取结果
-Step 6: 向用户展示分析结果 → 等待用户确认
-  ↓ 用户确认
-Step 7: 创建 design-expert subagent → 执行 Design 阶段
-Step 8: 等待 design-expert 完成 → 读取结果
-Step 9: 向用户展示设计方案 → 等待用户确认
-  ↓ 用户确认
-Step 10: 创建 task-split-expert subagent → 执行 Task Split 阶段
-Step 11: 等待 task-split-expert 完成 → 读取结果
-Step 12: 向用户展示任务清单（含开发模式推荐） → 等待用户确认
-  ↓ 用户确认
+Step 1: 创建 pre-scanner subagent → 执行 Phase 0 Quick Scan → 输出 file-index.yaml
+Step 2: 等待 pre-scanner 完成 → 读取 file-index.yaml → 按批次并行调度 13 个文件子代理
+Step 3: 等待全部 13 个文件子代理完成 → 执行 Step 7 自检 → Step 7.5 生成交付物 → 打开 01-research-report.md → 输出确认 Checklist → 等待用户确认
+  ↓ 用户确认 → 写入 research.confirmed
+Step 4: 🔴 门禁检查（Gate-1/1.5/2/2.5）→ 通过后创建 analyze-expert subagent → 执行 Analyze 阶段
+Step 5: 等待 analyze-expert 完成 → 读取交付物
+Step 6: 读取交付物文档 → 打开 02-analyze-result.md → 输出确认 Checklist → 等待用户确认
+  ↓ 用户确认 → 写入 analyze.confirmed
+Step 7: 🔴 门禁检查 → 通过后创建 design-expert subagent → 执行 Design 阶段
+Step 8: 等待 design-expert 完成 → 读取交付物
+Step 9: 读取交付物文档 → 打开 03-design-result.md → 输出确认 Checklist → 等待用户确认
+  ↓ 用户确认 → 写入 design.confirmed
+Step 10: 🔴 门禁检查 → 通过后创建 task-split-expert subagent → 执行 Task Split 阶段
+Step 11: 等待 task-split-expert 完成 → 读取交付物
+Step 12: 读取交付物文档 → 打开 04-task-breakdown.md → 输出确认 Checklist → 等待用户确认
+  ↓ 用户确认 → 写入 task-split.confirmed
   ┌──────────────────────────────────────────────────────────────┐
   │ 🔴 模式动态重评估网关（详见「模式动态重评估网关」章节）         │
   │ 读取 task-dag.yaml → 计算复杂度指标 → 判断调度策略             │
@@ -608,12 +867,13 @@ Step 12: 向用户展示任务清单（含开发模式推荐） → 等待用户
 Step 13: 根据调度策略创建 develop-expert subagent
         ├── 串行调度 → 创建 1 个 develop-expert，串行执行所有任务
         └── 并行调度 → 启动 Orchestrator，按 DAG 批次并行派发多个 develop-expert
-Step 14: 等待所有 develop-expert 完成 → 收集结果 → 向用户展示 → 等待确认
-  ↓ 用户确认
-Step 15: 创建 test-expert subagent → 执行 Unit Test
-Step 16: 等待完成 → 向用户展示结果 → 等待确认
-  ↓ 用户确认
-Step 17-N: 继续调度 Smoke Test → E2E Test → Integration Test → Delivery（各阶段 subagent）
+Step 14: 等待所有 develop-expert 完成 → 读取交付物 → 打开 05-develop-result.md → 输出确认 Checklist → 等待确认
+  ↓ 用户确认 → 写入 develop.confirmed
+Step 15: 🔴 门禁检查 → 通过后创建 test-expert subagent → 执行 Unit Test
+Step 16: 等待完成 → 读取交付物 → 打开 06-unit-test-report.md → 输出确认 Checklist → 等待确认
+  ↓ 用户确认 → 写入 unit-test.confirmed
+Step 17-N: 🔴 继续调度 Smoke Test → E2E Test → Integration Test → Delivery
+           各阶段统一流程：门禁检查 → Subagent 执行 → 读取交付物 → 打开文档 → 确认 Checklist → 写入 .confirmed
 ```
 
 **关键规则**：

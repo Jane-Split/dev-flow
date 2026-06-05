@@ -112,6 +112,61 @@ class XxxIntegrationTest {
 - 可否交付：是 / 否
 ```
 
+**🔴 生成阶段交付物（v3.1 新增）**
+
+> **目的**：生成独立的阶段交付物文档，供主 Agent 打开给用户审阅。
+
+**交付物路径**：`.dev-flow/deliverables/10-integration-test-report.md`
+
+**交付物内容**：
+```markdown
+<!-- @generated-by: integration-test-expert subagent | session: {session-id} | stage: integration-test -->
+
+# 集成测试报告：{需求标题}
+
+<!-- last-updated: YYYY-MM-DD HH:mm -->
+<!-- status: integration-tested -->
+
+## 1. 测试概述
+| 项目 | 内容 |
+|------|------|
+| 需求标题 | {标题} |
+| 测试时间 | YYYY-MM-DD HH:mm |
+| 测试框架 | Spring Boot Test / Testcontainers |
+| 涉及服务 | {服务列表} |
+
+## 2. 集成点测试
+| # | 集成点 | 调用方 | 被调用方 | 测试结果 |
+|---|--------|--------|----------|----------|
+| 1 | Feign Client | 服务A | 服务B | ✅/❌ |
+| 2 | 数据库 | XxxService | MySQL | ✅/❌ |
+| 3 | 缓存 | XxxService | Redis | ✅/❌ |
+| 4 | 消息队列 | XxxService | RocketMQ | ✅/❌ |
+
+## 3. 测试结果汇总
+| 维度 | 结果 |
+|------|------|
+| 集成点总数 | X |
+| 通过 | X |
+| 失败 | X |
+
+## 4. 数据一致性验证
+| 验证项 | 结果 | 说明 |
+|--------|------|------|
+| 跨服务数据一致性 | ✅/❌ | ... |
+| 事务回滚验证 | ✅/❌ | ... |
+
+## 5. 失败分析（如有）
+| # | 集成点 | 失败原因 | 修复状态 |
+|---|--------|----------|----------|
+```
+
+**自检**：
+- 交付物文件已生成且内容非空
+- 包含 `@generated-by: integration-test-expert subagent` 溯源注释
+- 所有集成点已测试
+- 数据一致性已验证
+
 **暂停，等待用户确认。如有问题，进入 Fix 阶段。**
 
 ---

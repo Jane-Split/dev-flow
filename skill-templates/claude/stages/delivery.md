@@ -124,6 +124,54 @@ type: stage-instruction
 - [ ] 产品人员确认
 ```
 
+**Step 5: 🔴 生成阶段交付物（v3.1 新增）**
+
+> **目的**：生成独立的阶段交付物文档，供主 Agent 打开给用户审阅。
+
+**交付物路径**：`.dev-flow/deliverables/11-delivery-report.md`
+
+**交付物内容**：（与 Step 4 输出的 `.dev-flow/docs/{需求简称}-交付报告.md` 内容一致，增加溯源注释头）
+
+```markdown
+<!-- @generated-by: delivery-expert subagent | session: {session-id} | stage: delivery -->
+
+# 交付报告：{需求标题}
+
+<!-- last-updated: YYYY-MM-DD HH:mm -->
+<!-- status: delivered -->
+
+## 1. 需求概述
+...
+
+## 2. 功能完成清单
+| # | 功能点 | REQ-ID | 完成状态 |
+|---|--------|--------|----------|
+
+## 3. 交付清单
+### 文件变更 | API 接口 | 数据库变更
+
+## 4. 全流程测试结果
+| 阶段 | 结果 | 通过率 | 交付物 |
+|------|------|--------|--------|
+| 单元测试 | ✅/❌ | X% | 06-unit-test-report.md |
+| 冒烟测试 | ✅/❌ | - | 08-smoke-test-report.md |
+| E2E 测试 | ✅/❌ | X% | 09-e2e-test-report.md |
+| 集成测试 | ✅/❌ | X% | 10-integration-test-report.md |
+
+## 5. 已知问题与后续优化
+
+## 6. 签收确认
+- [ ] 开发确认
+- [ ] 测试确认
+- [ ] 产品确认
+```
+
+**自检**：
+- 交付物文件已生成且内容非空
+- 包含 `@generated-by: delivery-expert subagent` 溯源注释
+- 全流程测试结果已汇总
+- 所有交付物引用正确
+
 **暂停，向用户展示交付报告，等待最终确认。**
 
 ---

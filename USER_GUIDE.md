@@ -64,7 +64,17 @@
   - [18.3 业务代码优先铁律](#183-业务代码优先铁律)
   - [18.4 阶段执行者审计](#184-阶段执行者审计)
   - [18.5 主 Agent 调度协议](#185-主-agent-调度协议)
-- [19. 常见问题](#19-常见问题)
+- [19. v3.1.0 实践问题修复](#19-v310-实践问题修复)
+  - [19.1 问题 1：Research 阶段 memory 文档完整度提升](#191-问题-1research-阶段-memory-文档完整度提升)
+  - [19.2 问题 2：阶段审批机制补全](#192-问题-2阶段审批机制补全)
+  - [19.3 问题 3：Subagent 失败硬阻断规则](#193-问题-3subagent-失败硬阻断规则)
+- [20. v3.1.0 Research 多子代理分批架构](#20-v310-research-多子代理分批架构)
+  - [20.1 为什么需要多子代理](#201-为什么需要多子代理)
+  - [20.2 架构概览](#202-架构概览)
+  - [20.3 Phase 0：pre-scanner 全局索引](#203-phase-0pre-scanner-全局索引)
+  - [20.4 Phase 1：13 文件子代理 5 批次并行](#204-phase-113-文件子代理-5-批次并行)
+  - [20.5 平台自适应调度](#205-平台自适应调度)
+- [21. 常见问题](#21-常见问题)
 
 ---
 
@@ -335,20 +345,32 @@ AI 将按以下流程执行，针对 Java 项目的特点进行适配：
 
 **做什么**：AI 扫描你的项目，了解项目结构、技术栈、编码规范、已有组件和 API。
 
-**执行步骤**：
-1. 扫描项目根目录，识别项目类型和配置文件
-2. 扫描源码目录，识别入口文件、路由定义、分层架构
-3. 列出所有已有组件、API、工具函数、数据模型
-4. 读取 ESLint/Prettier/TypeScript 配置，推断编码规范
-5. 将所有信息写入 `.dev-flow/memory/` 目录
-6. **智能模式选择**：根据项目源码文件数自动选择执行模式：
-   - < 50 个文件：标准模式（单 agent 直接执行）
-   - 50-200 个文件：分组模式（2-3 个 subagent 并行）
-   - > 200 个文件：完整模式（4 个 subagent 并行扫描）
-   - 4 个 Research Subagent：dependency-scanner、service-scanner、structure-analyzer、config-analyzer
-7. **深层依赖扫描**：自动识别项目内依赖（如 common-bean、basedata-api），扫描其 Entity/DTO/Enum/Util/Feign Client
+> **v3.1.0 架构升级**：Research 阶段从单 agent 串行扫描升级为 **pre-scanner + 13 个文件级 subagent 分批并行** 架构。微服务项目的所有关键类全量读取，记忆完整度从采样模式提升为全量覆盖。
 
-**你会看到**：一张调研摘要表格，包含项目类型、语言、框架、组件数量、API 数量、编码规范等。
+**执行步骤**：
+
+*Phase 0 — pre-scanner 全局索引（1 个子代理）*
+1. 扫描项目根目录（`pom.xml` / `package.json` / `go.mod` 等），识别项目类型
+2. 执行全局 Quick Scan（Glob）- 列出所有源码文件路径（不读取文件内容）
+3. 输出 `file-index.yaml`：按模块/包分类，列出所有 Entity、DTO、Controller、Service、Config、Util 的完整路径
+
+*Phase 1 — 13 个文件子代理分批并行*
+4. **Batch 1（基础层，3 并行）**：project-overview-subagent、service-registry-subagent、architecture-overview-subagent
+5. **Batch 2（数据层，3 并行）**：common-modules-subagent、models-subagent、config-files-subagent
+6. **Batch 3（行为层，3 并行）**：project-api-subagent、utils-subagent、conventions-subagent
+7. **Batch 4（横切层，2 并行）**：dependency-graph-subagent、decisions-subagent
+8. **Batch 5（模板层，2 并行）**：mistakes-subagent、patterns-subagent
+
+每个文件子代理的工作方式：读取 `file-index.yaml` → 按路径精确定位目标源码 → 读取并提取关键信息 → 直接写入目标 memory 文件。**13 个子代理互不依赖**，无需聚合器。
+
+**核心优势**：
+- 每个子代理独立上下文（~25-40KB），避免单 agent 上下文溢出
+- Smart Sampling 从"被迫激进"升级为"从容全量"
+- 关键类（Base/Abstract/Core/@Configuration/@Primary）强制全量读取
+- 公共模块（common-bean 等）Entity/Enum 强制全量读取
+- 记忆完整性 A/B/C/D 四级评级，低于 B 级不允许进入 Analyze
+
+**你会看到**：交付物文档 `01-research-report.md`（`.dev-flow/deliverables/`），包含项目类型、语言、框架、组件数量、API 数量、编码规范、完整性评级。
 
 **你需要做的**：检查调研结果是否准确，补充或纠正 AI 遗漏的信息。
 
@@ -631,11 +653,13 @@ Subagent 模式是 dev-flow 的高级功能，适用于复杂任务，通过任�
 ```
 用户 ←→ 主 Agent（纯调度枢纽，零编辑）
               │
-              ├── research-expert  → 扫描项目，输出 memory/
-              │     ├── dependency-scanner   → 深层扫描依赖项目
-              │     ├── service-scanner      → 扫描当前服务
-              │     ├── structure-analyzer   → 分析项目结构
-              │     └── config-analyzer      → 分析配置规范
+              ├── [Research: pre-scanner + 13 file-level subagents, 5 batches]
+              │     Phase 0: pre-scanner × 1          → file-index.yaml
+              │     Phase 1: Batch 1 (3) → 3 memory files (overview/registry/architecture)
+              │              Batch 2 (3) → 3 memory files (common/models/config)
+              │              Batch 3 (3) → 3 memory files (apis/utils/conventions)
+              │              Batch 4 (2) → 2 memory files (dependency/decisions)
+              │              Batch 5 (2) → 2 memory files (mistakes/patterns)
               ├── analyze-expert   → 分析需求，输出 task-breakdown.yaml
               ├── design-expert    → 详细设计，输出 design-contract.yaml
               ├── task-split-expert → 智能拆分，输出 DAG + 子任务设计
@@ -653,7 +677,7 @@ Subagent 模式是 dev-flow 的高级功能，适用于复杂任务，通过任�
 
 ### 6.5 工作流程
 
-1. **Research 阶段**：research-expert 扫描项目，生成项目记忆
+1. **Research 阶段**：pre-scanner 全局索引 + 13 文件级 subagent 分批并行扫描，生成 13 个 memory 文件 + 阶段交付物
 2. **Analyze 阶段**：analyze-expert 分析需求，输出 `task-breakdown.yaml`（任务拆分和依赖关系）
 3. **Design 阶段**：design-expert 基于分析结果进行详细设计，输出 `design-contract.yaml`（含接口契约）
 4. **Task Split 阶段**：task-split-expert 将设计拆分为子任务，生成 DAG 依赖图和子任务级设计
@@ -812,7 +836,8 @@ interfaces:
 
 | Subagent | 必读文件 | 按需读取 | 不读取 |
 |----------|----------|----------|--------|
-| research-expert | pom.xml、README、application.yml | 每类 3-5 个样本代码 | node_modules、target、.git |
+| pre-scanner | pom.xml、全局目录结构 | 无（仅 Glob，不读源码） | node_modules、target、.git |
+| 文件子代理（×13） | file-index.yaml + 目标源码文件 | 关联源码文件 | 无关模块代码 |
 | analyze-expert | memory/ 中的项目记忆 | 需求相关的源码（接口定义） | 无关服务的代码 |
 | design-expert | 分析结果、项目记忆 | 1-2 个同类设计参考 | 实现细节 |
 | develop-expert | 设计文档、任务上下文 | 当前任务相关的已有代码 | 无关模块的代码 |
@@ -2020,7 +2045,7 @@ v3.1.0 是一次**架构级变革**，将 dev-flow 从"主 Agent 可选执行模
 
 | 阶段 | 执行者 | 主 Agent 职责 |
 |------|--------|-------------|
-| Research | `research-expert` | 调度 + 展示结果 |
+| Research | `pre-scanner` + 13 文件子代理（5 批次） | 分批调度 + 读取交付物 + 展示审批 |
 | Analyze | `analyze-expert` | 调度 + 展示结果 |
 | Design | `design-expert` | 调度 + 展示结果 |
 | Task Split | `task-split-expert` | 调度 + 展示结果 |
@@ -2097,9 +2122,182 @@ Step D8: 执行集成编译验证（如多个 Subagent）
 Step D9: 向用户汇报开发结果，等待确认
 ```
 
-## 19. 常见问题
+## 19. v3.1.0 实践问题修复
 
-### Q: 安装后找不到 /dev-flow 命令？
+v3.1.0 实践问题修复（版本号保持 v3.1.0 不变）解决了实际使用中暴露的三个核心问题。
+
+### 19.1 问题 1：Research 阶段 memory 文档完整度提升
+
+**问题**：微服务项目只做部分采样，API、architecture、models、utils、common-modules 等扫描覆盖不足。
+
+**根因**：Smart Sampling 为全局采样，微服务多模块场景下每类采样数不足，关键类被遗漏。
+
+**修复内容**：
+
+| 修复项 | 说明 |
+|--------|------|
+| Smart Sampling 服务级独立采样 | 从全局采样改为按每个服务/模块独立执行采样，每模块独立计算采样数 |
+| 关键类强制全量读取 | Base/Abstract/Core/Common 类 + `@Configuration`/`@Primary` 注解类必须全量读取 |
+| 公共模块强制全量扫描 | common-bean 等公共模块的 Entity/Enum 必须全量读取 |
+| On-Demand Loading 升级 | 从"被动补漏"升级为"主动预加载" |
+| 记忆完整性评级（A/B/C/D） | 每个 memory 文件末尾追加 `completeness_level`，低于 B 级不允许进入 Analyze |
+| Step 6 自检增强 | 新增 `completeness_level 均为 A 或 B` 和 `无 completeness_level = D 的文件` 检查项 |
+
+### 19.2 问题 2：阶段审批机制补全
+
+**问题**：每个阶段仅在对话栏输出报告，无独立交付物文档，用户无法仔细审阅。
+
+**修复内容**：
+
+| 修复项 | 说明 |
+|--------|------|
+| 阶段交付物机制 | 所有 10 个阶段文件均新增交付物生成步骤，输出到 `.dev-flow/deliverables/` |
+| 交付物目录结构 | `01-research-report.md` ~ `11-delivery-report.md`，每个阶段一个独立文档 |
+| 主 Agent 审批流程升级 | 从"向用户展示结果"改为"读取交付物 → 打开文档供审批" |
+| Gate-1.5 交付物检查 | 阶段门禁新增交付物存在性检查，缺失则拒绝进入下一阶段 |
+| 确认 Checklist 升级 | 新增交付物路径引用 + 执行者审计链 + deliverable_checksum |
+| confirmed 文件升级 | 新增 `deliverable`/`deliverable_checksum`/`execution_trail` 字段 |
+
+**交付物目录**：
+
+```
+.dev-flow/deliverables/
+├── 01-research-report.md         # Research 阶段交付物
+├── 02-analyze-result.md          # Analyze 阶段交付物
+├── 03-design-result.md           # Design 阶段交付物
+├── 04-task-breakdown.md          # Task Split 阶段交付物
+├── 05-develop-result.md          # Develop 阶段交付物
+├── 06-unit-test-report.md        # Unit Test 阶段交付物
+├── 07-fix-report.md              # Fix 阶段交付物
+├── 08-smoke-test-report.md       # Smoke Test 阶段交付物
+├── 09-e2e-test-report.md         # E2E Test 阶段交付物
+├── 10-integration-test-report.md # Integration Test 阶段交付物
+└── 11-delivery-report.md         # Delivery 阶段交付物
+```
+
+### 19.3 问题 3：Subagent 失败硬阻断规则
+
+**问题**：Subagent 执行失败一次后主 Agent 直接介入自己做任务，违反零编辑铁律。
+
+**根因**：零编辑铁律是"协议级约束"（依赖 AI 自觉遵守），缺乏"可验证硬约束"。
+
+**修复内容**：
+
+| 修复项 | 说明 |
+|--------|------|
+| 三级失败处理协议 | Level 1 自动重试（1 次）→ Level 2 诊断重试（1 次）→ Level 3 人工升级（停止一切自动化） |
+| 主 Agent 禁止行为表 | 7 项违规场景 P0/P1 分级 |
+| 强制执行决策树 | 失败 → 记录 → 判断级别 → 自检是否越权 |
+| 零编辑铁律 v2.0 | 文件白名单 + @generated-by 溯源注释 + 每阶段文件修改审计 |
+| 产出文件溯源 | 每个产出文件第一行必须包含 `@generated-by` 注释 |
+| 文件修改审计 | 每阶段结束时自动执行，验证所有产出文件的溯源信息 |
+
+---
+
+## 20. v3.1.0 Research 多子代理分批架构
+
+v3.1.0 将 Research 阶段从**单 agent 串行扫描**升级为 **pre-scanner + 13 个文件级 subagent 分批并行**架构，从根本上解决微服务项目的上下文溢出和扫描不完整问题。
+
+### 20.1 为什么需要多子代理
+
+**单 agent 的瓶颈**：
+
+| 项目规模 | 扫描内容 | 估算上下文 | 问题 |
+|---------|---------|-----------|------|
+| 单服务，<50 类 | Step 1-6 全部内容 | ~60KB | ✅ 安全 |
+| 3 服务 + 2 公共模块 | Quick Scan 500 文件路径 + Smart Sampling 100 代码片段 + 强制全量读取 80 个公共类 | **~250-300KB** | 🔴 上下文溢出风险 |
+
+单 agent 上下文溢出 → Smart Sampling 被迫激进 → memory 文件写入"暂无数据" → Research 不完整。
+
+**多子代理的核心价值**：每个子代理只处理 1 个 memory 文件（~25-40KB 上下文），13 个子代理互不依赖，从根源上消除上下文溢出。
+
+### 20.2 架构概览
+
+```
+Phase 0: pre-scanner × 1
+  └── 全局 Quick Scan（Glob，不读文件内容）
+  └── 输出 file-index.yaml（~15KB）
+        │
+        ▼
+Phase 1: 13 文件子代理，5 批次
+  Batch 1 (3 并行): project-overview / service-registry / architecture-overview
+  Batch 2 (3 并行): common-modules / models / config-files
+  Batch 3 (3 并行): project-api / utils / conventions
+  Batch 4 (2 并行): dependency-graph / decisions
+  Batch 5 (2 并行): mistakes / patterns
+```
+
+**核心特征**：
+- **无聚合器**：每个子代理直接写入目标 memory 文件，无需合并步骤
+- **独立上下文**：每个子代理 ~25-40KB（vs 单 agent ~250KB）
+- **故障隔离**：models.md 写入失败不影响 project-api.md
+- **互不依赖**：13 个子代理间无数据依赖，可全并行
+
+### 20.3 Phase 0：pre-scanner 全局索引
+
+pre-scanner 是一次全局 Glob 扫描，**不读取任何源码文件内容**（仅获取文件路径）。输出 `file-index.yaml`：
+
+```yaml
+# .dev-flow/memory/_index/file-index.yaml
+project_root: "D:/project/qms-platform"
+services:
+  qms-quality:
+    entities:  [QualityTask.java, QualityItem.java, ...]
+    dtos:      [QualityTaskDTO.java, QualityItemDTO.java, ...]
+    controllers: [QualityTaskController.java, ...]
+    services:  [QualityTaskService.java, QualityTaskServiceImpl.java, ...]
+    feign_clients: [QualityFeignClient.java, ...]
+    configs:   [application.yml, MyBatisPlusConfig.java, ...]
+    utils:     [QualityDateUtil.java, ...]
+common_modules:
+  common-bean:
+    entities:  [BaseEntity.java, TenantEntity.java, ...]
+    dtos:      [ResultDTO.java, PageDTO.java, ...]
+scan_timestamp: "2026-06-05T22:30:00"
+```
+
+每个文件子代理从 `file-index.yaml` 中查找目标文件路径，**不再自己 Glob**。
+
+### 20.4 Phase 1：13 文件子代理 5 批次并行
+
+**通用工作模式**：
+1. 读取 `file-index.yaml` → 找到目标文件路径
+2. 精确读取目标源码文件
+3. 提取关键信息（字段、注解、方法签名、依赖关系等）
+4. 直接写入目标 memory 文件
+5. 文件末尾标注 `completeness_level`（A/B/C/D）
+
+**5 批次语义分组**：
+
+| 批次 | 子代理 | 产出文件 | 核心职责 |
+|------|--------|---------|---------|
+| Batch 1 | project-overview-subagent | `project-overview.md` | 技术栈、目录结构、入口文件 |
+|       | service-registry-subagent | `service-registry.md` | 服务列表、端口、角色（微服务） |
+|       | architecture-overview-subagent | `architecture-overview.md` | 分层架构、设计模式 |
+| Batch 2 | common-modules-subagent | `common-modules.md` | 公共模块 Entity/DTO/Enum（微服务） |
+|       | models-subagent | `models.md` | 所有 Entity + DTO + 数据库表 |
+|       | config-files-subagent | `config-files.md` | 数据库/Redis/Nacos 等配置 |
+| Batch 3 | project-api-subagent | `project-api.md` | Controller 端点 + Feign Client |
+|       | utils-subagent | `utils.md` | 工具类/函数 |
+|       | conventions-subagent | `conventions.md` | 命名/注解/异常处理等规范 |
+| Batch 4 | dependency-graph-subagent | `dependency-graph.md` | 服务间 Feign 调用关系（微服务） |
+|       | decisions-subagent | `decisions.md` | 架构决策记录（ADR） |
+| Batch 5 | mistakes-subagent | `mistakes.md` | 初始模板（跨会话累积） |
+|       | patterns-subagent | `patterns.md` | 初始模板（跨会话累积） |
+
+### 20.5 平台自适应调度
+
+| 平台 | 最大并发子代理 | Research 调度方式 | 预估耗时 |
+|------|-------------|-------------------|---------|
+| **Claude Code** | 16 | 全额并行（14 子代理 1 批次） | ~30 秒 |
+| **Trae** | 无明确限制 | 全额并行（14 子代理 1 批次） | ~30 秒 |
+| **Cursor** | 多 Task 调用 | 全额并行（14 子代理 1 批次） | ~35 秒 |
+| **Qoder** | 4 方向 | 5 批次顺序执行 | ~2.5 分钟 |
+| **Codex** | 6 线程 | 3 批次合并执行（5+5+4） | ~50 秒 |
+
+---
+
+## 21. 常见问题
 
 确保你在 AI 编程工具中打开了安装了 dev-flow 的项目目录。Skill 文件是项目级别的，不是全局的。
 

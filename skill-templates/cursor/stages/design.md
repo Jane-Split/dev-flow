@@ -1162,6 +1162,63 @@ interface User { ... }
 3. ...
 ```
 
+**Step 7: 🔴 生成阶段交付物（v3.1 新增）**
+
+> **目的**：生成独立的阶段交付物文档，供主 Agent 打开给用户审阅。
+
+**交付物路径**：`.dev-flow/deliverables/03-design-result.md`
+
+**交付物内容**：
+```markdown
+<!-- @generated-by: design-expert subagent | session: {session-id} | stage: design -->
+
+# 详细设计报告：{需求标题}
+
+<!-- last-updated: YYYY-MM-DD HH:mm -->
+<!-- status: designed -->
+
+## 1. 设计概述
+| 项目 | 内容 |
+|------|------|
+| 需求标题 | {标题} |
+| 设计时间 | YYYY-MM-DD HH:mm |
+| 涉及服务 | {服务列表} |
+| 新增文件数 | X |
+| 修改文件数 | X |
+
+## 2. 数据层设计摘要
+- Entity 定义清单（表名/类名/关键字段）
+- DTO 定义清单
+- Enum 定义清单
+
+## 3. 接口层设计摘要
+- REST API 端点清单（方法/路径/说明）
+- Service 接口方法清单
+- Feign Client 定义（如有）
+
+## 4. 设计契约
+- Design Contract 文件：`.dev-flow/docs/{需求简称}-design-contract.yaml`
+- 契约版本：1.0
+- 语言/框架：{技术栈}
+
+## 5. 自检结果
+| # | 检查项 | 结果 |
+|---|--------|------|
+| 1 | 设计完整性自检（16项） | 通过 X/16 |
+| 2 | 方法命名规范检查 | ✅/❌ |
+| 3 | 无循环依赖 | ✅/❌ |
+| 4 | Feign Client 端点匹配 | ✅/❌ |
+
+## 6. 设计决策
+（记录关键设计决策及其理由）
+```
+
+**自检**：
+- 交付物文件已生成且内容非空
+- 包含 `@generated-by: design-expert subagent` 溯源注释
+- Design Contract 引用正确
+- 所有功能点都有对应设计覆盖
+
 **暂停，等待用户确认。**
 
 ---

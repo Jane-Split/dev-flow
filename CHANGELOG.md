@@ -35,6 +35,111 @@ All notable changes to this project will be documented in this file.
 - **SKILL.md**：动态重评估网关从"升级为 Subagent 模式"改为"升级为并行 Subagent 调度"
 - **orchestrator.md**：描述更新为统一 Subagent 架构（区别仅在于串行 vs 并行调度）
 
+### v3.1.0 实践问题修复（2026-06-05）
+
+本次修复基于实践反馈的三个核心问题，版本号保持 v3.1.0 不变。
+
+#### 问题 1 修复：Research 阶段 memory 文档完整度提升
+
+**根因**：Smart Sampling 为全局采样，微服务多模块场景下每类采样数不足，关键类被遗漏。
+
+**修复方案**：
+- Smart Sampling 从全局采样改为**按服务/模块独立执行**（每模块独立采样）
+- 新增**关键类强制全量读取**：Base/Abstract/Core/Common 类 + @Configuration/@Primary 注解类
+- 新增**公共模块强制全量扫描**：common-bean 等公共模块的 Entity/Enum 必须全量读取
+- On-Demand Loading 升级为**主动预加载**（从被动补漏改为主动预加载）
+- 新增**记忆完整性评级**（A/B/C/D 四级），低于 B 级不允许进入 Analyze
+- research.md Step 6 自检新增 `completeness_level` 检查项
+
+**修改文件**：`skill-templates/_core/stages/research.md`
+
+#### 问题 2 修复：阶段审批机制补全
+
+**根因**：各阶段仅在对话栏输出报告，无独立交付物文档，用户无法仔细审阅。
+
+**修复方案**：
+- 每个阶段新增 **Step N.X 交付物生成步骤**，输出到 `.dev-flow/deliverables/`
+- 交付物目录结构（10 个阶段各对应一个交付物）：
+  ```
+  .dev-flow/deliverables/
+  ├── 01-research-report.md
+  ├── 02-analyze-result.md
+  ├── 03-design-result.md
+  ├── 04-task-breakdown.md
+  ├── 05-develop-result.md
+  ├── 06-unit-test-report.md
+  ├── 07-fix-report.md
+  ├── 08-smoke-test-report.md
+  ├── 09-e2e-test-report.md
+  ├── 10-integration-test-report.md
+  └── 11-delivery-report.md
+  ```
+- SKILL.md 新增**阶段交付物协议**（v3.1 新增章节）
+- 主 Agent 调度流程从"向用户展示结果"改为"读取并打开阶段交付物文档"
+- 阶段门禁检查新增 **Gate-1.5 交付物存在性检查**
+- 确认 Checklist 模板升级：新增交付物引用 + 执行者审计链
+- confirmed 文件格式升级：新增 `deliverable`/`deliverable_checksum`/`execution_trail` 字段
+
+**修改文件**：
+- `skill-templates/_core/SKILL.md`
+- `skill-templates/_core/stages/*.md`（10 个阶段文件全部新增 Step N.X）
+
+#### 问题 3 修复：Subagent 失败硬阻断规则
+
+**根因**：Subagent 失败后主 Agent 直接越权介入执行任务，违反零编辑铁律。
+
+**修复方案**：
+- 新增**三级失败处理协议**（硬阻断，不可跳过）：
+  - Level 1：自动重试（1 次，附加错误信息）
+  - Level 2：诊断重试（1 次，输出诊断报告后调整重试）
+  - Level 3：人工升级（停止一切自动化，输出升级报告等待用户决策）
+- 新增**主 Agent 禁止行为表**（7 项违规场景，P0/P1 分级）
+- 新增**强制执行决策树**（失败 → 记录 → 判断级别 → 自检）
+- **零编辑铁律升级为 v2.0**（可验证硬约束）：
+  - 文件白名单（仅允许写入 `.confirmed` 文件）
+  - 产出文件溯源（`@generated-by` 注释 + `execution_trail` 字段）
+  - 文件修改审计（每阶段结束时自动执行）
+- SKILL.md 主 Agent 权限定义表升级（v2.0 增强版）
+
+**修改文件**：`skill-templates/_core/SKILL.md`
+
+#### Research 多子代理分批架构（2026-06-05）
+
+**根因**：单 research-expert 子代理在微服务项目中上下文溢出，Smart Sampling 被迫激进导致扫描不完整。
+
+**修复方案**：
+- Research 阶段从**单子代理串行**升级为 **pre-scanner + 13 文件子代理分批并行**架构
+- Phase 0：pre-scanner × 1 → 全局 Quick Scan → file-index.yaml（~15KB，无源码读取）
+- Phase 1：文件级子代理 × 13 → 从 file-index.yaml 获取路径 → 精确读取源文件 → 直接写入 memory 文件
+- 5 批次语义分组：基础层(3) → 数据层(3) → 行为层(3) → 横切层(2) → 模板层(2)
+- 核心优势：无聚合器、每个子代理独立上下文（~25-40KB）、故障隔离、13 个子代理间互不依赖
+- 平台适配：Claude/Trae/Cursor 可全额并行（14 subagents），Qoder 5 批次，Codex 合并 3 批次
+- file-index.yaml 中间格式：每个文件子代理不再重复 Glob，直接从索引查找目标文件路径
+- 通用子代理指令模板：每个文件子代理的职责、输入、需读源码、产出内容、completeness 评级
+- 增量更新简化为 pre-scanner diff → 选择性重跑变更模块的子代理
+
+**修改文件**：
+- `skill-templates/_core/stages/research.md` — 完全重写为多子代理分批架构（40+ 处改动）
+- `skill-templates/_core/SKILL.md` — Subagent 架构树 + 调度流程 + 职责矩阵 + 上下文隔离表
+
+#### 改动文件清单（v3.1.0 修复）
+
+**修改**：
+- `skill-templates/_core/SKILL.md` — 零编辑铁律 v2.0 + Subagent 失败硬阻断 + 交付物协议 + Gate-1.5 + 调度流程更新
+- `skill-templates/_core/stages/research.md` — Smart Sampling 服务级独立 + 关键类强制全量 + 完整性评级 + Step 6.5 交付物
+- `skill-templates/_core/stages/analyze.md` — Step 7 交付物生成
+- `skill-templates/_core/stages/design.md` — Step 7 交付物生成
+- `skill-templates/_core/stages/task-split.md` — Step 7 交付物生成
+- `skill-templates/_core/stages/develop.md` — Step 5.5 交付物生成
+- `skill-templates/_core/stages/unit-test.md` — Step 5 交付物生成
+- `skill-templates/_core/stages/smoke-test.md` — Step 5 交付物生成
+- `skill-templates/_core/stages/e2e-test.md` — Step X 交付物生成
+- `skill-templates/_core/stages/integration-test.md` — Step X 交付物生成
+- `skill-templates/_core/stages/delivery.md` — Step 5 交付物生成
+- `skill-templates/_core/stages/fix.md` — Step X 交付物生成
+
+
+
 ## [3.0.0] - 2026-06-05
 
 ### 上下文注入革命 + 自动产出校验 + 50KB 硬约束全面移除
