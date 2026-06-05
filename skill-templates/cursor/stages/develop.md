@@ -135,10 +135,15 @@ segmented_execution_rules:
 
 ### 执行模式
 
-**标准模式**：单个 develop-expert subagent 顺序执行所有任务
-**并行模式**：多个 develop-expert subagent 并行执行同一批次的任务
+> **模式来源**：由 Router 层的「模式动态重评估网关」在 Task Split 确认后自动判定。
+> - **Subagent 模式**：Orchestrator 调度多个 develop-expert subagent（按 DAG 拓扑排序分批并行）
+> - **标准模式**：主 agent 直接按以下步骤执行（或单个 develop-expert 顺序执行）
 
-> **并行模式由主 Agent 协调**：根据任务拆分文档中的批次信息，同时派发多个 subagent。
+**标准模式**：单个 develop-expert subagent 顺序执行所有任务
+**并行模式**（Subagent 模式下）：多个 develop-expert subagent 并行执行同一批次的任务
+
+> **并行模式由 Orchestrator 协调**：根据 task-dag.yaml 的批次信息，同时派发多个 subagent。
+> **触发条件**：Router 层动态重评估判定为 Subagent 模式时自动启用（任务数>5/写写冲突/DAG深度>3/批次>3）。
 
 ### 执行步骤
 

@@ -68,6 +68,18 @@ All notable changes to this project will be documented in this file.
 - YAML 解析器增强：支持 `task:`、`context_injection:` 字段
 - collectResults 增强：自动关联验证报告文件
 
+#### 模式动态重评估网关（v3.0）
+
+- **问题**：模式选择（标准模式 vs Subagent 模式）是流程开始时一次性决策，Task Split 后即使产出 22 个任务也不会自动升级为 Subagent 模式，导致 Develop 阶段无法并行开发
+- **解决方案**：在 SKILL.md Router 中新增「模式动态重评估网关」，位于 Task Split 确认后、Develop 阶段进入前
+  - 自动读取 task-dag.yaml，计算任务总数、写写冲突数、DAG 深度、批次数量
+  - 满足任一条件（任务数>5/写写冲突>0/DAG深度>3/批次>3）→ 自动升级为 Subagent 模式
+  - Subagent 模式触发条件从仅 `-subagent` 参数扩展为 3 种触发方式
+- **SKILL.md Router**：Subagent 模式触发条件扩展；标准模式流程 Step 12-14 增加重评估分支
+- **task-split.md**：确认清单新增第 7 项「开发模式选择」，含自动判定规则和展示格式
+- **develop.md**：执行模式说明增加模式来源和触发条件描述
+- **orchestrator.md**：新增触发条件章节，支持动态重评估自动激活
+
 #### 改动文件清单
 
 **新增**：
@@ -76,11 +88,12 @@ All notable changes to this project will be documented in this file.
 - `scripts/segment-code.cjs` — 结构化代码分段生成脚本（骨架+逐方法填充）
 
 **修改**：
-- `skill-templates/_core/SKILL.md` — Router：移除 50KB 硬约束描述
+- `skill-templates/_core/SKILL.md` — Router：移除 50KB 硬约束描述，新增模式动态重评估网关，Subagent 触发条件扩展，标准模式流程 Develop 分支
+- `skill-templates/_core/stages/task-split.md` — 确认清单新增第 7 项「开发模式选择」自动判定
 - `skill-templates/_core/agents/context-manager.md` — 50KB → auto，新增上下文注入模式
 - `skill-templates/_core/agents/develop-expert.md` — 集成上下文注入 + 新增"结构化代码分段生成协议"
-- `skill-templates/_core/stages/develop.md` — 新增 Step 1.1 上下文注入，修改 Step 4.5，新增 Step 0.5/3.1 分段生成
-- `skill-templates/_core/agents/orchestrator.md` — 新增 Step 0.4/5.0 集成新脚本
+- `skill-templates/_core/stages/develop.md` — 新增 Step 1.1 上下文注入，修改 Step 4.5，新增 Step 0.5/3.1 分段生成，执行模式增加动态重评估触发说明
+- `skill-templates/_core/agents/orchestrator.md` — 新增 Step 0.4/5.0 集成新脚本，新增触发条件章节支持动态重评估自动激活
 - `skill-templates/_core/agents/task-protocol.md` — 新增 4.3 Context Injection Protocol
 - `scripts/dispatch.cjs` — 集成 prepare-context.cjs / validate-result.cjs
 - `package.json` — 版本号 2.0.0 → 3.0.0

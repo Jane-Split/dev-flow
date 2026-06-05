@@ -67,7 +67,12 @@ dev-flow 支持两种运行模式：
 
 ### Subagent 模式
 
-当使用 `-subagent` 参数时，主 agent 作为协调者，不直接读取源码、不直接生成代码，而是调度专业 subagent 执行各阶段任务。
+**以下任一条件满足时，自动进入 Subagent 模式，主 agent 作为协调者**：
+1. 用户使用 `-subagent` 参数启动
+2. 初始规模检测为 L3 企业级模式（预估文件数 > 10 或复杂度 = 高）
+3. **Task Split 动态重评估**：Task Split 确认后，系统检测到任务数 > 5、或存在写写冲突、或 DAG 依赖层级 > 3（详见「模式动态重评估网关」）
+
+> Subagent 模式下，主 agent **不直接读取源码、不直接生成代码**，而是调度专业 subagent 执行各阶段任务。
 
 **架构**：
 ```
@@ -196,7 +201,7 @@ Step 0: 检测需求规模
 执行 `/dev-flow <需求>` 时，系统自动按以下规则判断：
 
 ```
-Step 0: 检测需求规模
+Step 0: 检测需求规模（初始决策）
   │
   ├── 关键词含 "fix"/"修复" + 文件数 ≤ 1 → L0 轻量模式
   │
@@ -204,9 +209,52 @@ Step 0: 检测需求规模
   │
   ├── 预估文件数 5-10 或 复杂度 = 中 → L2 标准模式
   │     └── 完整流程，含 Task Split 和 Smoke Test
+  │     └── ⚠️ 注意：进入 Develop 前会执行动态重评估（见下方）
   │
   └── 预估文件数 > 10 或 复杂度 = 高 → L3 企业级模式
         └── 强制 Subagent，含并行开发和 Integration Test
+```
+
+### 🔴 模式动态重评估网关（Task Split → Develop 转换点）
+
+> **核心改进**：模式选择不再是"一次性决策"。在 Task Split 确认后、Develop 阶段进入前，系统基于 Task Split 实际产出数据**动态重评估**是否需要切换到 Subagent 模式。
+
+**重评估触发时机**：Task Split 阶段确认后，进入 Develop 阶段之前。
+
+**重评估流程**：
+
+```
+🔴 模式动态重评估（Task Split 确认后自动执行）
+
+Step R1: 读取任务 DAG 数据
+  ├── 读取 .dev-flow/docs/{需求简称}-task-dag.yaml
+  └── 或读取 task-split 产出中的任务清单和依赖关系
+
+Step R2: 计算复杂度指标
+  ├── total_tasks: 任务总数
+  ├── write_conflicts: 写写冲突数量（需串行处理）
+  ├── dag_depth: DAG 最大依赖层级深度
+  └── batch_count: 拓扑排序后的批次数量
+
+Step R3: 重评估判定
+  │
+  ├── 满足以下任一条件 → 🔴 自动升级为 Subagent 模式
+  │     ├── total_tasks > 5
+  │     ├── write_conflicts > 0（存在需要串行化的文件冲突）
+  │     ├── dag_depth > 3（依赖链条过长）
+  │     └── batch_count > 3（批次过多，标准模式难以高效处理）
+  │
+  └── 全部不满足 → ✅ 继续当前模式（标准模式/小型模式）
+
+Step R4: 升级时通知用户
+  ├── 输出：
+  │   【模式自动升级通知】
+  │   当前模式：标准模式（L2）
+  │   升级原因：检测到 {total_tasks} 个任务，{write_conflicts} 个写写冲突，DAG 深度 {dag_depth}
+  │   自动升级为：Subagent 模式（L3）
+  │   效果：Develop 阶段将由 Orchestrator 调度多个 develop-expert subagent 并行开发
+  │
+  └── 无需用户额外确认，已在 Task Split 阶段确认清单中包含"开发模式选择"项
 ```
 
 ### 模式对比速查
@@ -500,11 +548,20 @@ Step 9: 暂停 → 展示设计方案，等待用户确认
   ↓ 用户确认
 Step 10: 读取阶段指令 → Read .cursor/stages/task-split.md
 Step 11: 执行 Task Split → 拆分任务，输出任务清单
-Step 12: 暂停 → 展示任务清单，等待用户确认
+Step 12: 暂停 → 展示任务清单（含开发模式推荐），等待用户确认
   ↓ 用户确认
+  ┌──────────────────────────────────────────────────────────────┐
+  │ 🔴 模式动态重评估网关（详见「模式动态重评估网关」章节）         │
+  │ 读取 task-dag.yaml → 计算复杂度指标 → 判断是否升级 Subagent   │
+  │ 满足条件（任务>5/写写冲突/DAG深度>3/批次>3）→ 自动切换 Subagent │
+  └──────────────────────────────────────────────────────────────┘
+  ↓ 重评估通过
 Step 13: 读取阶段指令 → Read .cursor/stages/develop.md
         读取代码参考 → Read .cursor/stages/code-reference.md
-Step 14: 执行 Develop 阶段 → 编写完整代码
+Step 14: 执行 Develop 阶段
+        ├── 当前模式 = Subagent → 启动 Orchestrator 调度 develop-expert subagent
+        │     └── 详见 orchestrator.md 的工作流（DAG 拓扑排序 + 分批并行派发）
+        └── 当前模式 = 标准 → 主 agent 按 develop.md 流程直接执行
 Step 15: 暂停 → 展示开发结果，等待用户确认
   ↓ 用户确认
 Step 16: 读取阶段指令 → Read .cursor/stages/unit-test.md
@@ -517,7 +574,8 @@ Step 19-N: 继续执行 Smoke Test → E2E Test → Integration Test → Deliver
 **关键规则**：
 - **每个阶段开始前必须先读取对应的阶段指令文件**
 - **每个阶段完成后必须暂停，等待用户确认后才能进入下一阶段**
-- **如果 AI 发现上下文接近溢出，提示用户切换到 Subagent 模式**
+- **🔴 Task Split 确认后自动执行模式动态重评估，基于实际任务数据判断是否升级 Subagent 模式**
+- **Develop 阶段根据当前模式选择执行方式**：Subagent 模式走 Orchestrator 调度，标准模式走主 agent 直接执行
 
 ---
 
