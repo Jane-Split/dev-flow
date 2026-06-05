@@ -21,6 +21,12 @@ type: stage-instruction
 - 全流程模式自动触发
 - 用户输入 `/dev-flow -research` 或 `/dev-flow --refresh`
 
+### 🔴🔴 主 Agent 零编辑约束（本阶段入口铁律）
+
+> **⚠️ 最高优先级**：主 Agent 在本阶段的唯一角色是**调度器**。
+> **主 Agent 绝对禁止直接使用 Edit/Write 工具编辑本阶段的任何产出文件。**
+> **所有文件编辑必须由 research-expert subagent 执行。**
+
 ---
 
 ### 🔴 Step 0: 智能判断是否需要扫描（执行前必须先检查）
@@ -391,6 +397,7 @@ type: stage-instruction
 
 | # | 确认项 | 状态 |
 |---|--------|------|
+| 0 | **执行者审计**：本阶段由 research-expert subagent 执行，主 Agent 未直接编辑任何文件 | ⬜ 待确认 |
 | 1 | 项目类型和架构已正确识别 | ⬜ 待确认 |
 | 2 | 依赖项目的 Entity/DTO/Enum/Util 已完整扫描 | ⬜ 待确认 |
 | 3 | 所有 12 个 memory 文件已创建且非空 | ⬜ 待确认 |

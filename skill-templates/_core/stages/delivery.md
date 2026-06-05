@@ -21,6 +21,12 @@ type: stage-instruction
 - Integration Test 阶段通过后
 - 用户输入 `/dev-flow -delivery`
 
+### 🔴🔴 主 Agent 零编辑约束（本阶段入口铁律）
+
+> **⚠️ 最高优先级**：主 Agent 在本阶段的唯一角色是**调度器**。
+> **主 Agent 绝对禁止直接使用 Edit/Write 工具编辑本阶段的任何产出文件。**
+> **所有文件编辑必须由 delivery-expert subagent 执行。**
+
 ### 目的
 汇总全流程成果，生成最终交付清单，记录已知问题和后续优化建议。
 
@@ -126,6 +132,7 @@ type: stage-instruction
 
 | # | 确认项 | 状态 |
 |---|--------|------|
+| 0 | **执行者审计**：本阶段由 delivery-expert subagent 执行，主 Agent 未直接编辑任何文件 | ⬜ 待确认 |
 | 1 | 所有功能点完成状态与需求一致 | ⬜ 待确认 |
 | 2 | 文件变更清单完整无遗漏 | ⬜ 待确认 |
 | 3 | API 接口清单与设计一致 | ⬜ 待确认 |

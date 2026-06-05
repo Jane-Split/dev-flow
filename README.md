@@ -1,13 +1,15 @@
 # dev-flow
 
 [![node](https://img.shields.io/node/v/dev-flow.svg)](https://nodejs.org)
-[![version](https://img.shields.io/badge/version-v3.0.0-blue)]()
+[![version](https://img.shields.io/badge/version-v3.1.0-blue)]()
 
-> **当前版本: v3.0.0** | [更新日志](./CHANGELOG.md) | [发布说明](./RELEASE.md)
+> **当前版本: v3.1.0** | [更新日志](./CHANGELOG.md) | [发布说明](./RELEASE.md)
 
 AI 开发全流程编排 Skill，适用于 Cursor、Trae、Qoder、Claude Code、OpenAI Codex 等 AI 编程工具。
 
 通过 `/dev-flow` 命令，AI 将按照结构化流程逐步执行：**项目调研 → 需求分析 → 详细设计 → 代码开发 → 测试验证 → Bug 修复**，每个阶段完成后暂停等待确认，确保产出质量。
+
+**v3.1.0 核心架构**：主 Agent 作为纯调度枢纽（零编辑），所有文件操作由专门的阶段 Subagent 执行。
 
 ## 为什么需要 dev-flow？
 
@@ -20,9 +22,18 @@ AI 编程工具（Cursor/Trae/Qoder/Claude Code/Codex）虽然强大，但在处
 - 不记住用户的偏好和项目的深层知识
 - 大型项目上下文不足，跳过关键扫描步骤
 
-dev-flow 通过**结构化的流程编排 + 项目记忆 + 长期记忆 + 学习能力 + 多 Subagent 并行**解决这些问题，让 AI 编程工具**越用越好用**。
+dev-flow 通过**结构化的流程编排 + 项目记忆 + 长期记忆 + 学习能力 + 多 Subagent 并行 + 主 Agent 零编辑架构**解决这些问题，让 AI 编程工具**越用越好用**。
 
 ## 特性
+
+### v3.1.0 主 Agent 零编辑架构 + 业务代码优先铁律
+
+- **主 Agent 零编辑铁律** — 主 Agent 仅作为交互枢纽和纯调度器，绝不直接编辑任何文件（Read ✅ / Bash ✅ / Edit 🔴 / Write 🔴），所有文件操作由专门的阶段 Subagent 执行
+- **统一 Subagent 执行模型** — 移除"标准模式 + Subagent 模式"二元结构，所有阶段统一由 Subagent 执行（简单需求串行 Subagent / 复杂需求并行 Subagent）
+- **阶段执行者审计** — 每个阶段确认清单新增第 0 项「执行者审计」，门禁自动校验前一阶段是否由 Subagent 执行
+- **业务代码优先铁律** — Develop 阶段强制 P0 业务代码优先、P1 测试代码仅在业务代码完成后作为验证手段生成，防止 AI 优先写测试
+- **Orchestrator 工具权限硬分离** — 移除 Write 权限，Orchestrator 与主 Agent 同样零编辑
+- **主 Agent 调度协议** — develop.md 新增主 Agent 调度协议（Step D1-D9），明确主 Agent 在 Develop 阶段的合法操作范围
 
 ### v3.0.0 上下文注入革命 + 结构化分段生成
 
@@ -225,26 +236,26 @@ AI 将按阶段逐步执行，每个阶段完成后等待你确认。
 /dev-flow -cleanup --all     # 重置全部记忆
 ```
 
-### Subagent 模式（复杂任务）
+### Subagent 模式（v3.1.0 统一架构）
+
+> **v3.1.0 架构变更**：所有阶段统一由 Subagent 执行，主 Agent 仅作为调度枢纽。
+> 不存在"标准模式直接执行"的路径。区别仅在于 Subagent 的创建方式。
 
 ```
-/dev-flow -subagent <需求描述>  # 使用 subagent 并行模式
+/dev-flow -subagent <需求描述>  # 并行 Subagent 调度（复杂任务）
 ```
 
-适用于：
-- 需求涉及 2 个以上服务/模块
-- 预计生成 10 个以上文件
-- 项目代码量大（上下文可能不足）
-- 需要并行开发加速
+**简单需求**（`/dev-flow <需求>`）→ 主 Agent 串行创建单个 Subagent，每阶段一个。
+**复杂需求**（`/dev-flow -subagent <需求>`）→ Orchestrator 按 DAG 批次并行调度多个 Subagent。
 
 **跨平台调度策略**（v2.0.0 新增）：
 - **Trae**：原生并行 — 同批次任务同时启动多个 `/develop-expert`
 - **Cursor / Claude Code / Qoder**：顺序模拟并行 — 按批次顺序执行，每个任务独立上下文，通过 `task-result.yaml` 传递产出
 - **Codex**：有限并行 — 通过 `run agent: develop-expert` 切换 agent 上下文
 
-**架构**：
+**架构**（v3.1.0 统一 Subagent 执行架构）：
 ```
-用户 ←→ 主 Agent（协调者）
+用户 ←→ 主 Agent（纯调度枢纽，零编辑）
               │
               ├── research-expert  → 扫描项目，输出 memory/
               │     ├── dependency-scanner   → 深层扫描依赖项目
@@ -256,7 +267,12 @@ AI 将按阶段逐步执行，每个阶段完成后等待你确认。
               ├── task-split-expert → 智能拆分，输出 DAG + 子任务设计
               ├── develop-expert   → 子任务级代码开发（可并行多个）
               ├── contract-validator → 契约一致性校验 + 逻辑覆盖率验证（R5）← v2.1.0
-              └── verify-expert    → 代码验证
+              ├── test-expert      → 单元测试 ← v3.1.0
+              ├── smoke-test-expert → 冒烟测试 ← v3.1.0
+              ├── e2e-test-expert  → 端到端测试 ← v3.1.0
+              ├── integration-test-expert → 集成测试 ← v3.1.0
+              ├── fix-expert       → Bug 修复 ← v3.1.0
+              └── delivery-expert  → 交付报告 ← v3.1.0
 ```
 
 ### 断点续传
@@ -280,7 +296,7 @@ Hotfix（独立模式，随时可用，直接输出无需等待确认）
 | **Analyze** | 解析需求、关联已有代码、识别歧义、**一致性校验**、评估影响范围 | 需求分析文档 |
 | **Design** | 读取项目记忆、设计数据模型、API 接口、组件树、业务流程 | `design-contract.yaml`（含接口契约，支持多语言） |
 | **Task Split** | 拆分为子任务、**冲突检测**、构建 DAG、**双维度选择**、生成子任务级设计 | `task-dag.yaml` + `subtask-{id}-design.yaml` + `interface-registry.yaml` |
-| **Develop** | 读取子任务设计、按 DAG 批次并行生成代码、**上下文自动注入**、**结构化分段生成**、**强制编译验证**、**逻辑回溯验证** | 代码文件 + `code-generation-plan.yaml` + `logic-coverage-matrix.yaml` |
+| **Develop** | develop-expert Subagent 按子任务并行生成代码、**上下文自动注入**、**结构化分段生成**、**业务代码优先铁律**、**强制编译验证**、**逻辑回溯验证** | 代码文件 + `code-generation-plan.yaml` + `logic-coverage-matrix.yaml` |
 | **Unit Test** | 生成单元测试（覆盖正常/异常/边界）、执行测试 | 单元测试报告 |
 | **Smoke Test** | 快速验证核心流程可运行（curl/手动验证） | 冒烟测试报告 |
 | **E2E Test** | 端到端自动化测试（Java 完整链路 / Playwright 浏览器测试） | E2E 测试报告 |
@@ -297,9 +313,9 @@ v2.0.0 在 v1.0.5 三层架构基础上，新增了 references 层，将 Router 
 ```
 第一层：Router（17KB，始终加载）
   ├── YAML front-matter + 命令解析
-  ├── 全局规则（禁止事项 + 完整性铁律精简版）
+  ├── 全局规则（禁止事项 + 完整性铁律精简版 + 零编辑铁律 ← v3.1.0）
   ├── 阶段路由表
-  ├── 标准模式执行流程
+  ├── 主 Agent 调度流程 ← v3.1.0 重写
   └── 记忆系统快速引用 + 学习能力快速引用
 
 第二层：References（按需加载的深度参考文档）

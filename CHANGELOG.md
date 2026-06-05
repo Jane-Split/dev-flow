@@ -2,6 +2,39 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.1.0] - 2026-06-05
+
+### 主 Agent 零编辑架构 + 业务代码优先铁律
+
+**核心变化**：v3.1 从"主 Agent 可选执行模式"升级为"主 Agent 绝对不可编辑的调度架构"。主 Agent 仅作为交互枢纽和纯调度器，所有文件编辑必须由专门的阶段 subagent 执行。
+
+#### 主 Agent 零编辑架构（全局改造）
+
+- **SKILL.md Router**：新增「🔴🔴 主 Agent 零编辑铁律」最高优先级约束，定义主 Agent 权限边界（Read ✅ / Bash ✅ / Edit 🔴 / Write 🔴）
+- **SKILL.md Router**：「标准模式 + Subagent 模式」二元结构 → 统一为「Subagent 执行架构」（简单需求串行 subagent / 复杂需求并行 subagent）
+- **SKILL.md Router**：标准模式执行流程 → 重写为主 Agent 调度流程（创建 subagent → 等待结果 → 汇报用户）
+- **SKILL.md Router**：阶段门禁新增 Step Gate-2.5 执行者审计（校验前一阶段是否由 subagent 执行）
+- **SKILL.md Router**：确认清单模板新增第 0 项「执行者审计」
+
+#### 所有阶段统一 Subagent-only 执行模型（11 个文件）
+
+- **research.md / analyze.md / design.md / task-split.md**：新增零编辑约束 section + 执行步骤提示（由 subagent 在独立上下文执行）+ 确认清单审计项
+- **develop.md**：新增零编辑约束 section（含操作权限表 + 违反纠正流程）+ 主 Agent 调度协议（Step D1-D9）+ 确认清单审计项
+- **unit-test.md / fix.md / smoke-test.md / e2e-test.md / integration-test.md / delivery.md**：新增零编辑约束 section + 确认清单审计项
+- **orchestrator.md**：移除 Write 工具权限 + 新增零编辑铁律 section + 触发条件说明更新
+
+#### 业务代码优先铁律（develop.md + develop-expert.md）
+
+- **develop.md**：Step 2 前插入「🔴🔴 业务代码优先铁律」（P0业务代码优先、P1测试代码仅验证手段）
+- **develop.md**：Step 4.2 前置条件强化（3条必须满足才可执行测试生成）
+- **develop-expert.md**：新增「🔴🔴 业务代码优先铁律」+ 核心职责重排序（代码实现 P0 → 自检 → 测试 P1）
+
+#### 平台调度策略升级
+
+- **task-split.md**：确认清单第7项开发模式选择更新为「串行 Subagent / 并行 Subagent」二选一
+- **SKILL.md**：动态重评估网关从"升级为 Subagent 模式"改为"升级为并行 Subagent 调度"
+- **orchestrator.md**：描述更新为统一 Subagent 架构（区别仅在于串行 vs 并行调度）
+
 ## [3.0.0] - 2026-06-05
 
 ### 上下文注入革命 + 自动产出校验 + 50KB 硬约束全面移除

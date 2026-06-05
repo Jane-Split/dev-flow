@@ -21,6 +21,12 @@ type: stage-instruction
 - 全流程模式（Analyze 确认后）
 - 用户输入 `/dev-flow -design <需求>`
 
+### 🔴🔴 主 Agent 零编辑约束（本阶段入口铁律）
+
+> **⚠️ 最高优先级**：主 Agent 在本阶段的唯一角色是**调度器**。
+> **主 Agent 绝对禁止直接使用 Edit/Write 工具编辑本阶段的任何产出文件。**
+> **所有文件编辑必须由 design-expert subagent 执行。**
+
 ### 🔴 入口前检查：阶段门禁
 
 > **必须检查前一阶段确认文件**：
@@ -694,6 +700,8 @@ interfaces:
 
 ### 执行步骤
 
+> **⚠️ 以下步骤由 design-expert subagent 在独立上下文中执行，主 Agent 不直接执行这些步骤。主 Agent 的职责是：创建 subagent → 传递上下文 → 等待结果 → 向用户汇报。**
+
 **Step 0: 读取项目记忆**
 - 读取 `.dev-flow/memory/project-overview.md` - 了解项目技术栈和架构
 - 读取 `.dev-flow/memory/architecture.md` - 了解架构决策和约束
@@ -1162,6 +1170,7 @@ interface User { ... }
 
 | # | 确认项 | 状态 |
 |---|--------|------|
+| 0 | **执行者审计**：本阶段由 design-expert subagent 执行，主 Agent 未直接编辑任何文件 | ⬜ 待确认 |
 | 1 | 所有功能点都有对应的 Entity/DTO/Service/Controller 设计覆盖 | ⬜ 待确认 |
 | 2 | Design Contract YAML 已生成且字段完整 | ⬜ 待确认 |
 | 3 | 方法命名规范检查已完成（与实际代码一致） | ⬜ 待确认 |

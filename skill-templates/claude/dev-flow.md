@@ -11,6 +11,40 @@ description: AI开发全流程编排技能 - 在AI编程工具对话框中结构
 
 **核心价值**：让 AI 编程工具按结构化流程工作，避免遗漏步骤，确保产出质量。
 
+### 🔴🔴 主 Agent 零编辑铁律（最高优先级，不可违反）
+
+> **核心原则**：主 Agent 的角色是**交互枢纽 + 纯调度器**，绝不直接编辑任何文件。
+> **所有文件操作（Write/Edit）必须由专门的阶段 subagent 执行。**
+
+**主 Agent 权限定义**：
+
+| 操作类型 | 主 Agent 是否允许 | 说明 |
+|---------|------------------|------|
+| 读取文件（Read） | ✅ 允许 | 读取配置、结果、确认文件、用户需求 |
+| 执行编译命令（Bash） | ✅ 允许 | `mvn compile`、`npm run build` 等验证命令 |
+| 编辑文件（Edit/Write） | 🔴 **绝对禁止** | 所有代码、文档、配置的编辑必须由 subagent 执行 |
+| 创建/删除文件 | 🔴 **绝对禁止** | 除 `.dev-flow/stage-confirmations/*.confirmed` 外 |
+
+**每个阶段都必须由专门的 subagent 执行**：
+
+| 阶段 | 执行者 | 主 Agent 职责 |
+|------|--------|-------------|
+| Research | `research-expert` | 调度 + 展示结果 |
+| Analyze | `analyze-expert` | 调度 + 展示结果 |
+| Design | `design-expert` | 调度 + 展示结果 |
+| Task Split | `task-split-expert` | 调度 + 展示结果 |
+| Develop | `develop-expert`（可并行多个） | 调度 + 进度监控 + 汇总 |
+| Unit Test | `test-expert` | 调度 + 展示结果 |
+| Fix | `fix-expert` | 调度 + 展示结果 |
+| Smoke Test | `smoke-test-expert` | 调度 + 展示结果 |
+| E2E Test | `e2e-test-expert` | 调度 + 展示结果 |
+| Integration Test | `integration-test-expert` | 调度 + 展示结果 |
+| Delivery | `delivery-expert` | 调度 + 展示结果 |
+
+**违反检测与纠正**：
+- 如果主 Agent 在执行中发现自己正在输出 `Edit` 或 `Write` 操作 → **立即停止**，改为创建对应 subagent 执行
+- 如果主 Agent 已在某个阶段直接编辑了文件 → 该阶段产出标记为无效，要求由 subagent 重新执行
+
 ## 使用方式
 
 | 命令 | 说明 |
@@ -35,14 +69,16 @@ description: AI开发全流程编排技能 - 在AI编程工具对话框中结构
 
 ## 运行模式
 
-### 模式选择
+### 🔴🔴 统一 Subagent 执行架构（唯一执行模型）
 
-dev-flow 支持两种运行模式：
+> **核心原则**：无论需求规模大小，所有阶段**必须由专门的 subagent 执行**，主 Agent 仅作为调度枢纽。
+> 不存在"标准模式直接执行"的路径——区别仅在于 subagent 的创建方式。
 
-| 模式 | 触发命令 | 适用场景 |
-|------|----------|----------|
-| **标准模式** | `/dev-flow <需求>` | 简单需求、单服务项目、快速开发 |
-| **Subagent 模式** | `/dev-flow -subagent <需求>` | 复杂需求、多服务项目、大型重构 |
+| 维度 | 简单需求（≤5 文件） | 复杂需求（>5 文件） |
+|------|-------------------|-------------------|
+| 主 Agent 角色 | 串行调度（一个 subagent 完成后再创建下一个） | 并行调度（按 DAG 批次同时创建多个 subagent） |
+| subagent 执行 | 每个 subagent 串行执行 | 同一批次的 subagent 并行执行 |
+| 主 Agent 编辑文件 | 🔴 禁止 | 🔴 禁止 |
 
 ### 平台能力分级
 
@@ -65,43 +101,42 @@ dev-flow 支持两种运行模式：
 - **Qoder**：主 Agent 规划调度，子 Agent 按方向（前端/后端/测试/部署）并行处理，Quest Mode Checkpoints 确保质量
 - **Codex**：通过 `run agent: develop-expert` 启动 subagent，6 线程并行，通过 `task-result.yaml` 传递产出
 
-### Subagent 模式
+### Subagent 架构（唯一执行模型）
 
-**以下任一条件满足时，自动进入 Subagent 模式，主 agent 作为协调者**：
-1. 用户使用 `-subagent` 参数启动
-2. 初始规模检测为 L3 企业级模式（预估文件数 > 10 或复杂度 = 高）
-3. **Task Split 动态重评估**：Task Split 确认后，系统检测到任务数 > 5、或存在写写冲突、或 DAG 依赖层级 > 3（详见「模式动态重评估网关」）
-
-> Subagent 模式下，主 agent **不直接读取源码、不直接生成代码**，而是调度专业 subagent 执行各阶段任务。
+**所有阶段均由专业 subagent 执行，主 Agent 作为纯调度器**。
 
 **架构**：
 ```
-用户 ←→ 主 Agent（协调者）
+用户 ←→ 主 Agent（纯调度枢纽，零编辑）
               │
-              ├── /research-expert  → 扫描项目，输出 memory/
+              ├── research-expert    → 扫描项目，输出 memory/
               │     ├── @dependency-scanner   → 深层扫描依赖项目
               │     ├── @service-scanner      → 扫描当前服务
               │     ├── @structure-analyzer   → 分析项目结构
               │     └── @config-analyzer      → 分析配置规范
-              ├── /analyze-expert   → 分析需求，输出需求分析文档
-              ├── /design-expert    → 详细设计，输出设计文档
-              ├── /task-split       → 任务拆分，输出任务清单（DAG）
-              ├── /develop-expert   → 代码开发（可并行多个）
+              ├── analyze-expert     → 分析需求，输出需求分析文档
+              ├── design-expert      → 详细设计，输出设计文档
+              ├── task-split-expert  → 任务拆分，输出任务清单（DAG）
+              ├── develop-expert     → 代码开发（可并行多个）
               │     ├── 开发中汇报机制 → 向主 Agent 汇报进度
               │     ├── @on-demand-loader → 按需加载未扫描的类
               │     └── @runtime-state-manager → 状态持久化、断点续传
-              ├── /verify-expert    → 单元测试，输出测试报告
-              ├── /smoke-test       → 冒烟测试，输出冒烟测试报告
-              ├── /integration-test → 集成测试，输出集成测试报告
-              └── /delivery         → 生成交付报告
+              ├── test-expert        → 单元测试，输出测试报告
+              ├── smoke-test-expert  → 冒烟测试，输出冒烟测试报告
+              ├── e2e-test-expert    → 端到端测试，输出测试报告
+              ├── integration-test-expert → 集成测试，输出测试报告
+              ├── fix-expert         → Bug 修复，输出修复代码
+              └── delivery-expert    → 生成交付报告
 ```
 
 **工作流程**：
-1. 主 agent 接收需求，创建会话目录 `.dev-flow/sessions/{session-id}/`
-2. 主 agent 按顺序调度 subagent：Research → Analyze → Design → Develop → Verify
-3. 每个 subagent 在独立上下文中执行，只读取必要的文件
-4. Develop 阶段根据任务拆分可并行启动多个 develop-expert
-5. 主 agent 收集各 subagent 结果，整合后向用户汇报
+1. 主 Agent 接收需求，创建会话目录 `.dev-flow/sessions/{session-id}/`
+2. 主 Agent 按顺序调度 subagent：Research → Analyze → Design → Develop → Verify
+3. **简单需求**：串行调度（一个 subagent 完成后再创建下一个）
+4. **复杂需求**：按 DAG 批次并行调度（同批次多个 subagent 同时启动）
+5. 每个 subagent 在独立上下文中执行，只读取必要的文件
+6. 主 Agent 收集各 subagent 结果，整合后向用户汇报
+7. **主 Agent 始终不直接执行任何文件编辑操作**
 
 **任务拆分与依赖处理**：
 - Analyze 阶段输出的 `task-breakdown.yaml` 定义所有开发任务及其依赖关系
@@ -116,11 +151,10 @@ dev-flow 支持两种运行模式：
 - **v3.0 产出自动校验**：Subagent 完成后由 `validate-result.cjs` 自动校验产出质量
 - 详见 `.claude/agents/task-protocol.md`
 
-**何时使用 Subagent 模式**：
-- 需求涉及 2 个以上服务/模块
-- 预计生成 10 个以上文件
-- 项目代码量大（上下文可能不足）
-- 需要并行开发加速
+**子代理创建策略**：
+- 简单需求（≤5 文件/单服务）：主 Agent 串行创建单个 subagent，一个完成后再创建下一个
+- 复杂需求（>5 文件/多服务/深度 DAG）：主 Agent 按 DAG 批次并行创建多个 subagent
+- 无论何种复杂度，主 Agent **永远不直接编辑文件**
 
 ---
 
@@ -135,30 +169,30 @@ dev-flow 支持两种运行模式：
 
 ### 风险场景识别
 
-| 风险等级 | 场景 | 触发条件 |
-|---------|------|----------|
-| 🔴 **高** | 标准模式处理多文件 | 需求涉及 >5 个文件 |
-| 🔴 **高** | Research 扫描大项目 | 项目 >200 个文件 |
-| 🟡 **中** | 复杂需求分析 | 涉及 3+ 服务，10+ 功能点 |
-| 🟢 **已解决** | Subagent 上下文不足 | v3.0 上下文自动注入系统（prepare-context.cjs） |
+| 风险等级 | 场景 | 触发条件 | 处理方式 |
+|---------|------|----------|---------|
+| 🟢 **已解决** | 简单需求直接编辑 | 任何需求规模 | 统一 Subagent 执行，主 Agent 零编辑 |
+| 🟢 **已解决** | Research 扫描大项目 | 项目 >200 个文件 | research-expert 在独立上下文执行 |
+| 🟡 **中** | 复杂需求分析 | 涉及 3+ 服务，10+ 功能点 | analyze-expert 独立上下文 + subagent-only |
+| 🟢 **已解决** | Subagent 上下文不足 | 任何 subagent | v3.0 上下文自动注入系统（prepare-context.cjs） |
 
-### 强制模式选择规则
+### 强制 Subagent 执行规则
 
 **执行前必须检查**：
 
 ```
-Step 0: 检测需求规模
+Step 0: 检测需求规模（仅决定 subagent 创建方式，不决定是否使用 subagent）
   │
   ├── 预估文件数 ≤ 5 且 复杂度 = 低
-  │     └── ✅ 可以使用标准模式
+  │     └── 串行 Subagent 模式：每个阶段创建 1 个 subagent，串行执行
   │
   ├── 预估文件数 > 5 或 复杂度 ≥ 中
-  │     └── ⚠️ 强制使用 Subagent 模式
-  │     └── 提示用户："需求涉及 X 个文件，建议使用 /dev-flow -subagent 以确保质量"
+  │     └── 批次并行 Subagent 模式：Task Split 后按 DAG 批次并行创建 subagent
   │
   └── 预估文件数 > 10 或 项目 >200 文件
-        └── 🚨 必须使用 Subagent 模式
-        └── 标准模式将被禁用
+        └── 强制并行 Subagent 模式：Orchestrator 完整调度
+
+  ⚠️ 无论哪种规模，主 Agent 均不直接编辑文件。
 ```
 
 ### 上下文监控机制
@@ -173,15 +207,17 @@ Step 0: 检测需求规模
 2. 清理 AI 上下文，只保留关键摘要
 3. 标记检查点，支持断点续传
 
-### 最佳实践
+### Subagent 调度策略
 
-| 场景 | 推荐模式 | 说明 |
+| 场景 | 调度方式 | 说明 |
 |------|---------|------|
-| 简单 CRUD（1-3 文件） | 标准模式 | 快速开发 |
-| 中等需求（4-5 文件） | 标准模式 | 注意监控上下文 |
-| 复杂需求（6+ 文件） | **Subagent 模式** | 强制使用 |
-| 大型重构 | **Subagent 模式** | 必须拆分任务 |
-| 多服务联调 | **Subagent 模式** | 并行开发 |
+| 简单 CRUD（1-3 文件） | 串行 Subagent | 每阶段 1 个 subagent，串行执行 |
+| 中等需求（4-5 文件） | 串行 Subagent | 每阶段 1 个 subagent，串行执行 |
+| 复杂需求（6+ 文件） | **批次并行 Subagent** | Task Split 后按 DAG 批次并行 |
+| 大型重构 | **完整并行 Subagent** | Orchestrator 调度 |
+| 多服务联调 | **完整并行 Subagent** | 并行开发 + 集成验证 |
+
+> **⚠️ 所有种场景下，主 Agent 均不直接编辑文件。**
 
 ---
 
@@ -198,26 +234,29 @@ Step 0: 检测需求规模
 
 ### 模式自动检测规则
 
-执行 `/dev-flow <需求>` 时，系统自动按以下规则判断：
+执行 `/dev-flow <需求>` 时，系统自动按以下规则判断 subagent 调度方式：
 
 ```
-Step 0: 检测需求规模（初始决策）
+Step 0: 检测需求规模（初始决策，仅决定调度方式）
   │
-  ├── 关键词含 "fix"/"修复" + 文件数 ≤ 1 → L0 轻量模式
+  ├── 关键词含 "fix"/"修复" + 文件数 ≤ 1 → L0 轻量模式（串行 Subagent）
   │
-  ├── 预估文件数 ≤ 5 + 复杂度 = 低 → L1 小型模式
+  ├── 预估文件数 ≤ 5 + 复杂度 = 低 → L1 小型模式（串行 Subagent）
   │
-  ├── 预估文件数 5-10 或 复杂度 = 中 → L2 标准模式
+  ├── 预估文件数 5-10 或 复杂度 = 中 → L2 标准模式（串行→可能升级并行）
   │     └── 完整流程，含 Task Split 和 Smoke Test
   │     └── ⚠️ 注意：进入 Develop 前会执行动态重评估（见下方）
   │
-  └── 预估文件数 > 10 或 复杂度 = 高 → L3 企业级模式
-        └── 强制 Subagent，含并行开发和 Integration Test
+  └── 预估文件数 > 10 或 复杂度 = 高 → L3 企业级模式（并行 Subagent）
+        └── Orchestrator 完整调度，含并行开发和 Integration Test
+
+  ⚠️ 无论何种模式，主 Agent 始终不直接编辑文件。
 ```
 
 ### 🔴 模式动态重评估网关（Task Split → Develop 转换点）
 
-> **核心改进**：模式选择不再是"一次性决策"。在 Task Split 确认后、Develop 阶段进入前，系统基于 Task Split 实际产出数据**动态重评估**是否需要切换到 Subagent 模式。
+> **核心改进**：调度策略不再是"一次性决策"。在 Task Split 确认后、Develop 阶段进入前，
+> 系统基于 Task Split 实际产出数据**动态重评估**是否需要升级为并行 Subagent 调度。
 
 **重评估触发时机**：Task Split 阶段确认后，进入 Develop 阶段之前。
 
@@ -238,21 +277,21 @@ Step R2: 计算复杂度指标
 
 Step R3: 重评估判定
   │
-  ├── 满足以下任一条件 → 🔴 自动升级为 Subagent 模式
+  ├── 满足以下任一条件 → 🔴 自动升级为并行 Subagent 调度（Orchestrator）
   │     ├── total_tasks > 5
   │     ├── write_conflicts > 0（存在需要串行化的文件冲突）
   │     ├── dag_depth > 3（依赖链条过长）
-  │     └── batch_count > 3（批次过多，标准模式难以高效处理）
+  │     └── batch_count > 3（批次过多，串行 Subagent 难以高效处理）
   │
-  └── 全部不满足 → ✅ 继续当前模式（标准模式/小型模式）
+  └── 全部不满足 → ✅ 继续串行 Subagent 调度（主 Agent 串行创建单个 develop-expert）
 
 Step R4: 升级时通知用户
   ├── 输出：
-  │   【模式自动升级通知】
-  │   当前模式：标准模式（L2）
+  │   【调度策略升级通知】
+  │   当前调度：串行 Subagent（L2）
   │   升级原因：检测到 {total_tasks} 个任务，{write_conflicts} 个写写冲突，DAG 深度 {dag_depth}
-  │   自动升级为：Subagent 模式（L3）
-  │   效果：Develop 阶段将由 Orchestrator 调度多个 develop-expert subagent 并行开发
+  │   自动升级为：并行 Subagent 调度（Orchestrator，L3）
+  │   效果：Develop 阶段将由 Orchestrator 按批次并行调度多个 develop-expert subagent
   │
   └── 无需用户额外确认，已在 Task Split 阶段确认清单中包含"开发模式选择"项
 ```
@@ -349,6 +388,7 @@ notes: ""
 
 | # | 确认项 | 状态 |
 |---|--------|------|
+| 0 | **执行者审计**：本阶段由 {stage}-expert subagent 执行，主 Agent 未直接编辑任何文件 | ⬜ 待确认 |
 | 1 | [阶段核心产出描述] | ⬜ 待确认 |
 | 2 | [完整性检查描述] | ⬜ 待确认 |
 | 3 | [与需求一致性检查] | ⬜ 待确认 |
@@ -460,6 +500,13 @@ notes: ""
         ├── 文件必须包含 confirmed_at 时间戳
         └── 文件必须包含 checklist 且每个 item 状态为 confirmed
 
+  Step Gate-2.5: 🔴 执行者审计（🔴 零编辑铁律验证）
+    ├── 检查前一阶段的确认文件中 checklist 是否包含执行者审计项
+    │   ├── checklist 中应有："阶段由 {stage}-expert subagent 执行，主 Agent 未直接编辑文件"
+    │   └── 如缺失 → 回退到前一阶段，要求由 subagent 重新执行
+    │
+    └── 如果前一阶段确认文件中标记了"主 Agent 直接编辑" → 拒绝进入下一阶段
+
   Step Gate-3: 门禁判定
     ├── ✅ 前置确认文件存在且内容完整 → 允许进入目标阶段
     ├── ❌ 确认文件不存在 → 拒绝进入，输出以下信息并停止：
@@ -529,53 +576,51 @@ artifacts_checksum: "abc123"    # 可选：产出物校验和（防伪造）
 3. **Develop 阶段额外加载**：进入 Develop 阶段时，还需加载 `.claude/stages/code-reference.md`（包含代码模板和错误模式）
 4. **跳过的阶段不加载**：如果用户要求跳过某个阶段，该阶段的指令文件不需要加载
 
-### 标准模式执行流程
+### 主 Agent 调度流程
 
-> 当用户输入 `/dev-flow <需求>` 时，按以下步骤依次执行：
+> **当用户输入 `/dev-flow <需求>` 时，主 Agent 按以下步骤串行/并行调度各阶段 subagent：**
+> **主 Agent 在整个流程中不直接编辑任何文件，仅负责调度、读取结果和与用户交互。**
 
 ```
-Step 1: 读取阶段指令 → Read .claude/stages/research.md
-Step 2: 执行 Research 阶段 → 扫描项目，生成 memory/
-Step 3: 暂停 → 展示调研结果，等待用户确认
+Step 1: 创建 research-expert subagent → 执行 Research 阶段
+Step 2: 等待 research-expert 完成 → 读取结果
+Step 3: 向用户展示调研结果 → 等待用户确认
   ↓ 用户确认
-Step 4: 读取阶段指令 → Read .claude/stages/analyze.md
-Step 5: 执行 Analyze 阶段 → 分析需求，输出分析文档
-Step 6: 暂停 → 展示分析结果，等待用户确认
+Step 4: 创建 analyze-expert subagent → 执行 Analyze 阶段
+Step 5: 等待 analyze-expert 完成 → 读取结果
+Step 6: 向用户展示分析结果 → 等待用户确认
   ↓ 用户确认
-Step 7: 读取阶段指令 → Read .claude/stages/design.md
-Step 8: 执行 Design 阶段 → 详细设计，输出设计文档
-Step 9: 暂停 → 展示设计方案，等待用户确认
+Step 7: 创建 design-expert subagent → 执行 Design 阶段
+Step 8: 等待 design-expert 完成 → 读取结果
+Step 9: 向用户展示设计方案 → 等待用户确认
   ↓ 用户确认
-Step 10: 读取阶段指令 → Read .claude/stages/task-split.md
-Step 11: 执行 Task Split → 拆分任务，输出任务清单
-Step 12: 暂停 → 展示任务清单（含开发模式推荐），等待用户确认
+Step 10: 创建 task-split-expert subagent → 执行 Task Split 阶段
+Step 11: 等待 task-split-expert 完成 → 读取结果
+Step 12: 向用户展示任务清单（含开发模式推荐） → 等待用户确认
   ↓ 用户确认
   ┌──────────────────────────────────────────────────────────────┐
   │ 🔴 模式动态重评估网关（详见「模式动态重评估网关」章节）         │
-  │ 读取 task-dag.yaml → 计算复杂度指标 → 判断是否升级 Subagent   │
-  │ 满足条件（任务>5/写写冲突/DAG深度>3/批次>3）→ 自动切换 Subagent │
+  │ 读取 task-dag.yaml → 计算复杂度指标 → 判断调度策略             │
+  │ 满足条件（任务>5/写写冲突/DAG深度>3/批次>3）→ 升级为并行调度   │
+  │ 不满足 → 继续串行调度（每阶段一个 subagent）                   │
   └──────────────────────────────────────────────────────────────┘
   ↓ 重评估通过
-Step 13: 读取阶段指令 → Read .claude/stages/develop.md
-        读取代码参考 → Read .claude/stages/code-reference.md
-Step 14: 执行 Develop 阶段
-        ├── 当前模式 = Subagent → 启动 Orchestrator 调度 develop-expert subagent
-        │     └── 详见 orchestrator.md 的工作流（DAG 拓扑排序 + 分批并行派发）
-        └── 当前模式 = 标准 → 主 agent 按 develop.md 流程直接执行
-Step 15: 暂停 → 展示开发结果，等待用户确认
+Step 13: 根据调度策略创建 develop-expert subagent
+        ├── 串行调度 → 创建 1 个 develop-expert，串行执行所有任务
+        └── 并行调度 → 启动 Orchestrator，按 DAG 批次并行派发多个 develop-expert
+Step 14: 等待所有 develop-expert 完成 → 收集结果 → 向用户展示 → 等待确认
   ↓ 用户确认
-Step 16: 读取阶段指令 → Read .claude/stages/unit-test.md
-Step 17: 执行 Unit Test → 编写并运行测试
-Step 18: 暂停 → 展示测试结果，如有失败进入 Fix
+Step 15: 创建 test-expert subagent → 执行 Unit Test
+Step 16: 等待完成 → 向用户展示结果 → 等待确认
   ↓ 用户确认
-Step 19-N: 继续执行 Smoke Test → E2E Test → Integration Test → Delivery
+Step 17-N: 继续调度 Smoke Test → E2E Test → Integration Test → Delivery（各阶段 subagent）
 ```
 
 **关键规则**：
-- **每个阶段开始前必须先读取对应的阶段指令文件**
-- **每个阶段完成后必须暂停，等待用户确认后才能进入下一阶段**
-- **🔴 Task Split 确认后自动执行模式动态重评估，基于实际任务数据判断是否升级 Subagent 模式**
-- **Develop 阶段根据当前模式选择执行方式**：Subagent 模式走 Orchestrator 调度，标准模式走主 agent 直接执行
+- **每个阶段都由专门的 subagent 执行，主 Agent 不直接编辑文件**
+- **每个阶段完成后必须暂停，等待用户确认后才能调度下一阶段**
+- **🔴 Task Split 确认后自动执行模式动态重评估，基于实际任务数据判断是否升级并行调度**
+- **Develop 阶段根据重评估结果选择调度方式**：并行调度走 Orchestrator，串行调度走单个 develop-expert
 
 ---
 

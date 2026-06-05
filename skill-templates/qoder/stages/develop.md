@@ -5,6 +5,31 @@ type: stage-instruction
 
 ## 阶段五：Develop（开发执行）
 
+### 🔴🔴 主 Agent 零编辑约束（本阶段入口铁律）
+
+> **⚠️ 最高优先级**：主 Agent 在 Develop 阶段的唯一角色是**调度器**。
+> **主 Agent 绝对禁止直接使用 Edit/Write 工具修改任何代码文件。**
+> **所有代码编辑必须由 develop-expert subagent 执行。**
+
+**主 Agent 在本阶段的合法操作**：
+
+| 操作 | 是否允许 | 说明 |
+|------|---------|------|
+| 读取阶段指令文件 | ✅ | Read develop.md 获取执行规范 |
+| 读取任务 DAG 和结果 | ✅ | Read task-dag.yaml、develop-result.yaml |
+| 读取确认文件 | ✅ | Read *.confirmed |
+| 执行编译命令 | ✅ | Bash `mvn compile`（Step 6 集成验证时） |
+| 创建 develop-expert subagent | ✅ | 派发开发任务 |
+| 收集/汇总 subagent 结果 | ✅ | 读取 develop-result.yaml 并向用户汇报 |
+| **直接 Edit/Write 代码文件** | 🔴 **绝对禁止** | 违反零编辑铁律 |
+
+**如果主 Agent 发现自己正在输出代码编辑内容**：
+1. 立即停止
+2. 改为创建 develop-expert subagent 执行该任务
+3. 将已输出的编辑内容作为 subagent 的初始上下文传递
+
+---
+
 ### 🔔 入口 Banner（本阶段开始时输出）
 
 ```
@@ -135,15 +160,44 @@ segmented_execution_rules:
 
 ### 执行模式
 
-> **模式来源**：由 Router 层的「模式动态重评估网关」在 Task Split 确认后自动判定。
-> - **Subagent 模式**：Orchestrator 调度多个 develop-expert subagent（按 DAG 拓扑排序分批并行）
-> - **标准模式**：主 agent 直接按以下步骤执行（或单个 develop-expert 顺序执行）
+> **统一 Subagent 执行模型**：无论需求规模，Develop 阶段必须由 develop-expert subagent 执行。
+> 主 Agent 仅负责调度，不直接编辑代码。
+>
+> **调度方式由 Router 层动态重评估网关决定**：
+> - **串行调度**（简单需求）：主 Agent 串行创建单个 develop-expert subagent，按任务列表顺序执行
+> - **并行调度**（复杂需求）：主 Agent 启动 Orchestrator，按 DAG 拓扑排序分批并行派发多个 develop-expert subagent
+>
+> **触发条件**：Router 动态重评估判定（任务数>5/写写冲突/DAG深度>3/批次>3 → 并行调度）
 
-**标准模式**：单个 develop-expert subagent 顺序执行所有任务
-**并行模式**（Subagent 模式下）：多个 develop-expert subagent 并行执行同一批次的任务
+### 主 Agent 调度协议（本阶段入口由主 Agent 执行）
 
-> **并行模式由 Orchestrator 协调**：根据 task-dag.yaml 的批次信息，同时派发多个 subagent。
-> **触发条件**：Router 层动态重评估判定为 Subagent 模式时自动启用（任务数>5/写写冲突/DAG深度>3/批次>3）。
+> **⚠️ 本节描述主 Agent 的调度步骤，不是 develop-expert 的执行步骤。**
+
+```
+Step D1: 读取阶段指令 → Read {{STAGES_PATH}}develop.md（本文件）
+Step D2: 读取任务拆分文档和 DAG
+        ├── 读取 .dev-flow/docs/{需求简称}-任务拆分.md
+        └── 读取 .dev-flow/docs/{需求简称}-task-dag.yaml
+Step D3: 运行 prepare-context.cjs（如 Subagent 模式）
+        ├── node scripts/prepare-context.cjs --task {taskId}
+        └── 为每个任务生成 task-brief-{taskId}.md
+Step D4: 根据调度策略创建 develop-expert subagent
+        ├── 串行调度 → 创建 1 个 develop-expert，传递 task-brief + design-contract
+        │     └── subagent 按 develop-expert.md 工作流执行所有任务
+        └── 并行调度 → 启动 Orchestrator，按 DAG 批次派发多个 develop-expert
+              └── 详见 orchestrator.md 的工作流
+Step D5: 监控 subagent 执行
+        ├── 接收进度汇报
+        ├── 处理阻塞问题（协调依赖）
+        └── 向用户展示进度看板
+Step D6: 收集所有 develop-result.yaml
+Step D7: 运行 validate-result.cjs 验证产出
+        ├── node scripts/validate-result.cjs --task {taskId}
+        └── 如有失败项 → 标记需 Fix 阶段处理
+Step D8: 执行 Step 6 并行开发集成验证检查点（如多个 subagent）
+Step D9: 向用户汇报开发结果，输出确认清单
+        └── 暂停等待用户确认
+```
 
 ### 执行步骤
 
@@ -402,6 +456,44 @@ Step 1.1.1: 检查上下文注入文件是否存在
 | ServiceImpl:30 | status = 1 | status | byte | ⚠️ 需要显式转换 |
 | ServiceImpl:35 | count = 0 | count | Integer | ✅ 自动装箱 |
 | ServiceImpl:40 | name = "test" | name | String | ✅ 类型匹配 |
+```
+
+---
+
+### 🔴🔴 业务代码优先铁律（最高优先级，不可违反）
+
+> **核心原则**：Develop 阶段的首要目标是生成**业务代码**（Entity/DTO/Mapper/Service/Controller 等），
+> 测试代码仅在业务代码完成后作为验证手段生成。
+> **严禁在任何业务代码文件完成前生成或修改测试类。**
+
+**规则定义**：
+
+| 优先级 | 代码类型 | 执行时机 | 说明 |
+|--------|---------|---------|------|
+| P0（最高） | 业务代码（Enum/Entity/DTO/Mapper/Service/Controller） | Step 2 → Step 4 | 必须先全部完成 |
+| P1（次高） | 测试代码（QuickTest 等） | Step 4.2 | 仅在 P0 全部编译通过后才执行 |
+
+**强制规则**：
+
+1. **禁止逆序生成**：不得在 Service/Controller 等业务代码未完成前，生成任何 `*Test.java`、`*TestBase.java`、`*QuickTest.java` 文件
+2. **禁止修复测试优先于业务**：即使上下文中出现"测试失败""Re-run test"等信息，也必须先完成业务代码开发，测试修复在 Test 阶段处理
+3. **例外情况**：仅当 `task-context.yaml` 中 `task_type` 明确标记为 `test-fix` 或 `test-only` 时，允许跳过业务代码直接处理测试
+4. **违反检测**：Step 4.2 的触发条件已包含"编译通过后"——如果尚未执行 Step 4 编译验证，说明业务代码未完成，此时禁止生成任何测试
+
+**AI 行为纠正**：
+
+```
+❌ 错误行为（必须避免）：
+  - 收到任务后第一个动作是读取/生成 TestBase.java
+  - 看到上下文中有"Re-run test"就开始修复测试
+  - 生成测试基类/测试工具类作为"准备工作"
+  - TDD 模式先写测试再写实现
+
+✅ 正确行为（必须遵循）：
+  - 收到任务后按 Step 2 顺序依次生成业务代码
+  - 即使上下文中有测试失败信息，也先完成业务代码
+  - 测试代码仅在 Step 4.2 中作为验证手段生成
+  - 测试修复在 Test 阶段（Step 5）专门处理
 ```
 
 ---
@@ -668,6 +760,15 @@ fix_rounds:
 > **目的**：compile pass ≠ 逻辑正确。编译通过只证明语法正确，不证明业务逻辑正确。
 > 在每个 develop-expert 完成代码后、声明完成之前，立即运行针对该代码的基础单元测试，
 > 形成开发-验证闭环，将逻辑错误拦截在 Develop 阶段而非等到 Test 阶段才发现。
+
+> **🔴🔴 前置条件（违反则禁止执行本步骤）**：
+> 1. Step 2 所有业务代码文件（Enum/Entity/DTO/Mapper/Service/Controller）已全部生成
+> 2. Step 4 实际编译验证已通过（`mvn compile` 或等效命令）
+> 3. `develop-result.yaml` 中不存在 `compilation_status: failed`
+>
+> **⚠️ 如果上述任何一条未满足，禁止生成任何测试代码。**
+> 不得以"先搭建测试框架""先准备 TestBase"为由提前生成测试类。
+> 测试代码的生成是 Step 4.2 的专属职责，不允许提前到 Step 2/3/4 阶段执行。
 
 **触发条件**：Step 4 编译通过后
 
@@ -1124,6 +1225,7 @@ Step 6.5: 输出集成验证报告
 
 | # | 确认项 | 状态 |
 |---|--------|------|
+| 0 | **执行者审计**：Develop 阶段由 develop-expert subagent 执行，主 Agent 未直接编辑任何代码文件 | ⬜ 待确认 |
 | 1 | 所有设计文档中的文件都已生成 | ⬜ 待确认 |
 | 2 | 所有文件编译通过（Step 4 实际编译验证） | ⬜ 待确认 |
 | 3 | 前置单元测试通过或已标记需深入验证（Step 4.2） | ⬜ 待确认 |

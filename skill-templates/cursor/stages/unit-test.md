@@ -21,6 +21,12 @@ type: stage-instruction
 - 全流程模式（Develop 确认后）
 - 用户输入 `/dev-flow -test`
 
+### 🔴🔴 主 Agent 零编辑约束（本阶段入口铁律）
+
+> **⚠️ 最高优先级**：主 Agent 在本阶段的唯一角色是**调度器**。
+> **主 Agent 绝对禁止直接使用 Edit/Write 工具编辑本阶段的任何产出文件。**
+> **所有文件编辑必须由 test-expert subagent 执行。**
+
 ### 执行步骤
 
 **Step 0: 读取项目记忆**
@@ -204,6 +210,7 @@ type: stage-instruction
 
 | # | 确认项 | 状态 |
 |---|--------|------|
+| 0 | **执行者审计**：本阶段由 test-expert subagent 执行，主 Agent 未直接编辑任何文件 | ⬜ 待确认 |
 | 1 | 所有 Service 层 public 方法都有对应测试（getter/setter 除外） | ⬜ 待确认 |
 | 2 | 覆盖率达标（行≥90%、分支≥85%、方法≥95%） | ⬜ 待确认 |
 | 3 | 无无效测试（恒真断言/无断言/只测渲染） | ⬜ 待确认 |

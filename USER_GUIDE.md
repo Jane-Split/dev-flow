@@ -58,7 +58,13 @@
   - [17.2 50KB 硬约束全面移除](#172-50kb-硬约束全面移除)
   - [17.3 结构化代码分段生成](#173-结构化代码分段生成)
   - [17.4 自动产出校验系统](#174-自动产出校验系统)
-- [18. 常见问题](#18-常见问题)
+- [18. v3.1.0 主 Agent 零编辑架构](#18-v310-主-agent-零编辑架构)
+  - [18.1 零编辑铁律](#181-零编辑铁律)
+  - [18.2 统一 Subagent 执行模型](#182-统一-subagent-执行模型)
+  - [18.3 业务代码优先铁律](#183-业务代码优先铁律)
+  - [18.4 阶段执行者审计](#184-阶段执行者审计)
+  - [18.5 主 Agent 调度协议](#185-主-agent-调度协议)
+- [19. 常见问题](#19-常见问题)
 
 ---
 
@@ -94,6 +100,9 @@ dev-flow 是一个 AI 开发全流程编排 Skill，适用于 Cursor、Trae、Qo
 - **会话/长期记忆分离**（v2.0.0）：会话记忆每次 Research 自动重建，长期记忆跨会话累积
 - **Agent 智能拆分**（v2.0.0）：大 Agent 核心保留，模式库外置为 references 按需加载
 - **完整测试覆盖 + CI**（v2.0.0）：4 套自动化测试 + GitHub Actions CI
+- **主 Agent 零编辑架构**（v3.1.0）：主 Agent 仅作为纯调度枢纽，所有文件操作由专门阶段 Subagent 执行
+- **统一 Subagent 执行模型**（v3.1.0）：移除"标准模式 + Subagent 模式"二元结构，所有阶段统一由 Subagent 执行
+- **业务代码优先铁律**（v3.1.0）：Develop 阶段强制业务代码优先于测试代码
 
 ## 2. 安装
 
@@ -448,21 +457,38 @@ provides:            # 本任务对外提供的接口
 
 ### 5.5 Develop（开发执行）
 
-**做什么**：AI 按照设计方案，按依赖顺序生成完整可运行的代码。
+**做什么**：develop-expert Subagent 按照设计方案，按依赖顺序生成完整可运行的代码。
 
-**执行步骤**：
-1. 读取项目记忆（conventions、components、apis、utils、patterns）
-2. 读取子任务设计文档，解析结构化业务逻辑（v1.0.2）
-3. 按依赖顺序开发：数据模型 → 工具函数 → API/服务层 → 状态管理 → 展示组件 → 容器组件 → 路由
+> **v3.1.0 架构变更**：主 Agent 不直接编辑代码，仅负责创建 develop-expert Subagent、监控进度、收集结果并向用户汇报。所有代码编辑由 develop-expert 在独立上下文中执行。
+
+**业务代码优先铁律**（v3.1.0 新增）：
+- P0（最高优先级）：业务代码（Enum → Entity → DTO → Mapper → Service → Controller）必须先全部完成
+- P1（验证手段）：测试代码仅在业务代码全部完成且编译通过后才生成
+- 严禁在业务代码完成前生成任何 `*Test.java` / `*TestBase.java` 文件
+
+**主 Agent 调度步骤**（v3.1.0 新增）：
+1. 读取任务 DAG 和拆分文档
+2. 运行 `prepare-context.cjs` 为每个任务生成上下文注入文件
+3. 创建 develop-expert Subagent（串行或并行，取决于重评估结果）
+4. 监控 Subagent 执行进度
+5. 收集所有 `develop-result.yaml`
+6. 运行 `validate-result.cjs` 验证产出
+7. 向用户汇报开发结果，输出确认清单
+
+**develop-expert Subagent 执行步骤**：
+1. 读取上下文注入文件（task-brief-{taskId}.md）
+2. 读取子任务设计文档，解析结构化业务逻辑
+3. 按依赖顺序开发：Enum → Entity → DTO → Mapper → Service Interface → Service Impl → Controller
 4. 每个文件生成后进行自检（类型错误、边界情况、风格一致性、安全漏洞）
-5. **强制编译验证**（v2.0.0 升级）：代码生成后**必须执行**编译验证（Java: `mvn compile`，前端: `tsc --noEmit`），如编译失败自动进入修复循环（最多 3 轮），记录修复日志到 `compile-fix-log.yaml`
-6. **设计逻辑回溯验证**（v2.1.0 新增，Step 4.3）：编译通过 + Quick Test 通过后，强制执行逻辑回溯验证：
+5. **强制编译验证**：代码生成后**必须执行**编译验证（Java: `mvn compile`，前端: `tsc --noEmit`），如编译失败自动进入修复循环（最多 3 轮）
+6. **业务代码优先铁律检查**：确认所有业务代码文件已生成且编译通过后，才可进入 Step 4.2 前置单元测试验证
+7. **设计逻辑回溯验证**（Step 4.3）：编译通过后强制执行逻辑回溯验证
    - 从 `design-contract.yaml` 提取所有逻辑单元（logic_steps / conditions / call actions）
    - 在代码中逐条定位实现，验证 action 类型与代码特征匹配
    - 计算覆盖率（logic_step / condition / call_action），所有指标必须 100%
    - 输出 `logic-coverage-matrix.yaml` 包含完整可追溯矩阵
-7. 简要说明每个文件的实现思路
-8. 输出**结构化确认 Checklist**，等你确认代码质量
+8. 简要说明每个文件的实现思路
+9. 输出**结构化确认 Checklist**（含第 0 项执行者审计），等你确认代码质量
 
 **v3.0.0 新增 — 结构化代码分段生成**：
 
@@ -567,14 +593,23 @@ Subagent 模式是 dev-flow 的高级功能，适用于复杂任务，通过任�
 
 ### 6.1 什么是 Subagent 模式？
 
-在 Subagent 模式下：
-- **主 Agent（Orchestrator）** 作为协调者，负责任务拆分、调度和结果整合
-- **专业 Subagent** 在独立上下文中执行各阶段任务
+> **v3.1.0 架构变更**：所有阶段统一由 Subagent 执行。Subagent 模式不再是"可选的高级功能"，而是 dev-flow 的**唯一执行模型**。
+
+在 dev-flow 中：
+- **主 Agent** 作为**纯调度枢纽**（零编辑），负责创建 Subagent、监控进度、向用户汇报
+- **专业 Subagent** 在独立上下文中执行各阶段任务（Research / Analyze / Design / Develop / Test / Fix 等）
 - **并行开发** 无依赖的任务可同时执行，效率翻倍
-- **上下文隔离** 每个 subagent 只读取必要的文件，避免上下文膨胀
+- **上下文隔离** 每个 Subagent 只读取必要的文件，避免上下文膨胀
+
+**执行方式**（由需求复杂度自动决定）：
+- **简单需求**：主 Agent 串行创建单个 Subagent（一个完成后再创建下一个）
+- **复杂需求**：Orchestrator 按 DAG 批次并行创建多个 Subagent
 
 ### 6.2 适用场景
 
+> **v3.1.0 更新**：Subagent 模式适用于所有需求。区别仅在于简单需求使用串行 Subagent，复杂需求使用并行 Subagent。
+
+**并行 Subagent 适用于**：
 - 需求涉及 **2 个以上服务/模块**
 - 预计生成 **10 个以上文件**
 - 项目代码量大（上下文可能不足）
@@ -591,10 +626,10 @@ Subagent 模式是 dev-flow 的高级功能，适用于复杂任务，通过任�
 /dev-flow -subagent 在质量检查服务中新增提交审批功能，当质检结果为不合格时调用工作流服务发起审批流程
 ```
 
-### 6.4 架构
+### 6.4 架构（v3.1.0 统一 Subagent 架构）
 
 ```
-用户 ←→ 主 Agent（Orchestrator）
+用户 ←→ 主 Agent（纯调度枢纽，零编辑）
               │
               ├── research-expert  → 扫描项目，输出 memory/
               │     ├── dependency-scanner   → 深层扫描依赖项目
@@ -605,8 +640,14 @@ Subagent 模式是 dev-flow 的高级功能，适用于复杂任务，通过任�
               ├── design-expert    → 详细设计，输出 design-contract.yaml
               ├── task-split-expert → 智能拆分，输出 DAG + 子任务设计
               ├── develop-expert   → 子任务级代码开发（可并行多个）
+              ├── test-expert      → 单元测试
+              ├── smoke-test-expert → 冒烟测试
+              ├── e2e-test-expert  → 端到端测试
+              ├── integration-test-expert → 集成测试
               ├── contract-validator → 契约一致性校验 + 逻辑覆盖率验证（R5）← v2.1.0
+              ├── fix-expert       → Bug 修复
               ├── error-pattern-learner → 错误模式学习（v1.0.2）
+              ├── delivery-expert  → 交付报告
               └── verify-expert    → 代码验证
 ```
 
@@ -779,19 +820,21 @@ interfaces:
 
 ### 6.10 与标准模式的对比
 
-| 特性 | 标准模式 | Subagent 模式 |
+> **v3.1.0 更新**：标准模式已移除，统一为 Subagent 执行架构。以下为历史对比参考。
+
+| 特性 | ~~标准模式（已移除）~~ | Subagent 模式（统一架构） |
 |------|----------|---------------|
-| 适用场景 | 简单需求、单服务 | 复杂需求、多服务 |
-| 执行方式 | 单 agent 串行 | 多 subagent 并行/顺序模拟并行 |
-| 跨平台适配 | 统一流程 | Trae 原生并行 / Cursor/Claude/Qoder 顺序模拟并行 |
-| 上下文管理 | 单上下文，逐步累积 | 多独立上下文，隔离膨胀 |
-| 任务拆分 | 无 | DAG 依赖图 + 拓扑排序 + 冲突检测 |
-| 设计粒度 | 完整设计文档 | 子任务级设计（ownDesign + dependencies + provides） |
-| 依赖处理 | 手动管理 | 接口契约 + 接口注册表 + 契约冻结 |
-| 代码生成 | 主 agent 直接生成 | develop-expert 按子任务并行生成 |
-| 编译验证 | 建议执行 | **强制执行** + 修复循环（最多 3 轮） |
-| 确认机制 | 暂停等待 | 结构化确认 Checklist 逐项确认 |
-| 效率 | 适合小任务 | 复杂任务效率翻倍 |
+| 适用场景 | ~~简单需求、单服务~~ | **所有需求** |
+| 执行方式 | ~~单 agent 串行~~ | **多 Subagent 串行/并行** |
+| 跨平台适配 | ~~统一流程~~ | Trae 原生并行 / Cursor/Claude/Qoder 顺序模拟并行 |
+| 上下文管理 | ~~单上下文，逐步累积~~ | 多独立上下文，隔离膨胀 |
+| 任务拆分 | ~~无~~ | DAG 依赖图 + 拓扑排序 + 冲突检测 |
+| 设计粒度 | ~~完整设计文档~~ | 子任务级设计（ownDesign + dependencies + provides） |
+| 依赖处理 | ~~手动管理~~ | 接口契约 + 接口注册表 + 契约冻结 |
+| 代码生成 | ~~主 agent 直接生成~~ | **develop-expert 按子任务生成** |
+| 编译验证 | ~~建议执行~~ | **强制执行** + 修复循环（最多 3 轮） |
+| 确认机制 | ~~暂停等待~~ | 结构化确认 Checklist 逐项确认（含执行者审计） |
+| 效率 | ~~适合小任务~~ | **简单需求串行 / 复杂需求并行** |
 
 ## 7. Hotfix 模式
 
@@ -1953,7 +1996,108 @@ v3.0.0 围绕 **Subagent 代码生成质量** 进行了两大核心创新，从�
 - 支持 `--compile` 实际编译验证
 - 输出 `validation-report-{taskId}.yaml`
 
-## 18. 常见问题
+## 18. v3.1.0 主 Agent 零编辑架构
+
+v3.1.0 是一次**架构级变革**，将 dev-flow 从"主 Agent 可选执行模式"升级为"主 Agent 绝对不可编辑的调度架构"。
+
+### 18.1 零编辑铁律
+
+**问题**：在 v3.0.0 中，标准模式下主 Agent 可以直接执行所有阶段（包括代码编辑）。这导致：
+- 主 Agent 上下文被代码生成内容填满，影响调度决策
+- AI 可能优先写测试代码而非业务代码（受 TDD 训练倾向影响）
+- 主 Agent 同时承担交互和执行双重职责，职责不清
+
+**解决方案**：定义主 Agent 权限边界。
+
+| 操作类型 | 主 Agent 是否允许 | 说明 |
+|---------|------------------|------|
+| 读取文件（Read） | ✅ 允许 | 读取配置、结果、确认文件、用户需求 |
+| 执行编译命令（Bash） | ✅ 允许 | `mvn compile`、`npm run build` 等验证命令 |
+| 编辑文件（Edit/Write） | 🔴 **绝对禁止** | 所有代码、文档、配置的编辑必须由 Subagent 执行 |
+| 创建/删除文件 | 🔴 **绝对禁止** | 除 `.dev-flow/stage-confirmations/*.confirmed` 外 |
+
+**每个阶段都必须由专门的 Subagent 执行**：
+
+| 阶段 | 执行者 | 主 Agent 职责 |
+|------|--------|-------------|
+| Research | `research-expert` | 调度 + 展示结果 |
+| Analyze | `analyze-expert` | 调度 + 展示结果 |
+| Design | `design-expert` | 调度 + 展示结果 |
+| Task Split | `task-split-expert` | 调度 + 展示结果 |
+| Develop | `develop-expert`（可并行多个） | 调度 + 进度监控 + 汇总 |
+| Unit Test | `test-expert` | 调度 + 展示结果 |
+| Fix | `fix-expert` | 调度 + 展示结果 |
+| Smoke/E2E/Integration Test | 对应 test Subagent | 调度 + 展示结果 |
+| Delivery | `delivery-expert` | 调度 + 展示结果 |
+
+### 18.2 统一 Subagent 执行模型
+
+**问题**：v3.0.0 有"标准模式 + Subagent 模式"二元结构。标准模式下主 Agent 直接执行，Subagent 模式下由 Orchestrator 调度。这导致用户困惑——为什么简单需求就不能用 Subagent？
+
+**解决方案**：移除二元结构，所有需求统一由 Subagent 执行。
+
+| 需求规模 | Subagent 创建方式 | 说明 |
+|---------|-------------------|------|
+| 简单需求（≤5 文件） | 主 Agent 串行创建单个 Subagent | 一个 Subagent 完成后再创建下一个 |
+| 复杂需求（>5 文件） | Orchestrator 并行调度多个 Subagent | 按 DAG 批次并行创建 |
+
+**模式动态重评估网关**（Task Split → Develop 转换点）：
+
+读取 `task-dag.yaml` 计算复杂度指标，满足任一条件自动升级为并行调度：
+- 任务数 > 5
+- 写写冲突 > 0
+- DAG 深度 > 3
+- 批次 > 3
+
+### 18.3 业务代码优先铁律
+
+**问题**：AI 模型受 TDD 训练影响，可能优先写测试基类（`*TestBase.java`）而非业务代码（Service/Controller/Entity）。
+
+**解决方案**：在 develop.md 和 develop-expert.md 中建立强制优先级规则。
+
+| 优先级 | 代码类型 | 执行时机 |
+|--------|---------|---------|
+| **P0（最高）** | 业务代码（Enum→Entity→DTO→Mapper→Service→Controller） | Step 2 → Step 4 |
+| **P1（次高）** | 测试代码（QuickTest 等） | Step 4.2（仅在 P0 全部编译通过后） |
+
+**强制规则**：
+1. 禁止在业务代码未完成前生成任何测试类
+2. 即使上下文中出现"Re-run test"等测试失败信息，也必须先完成业务代码
+3. 仅当 `task-context.yaml` 中 `task_type` 为 `test-fix` 或 `test-only` 时允许跳过业务代码
+
+### 18.4 阶段执行者审计
+
+**问题**：主 Agent 可能违反零编辑铁律，直接编辑文件而无法检测。
+
+**解决方案**：在阶段门禁中新增执行者审计。
+
+**确认清单新增第 0 项**：
+
+| # | 确认项 | 状态 |
+|---|--------|------|
+| 0 | **执行者审计**：本阶段由 {stage}-expert Subagent 执行，主 Agent 未直接编辑任何文件 | ⬜ 待确认 |
+| 1 | [阶段核心产出描述] | ⬜ 待确认 |
+| ... | ... | ... |
+
+**门禁自动校验**（Step Gate-2.5）：进入下一阶段前，检查前一阶段确认文件中是否包含执行者审计项。如缺失或标记为主 Agent 编辑 → 拒绝进入下一阶段，要求由 Subagent 重新执行。
+
+### 18.5 主 Agent 调度协议
+
+develop.md 新增主 Agent 调度协议（Step D1-D9）：
+
+```
+Step D1: 读取阶段指令（develop.md）
+Step D2: 读取任务 DAG 和拆分文档
+Step D3: 运行 prepare-context.cjs 为每个任务生成上下文
+Step D4: 创建 develop-expert Subagent（串行/并行）
+Step D5: 监控 Subagent 执行
+Step D6: 收集所有 develop-result.yaml
+Step D7: 运行 validate-result.cjs 验证产出
+Step D8: 执行集成编译验证（如多个 Subagent）
+Step D9: 向用户汇报开发结果，等待确认
+```
+
+## 19. 常见问题
 
 ### Q: 安装后找不到 /dev-flow 命令？
 

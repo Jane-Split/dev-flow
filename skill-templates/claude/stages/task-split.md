@@ -21,6 +21,12 @@ type: stage-instruction
 - 全流程模式（Design 确认后）
 - 用户输入 `/dev-flow -split`
 
+### 🔴🔴 主 Agent 零编辑约束（本阶段入口铁律）
+
+> **⚠️ 最高优先级**：主 Agent 在本阶段的唯一角色是**调度器**。
+> **主 Agent 绝对禁止直接使用 Edit/Write 工具编辑本阶段的任何产出文件。**
+> **所有文件编辑必须由 task-split-expert subagent 执行。**
+
 ### 入口前检查：阶段门禁
 
 > **必须检查前一阶段确认文件**：
@@ -91,6 +97,8 @@ Step 0: 选择拆分维度
 > 以确保不同功能任务之间的 Entity 引用和 Service 调用不会冲突。
 
 ### 执行步骤
+
+> **⚠️ 以下步骤由 task-split-expert subagent 在独立上下文中执行，主 Agent 不直接执行这些步骤。主 Agent 的职责是：创建 subagent → 传递上下文 → 等待结果 → 向用户汇报。**
 
 **Step 1: 读取详细设计文档**
 - 读取 `.dev-flow/docs/{需求简称}-详细设计.md`
@@ -387,6 +395,7 @@ Task Split 阶段输出（极端模式）：
 
 | # | 确认项 | 状态 |
 |---|--------|------|
+| 0 | **执行者审计**：本阶段由 task-split-expert subagent 执行，主 Agent 未直接编辑任何文件 | ⬜ 待确认 |
 | 1 | 所有设计文档中的文件都已纳入任务清单 | ⬜ 待确认 |
 | 2 | 任务依赖关系（DAG）正确无遗漏 | ⬜ 待确认 |
 | 3 | 文件冲突检测结果已处理（无写写冲突残留） | ⬜ 待确认 |
@@ -414,7 +423,7 @@ Task Split 阶段输出（极端模式）：
   │     ├── dag_depth > 3
   │     └── batch_count > 3
   │
-  └── 全部不满足 → 推荐标准模式（主 agent 直接执行 Develop 阶段）
+  └── 全部不满足 → 推荐串行 Subagent 调度（主 Agent 串行创建单个 develop-expert）
 ```
 
 **确认项 #7 展示格式**：
