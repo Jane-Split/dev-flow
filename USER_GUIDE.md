@@ -46,7 +46,14 @@
   - [15.3 Agent 智能拆分](#153-agent-智能拆分)
   - [15.4 完整测试覆盖与 CI](#154-完整测试覆盖与-ci)
   - [15.5 参考文件（References）](#155-参考文件references)
-- [16. 常见问题](#16-常见问题)
+- [16. v2.1.0 验证闭环强化](#16-v210-验证闭环强化)
+  - [16.1 设计→代码逻辑回溯验证（Step 4.3）](#161-设计代码逻辑回溯验证step-43)
+  - [16.2 逻辑步骤标注规范](#162-逻辑步骤标注规范)
+  - [16.3 多层验证闭环](#163-多层验证闭环)
+  - [16.4 验证 Agent 分工矩阵](#164-验证-agent-分工矩阵)
+  - [16.5 调度引擎增强](#165-调度引擎增强)
+  - [16.6 contract-validator R5 规则](#166-contract-validator-r5-规则)
+- [17. 常见问题](#17-常见问题)
 
 ---
 
@@ -74,6 +81,10 @@ dev-flow 是一个 AI 开发全流程编排 Skill，适用于 Cursor、Trae、Qo
 - **三层按需加载架构**（v1.0.5）：上下文占用从 357KB 降至 79KB，代码生成可用空间提升至 50%
 - **代码完整性铁律**（v1.0.5）：正面规则 + 生产可用测试，确保代码 100% 完整实现
 - **全平台防护统一**（v1.0.5）：step-enforcer 等防护 agent 全平台共享，不再仅限 Trae
+- **设计→代码逻辑回溯验证**（v2.1.0）：Step 4.3 强制验证设计文档中每个逻辑步骤都有代码实现，覆盖率 100%
+- **多层验证闭环**（v2.1.0）：orchestrator 整合自检 → contract-validator → verify-expert 三层防线
+- **验证 Agent 分工矩阵**（v2.1.0）：5 个验证 Agent 明确分工和执行时机
+- **调度引擎增强**（v2.1.0）：循环依赖检测、文件级冲突检测、DAG 自动修复
 - **四层按需加载 + References 层**（v2.0.0）：Router 从 27KB 精简至 17KB，新增 4 个按需参考文档
 - **会话/长期记忆分离**（v2.0.0）：会话记忆每次 Research 自动重建，长期记忆跨会话累积
 - **Agent 智能拆分**（v2.0.0）：大 Agent 核心保留，模式库外置为 references 按需加载
@@ -440,8 +451,13 @@ provides:            # 本任务对外提供的接口
 3. 按依赖顺序开发：数据模型 → 工具函数 → API/服务层 → 状态管理 → 展示组件 → 容器组件 → 路由
 4. 每个文件生成后进行自检（类型错误、边界情况、风格一致性、安全漏洞）
 5. **强制编译验证**（v2.0.0 升级）：代码生成后**必须执行**编译验证（Java: `mvn compile`，前端: `tsc --noEmit`），如编译失败自动进入修复循环（最多 3 轮），记录修复日志到 `compile-fix-log.yaml`
-6. 简要说明每个文件的实现思路
-7. 输出**结构化确认 Checklist**，等你确认代码质量
+6. **设计逻辑回溯验证**（v2.1.0 新增，Step 4.3）：编译通过 + Quick Test 通过后，强制执行逻辑回溯验证：
+   - 从 `design-contract.yaml` 提取所有逻辑单元（logic_steps / conditions / call actions）
+   - 在代码中逐条定位实现，验证 action 类型与代码特征匹配
+   - 计算覆盖率（logic_step / condition / call_action），所有指标必须 100%
+   - 输出 `logic-coverage-matrix.yaml` 包含完整可追溯矩阵
+7. 简要说明每个文件的实现思路
+8. 输出**结构化确认 Checklist**，等你确认代码质量
 
 **你会看到**：完整的代码文件，每个文件附带实现思路说明。
 
@@ -574,7 +590,7 @@ Subagent 模式是 dev-flow 的高级功能，适用于复杂任务，通过任�
               ├── design-expert    → 详细设计，输出 design-contract.yaml
               ├── task-split-expert → 智能拆分，输出 DAG + 子任务设计
               ├── develop-expert   → 子任务级代码开发（可并行多个）
-              ├── contract-validator → 契约一致性校验（v1.0.2）
+              ├── contract-validator → 契约一致性校验 + 逻辑覆盖率验证（R5）← v2.1.0
               ├── error-pattern-learner → 错误模式学习（v1.0.2）
               └── verify-expert    → 代码验证
 ```
@@ -589,9 +605,14 @@ Subagent 模式是 dev-flow 的高级功能，适用于复杂任务，通过任�
    - 无依赖的任务并行执行（如不同 Entity 的创建）
    - 有依赖的任务串行执行（如 Entity → Mapper → Service → Controller）
    - 每个 develop-expert 只接收自己子任务的设计文档（`subtask-{id}-design.yaml`）
-   - 每个 develop-expert 完成后执行编译验证闭环（v1.0.2）
-6. **全局集成编译**（v1.0.2）：所有子任务完成后，orchestrator 执行全局编译 + 契约一致性校验 + 错误分类 + 循环修复
-7. **错误模式学习**（v1.0.2）：error-pattern-learner 从编译错误、契约违反中提取模式，生成预防策略
+   - 每个 develop-expert 完成后执行编译验证闭环（v1.0.2）+ 逻辑回溯验证 Step 4.3（v2.1.0）
+6. **多层验证**（v2.1.0 新增）：每个批次完成后，orchestrator 执行验证链
+   - Step 5.1：develop-expert 开发自检（Step 4.3 逻辑回溯验证）
+   - Step 5.2：contract-validator 独立验证（R1-R5 规则，R5 为 critical）
+   - Step 5.3：verify-expert 质量检查（编译验证 + 代码质量）
+   - 验证失败自动返回 develop-expert 修复（最多 2 轮），超过则升级到用户
+7. **全局集成编译**（v1.0.2）：所有子任务完成后，orchestrator 执行全局编译 + 契约一致性校验 + 错误分类 + 循环修复
+8. **错误模式学习**（v1.0.2）：error-pattern-learner 从编译错误、契约违反中提取模式，生成预防策略
 8. **Verify 阶段**：verify-expert 验证所有生成代码的质量和完整性
 
 ### 6.6 跨平台调度策略（v2.0.0 新增）
@@ -1184,7 +1205,7 @@ logic:
 
 **解决方案**：新增 contract-validator Agent，自动验证代码与设计契约的一致性。
 
-**4 条验证规则**：
+**5 条验证规则**（v2.1.0 新增 R5）：
 
 | 规则 | 验证内容 | 示例 |
 |------|---------|------|
@@ -1192,6 +1213,7 @@ logic:
 | R2 | Entity 字段一致性 | 设计定义 10 个字段 → 代码实现 10 个字段 |
 | R3 | 实现完整性 | 设计定义 5 个方法 → 代码实现 5 个方法 |
 | R4 | 依赖调用一致性 | 调用方参数与提供方接口一致 |
+| R5（v2.1.0） | 逻辑步骤覆盖率 | 每个 logic step/condition/call action 都有代码实现，覆盖率 100% |
 
 ### 11.4 全局集成编译
 
@@ -1630,7 +1652,235 @@ v2.0.0 新增的 References 层包含 4 个按需加载的深度参考文档：
 | Qoder | `.qoder/references/` |
 | OpenAI Codex | `.codex/references/` |
 
-## 16. 常见问题
+## 16. v2.1.0 验证闭环强化
+
+v2.1.0 围绕**多 subagent 开发阶段的代码正确性保证**进行了全面强化，新增设计→代码逻辑回溯验证、修复调度引擎关键 bug、整合 5 个验证 Agent 形成完整验证闭环。
+
+### 16.1 设计→代码逻辑回溯验证（Step 4.3）
+
+**问题**：现有验证机制（编译、契约校验、占位扫描）都是语法/结构级别的，无法保证业务逻辑的正确性。step-enforcer 定义了 R3-4-1/R3-4-2 规则但从未集成到 develop.md 的执行流程中。
+
+**解决方案**：在 develop.md 中新增 Step 4.3，在编译通过 + Quick Test 通过后**强制执行**逻辑回溯验证。
+
+**执行流程**：
+
+```
+编译通过 + Quick Test 通过
+  │
+  ▼
+Step 4.3.1: 从 design-contract.yaml 提取所有逻辑单元
+  ├── logic_steps: 每个业务步骤（validate/query/convert/call 等）
+  ├── conditions: 条件分支（if/else/case）
+  └── call_actions: 外部调用（Feign/RPC/MQ/Redis）
+  → 输出 design_logic_inventory.yaml
+  │
+  ▼
+Step 4.3.2: 在代码中逐条定位实现
+  ├── validate → 代码中必须有 if(!condition) throw
+  ├── query → 代码中必须有 mapper/db 操作
+  ├── call → 代码中必须有实际外部调用
+  └── 其他 action 类型对应检查
+  │
+  ▼
+Step 4.3.3: 计算覆盖率（全部必须 100%）
+  ├── logic_step_coverage: 100%
+  ├── condition_coverage: 100%
+  └── call_action_coverage: 100%
+  │
+  ▼
+Step 4.3.4: 未覆盖项处理（最多 2 轮修复）
+  → 输出 logic-coverage-matrix.yaml
+```
+
+**产出文件**（`.dev-flow/docs/{需求简称}-task-split/`）：
+
+| 文件 | 说明 |
+|------|------|
+| `design_logic_inventory.yaml` | 从 design-contract.yaml 提取的逻辑单元清单 |
+| `logic-coverage-matrix.yaml` | 覆盖率矩阵，每条逻辑步骤 vs 代码实现映射 |
+
+### 16.2 逻辑步骤标注规范
+
+**问题**：逻辑回溯验证需要准确定位代码中的逻辑步骤，但代码缺乏标准标注，回溯效率低。
+
+**解决方案**：在 develop-expert.md 中新增逻辑步骤标注规范，要求 Service 实现使用标准注释标注。
+
+**标注格式**：
+
+```java
+@Service
+@RequiredArgsConstructor
+public class OrderServiceImpl implements OrderService {
+    private final OrderMapper orderMapper;
+    private final SapPushService sapPushService;
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void createOrder(OrderCreateRequest request) {
+        // Step 1: validate - 校验订单参数
+        if (request == null || request.getItems() == null) {
+            throw new BusinessException("订单参数不能为空");
+        }
+
+        // Step 2: query - 查询订单是否存在
+        OrderEntity existing = orderMapper.selectByOrderNo(request.getOrderNo());
+        if (existing != null) {
+            throw new BusinessException("订单已存在");
+        }
+
+        // Step 3: convert - 转换并保存订单
+        OrderEntity entity = OrderConvertor.convert(request);
+        orderMapper.insert(entity);
+
+        // Step 4: branch - 判断是否需要推送
+        if (entity.getAmount() > 1000) {
+            // Step 4.1: call - 调用 SAP 推送
+            sapPushService.pushOrder(entity);
+        }
+
+        // Step 5: return - 返回结果
+        log.info("订单创建成功: {}", entity.getOrderNo());
+    }
+}
+```
+
+**标准 action 类型**：
+
+| Action | 代码特征 | 说明 |
+|--------|---------|------|
+| `validate` | `if(!condition) throw` | 参数/状态校验 |
+| `query` | `mapper.select` / `db.query` | 数据查询 |
+| `convert` | `BeanUtils.copy` / `Convertor` | 对象转换 |
+| `assign` | `entity.setXxx()` | 赋值操作 |
+| `throw` | `throw new XxxException` | 抛出异常 |
+| `return` | `return xxx` | 返回结果 |
+| `call` | `xxxService.xxx()` | 外部调用 |
+| `branch` | `if/else/switch` | 条件分支 |
+
+> **注意**：仅在 design-contract.yaml 定义了 logic_steps 时需要标注，简单需求（无复杂逻辑步骤）豁免。
+
+### 16.3 多层验证闭环
+
+**问题**：v2.0.0 中 orchestrator 的 Step 5 "结果验证" 只有一行描述"验证代码可编译性"，未调用任何验证 Agent。contract-validator、step-enforcer、bytecode-analyzer 等虽然定义了丰富的规则，但从未在主流程中被触发。
+
+**解决方案**：重写 orchestrator.md 的 Step 5 为完整的多层验证闭环。
+
+**验证链执行顺序**：
+
+```
+develop-expert 完成代码生成
+  │
+  ▼
+Step 5.1: 开发自检（develop-expert 内部执行）
+  ├── Step 4.3 逻辑回溯验证
+  ├── 输出 logic-coverage-matrix.yaml
+  └── 全部 100% 覆盖 → 通过
+  │
+  ▼
+Step 5.2: contract-validator 独立验证
+  ├── R1-R4: 结构一致性验证（签名、字段、接口、依赖）
+  ├── R5: 逻辑步骤覆盖率校验（critical 阻塞）
+  └── 输出 contract-validation-report.yaml
+  │
+  ▼
+Step 5.3: verify-expert 质量检查
+  ├── 代码质量、完整性、一致性检查
+  ├── 编译验证（mvn compile / npm build）
+  └── 输出 verify-report.md
+  │
+  ├── 全部通过 → 进入下一批次
+  │
+  └── 任一验证失败
+        ├── 返回 develop-expert 修复（最多 2 轮）
+        └── 超过重试次数 → 升级到用户人工处理
+```
+
+**并行模式下的验证策略**：
+- 同一批次的多个 develop-expert **全部完成后**，统一执行验证链
+- 某任务验证失败**只阻塞依赖该任务的后续任务**，不阻塞同批次其他任务
+- 批次中所有验证通过后才启动下一批次
+
+### 16.4 验证 Agent 分工矩阵
+
+**问题**：5 个验证 Agent 之间规则有重叠（step-enforcer R3-4-1 与 contract-validator R5-1 功能相同），角色分工不清。
+
+**解决方案**：在所有验证 Agent 文件中统一添加分工矩阵。
+
+| Agent | 验证维度 | 执行时机 | 执行者 | 阻塞级别 |
+|-------|---------|---------|--------|---------|
+| design-contract-validator | 设计文档 call action 完整性 | 开发过程中（可选） | develop-expert | 建议 |
+| step-enforcer | 文件存在性 + 禁止事项 + 早期覆盖率预警 | 开发过程中（强制） | develop-expert | 阻塞 |
+| contract-validator | 结构一致性 + 逻辑覆盖率最终验证 | 开发完成后（强制） | orchestrator | 阻塞（R5 critical） |
+| verify-expert | 代码质量 + 编译验证 + 需求满足度 | 最终验证（强制） | orchestrator | 阻塞 |
+| bytecode-analyzer | 编译后字节码/源码深度分析 | 编译完成后（可选） | verify-expert | 建议 |
+
+**step-enforcer 与 contract-validator R5 的双层防御关系**：
+
+| 规则 | step-enforcer | contract-validator R5 |
+|------|--------------|---------------------|
+| 逻辑步骤覆盖 | R3-4-1（早期预警） | R5-1（最终仲裁） |
+| 条件分支覆盖 | R3-4-2（早期预警） | R5-2（最终仲裁） |
+| 外部调用完整性 | — | R5-3（最终仲裁） |
+| 覆盖率矩阵完整性 | — | R5-4（最终仲裁） |
+
+- R3-4-1/R3-4-2 是**开发过程中的即时检查**，帮助 develop-expert 早期发现遗漏
+- R5 是**开发完成后的独立验证**，作为最终仲裁确保质量
+- 两者验证维度相同但执行时机和执行者不同
+
+### 16.5 调度引擎增强
+
+**问题**：dispatch.cjs 的 `parseTaskDag` 函数在解析 YAML 列表格式的 `dependencies:` 时，未设置 `_collecting` 标记导致所有依赖被忽略。这意味着循环依赖检测完全失效，文件级冲突检测也无法正确判断批次关系。
+
+**修复内容**：
+
+| 修复项 | 说明 | 影响 |
+|--------|------|------|
+| 🔴 `_collecting` bug | `dependencies:` 列表格式未设置收集标记 | 修复前所有依赖关系被忽略 |
+| 循环依赖检测 | Kahn 算法后检测 unprocessed 节点，exit 1 | 防止无限循环调度 |
+| write-write 冲突 | 两任务写同一文件 | 同批次检测 |
+| write-read 冲突 | A 写 B 读但无依赖声明 | 自动添加依赖 |
+| read-write 冲突 | B 写 A 读但无依赖声明 | 自动添加依赖 |
+| DAG 自动修复 | 对可修复冲突自动添加依赖，重新拓扑排序 | 减少人工干预 |
+| 增强 YAML 解析 | 支持 target_files / read_files / name 字段 | 更精准的冲突检测 |
+
+**使用方式**：
+
+```bash
+# 查看调度计划（dry-run）
+node scripts/dispatch.cjs --platform cursor --dry-run
+
+# 指定平台
+node scripts/dispatch.cjs --platform trae --dry-run
+
+# 如果有循环依赖，会报错退出（exit 1）并提示哪些任务参与循环
+```
+
+### 16.6 contract-validator R5 规则
+
+**问题**：contract-validator 原有 R1-R4 只验证结构一致性（签名、字段、接口、依赖），无法检测业务逻辑遗漏（如设计文档定义了 5 个逻辑步骤但代码只实现了 3 个）。
+
+**解决方案**：新增 R5 规则"逻辑步骤覆盖率校验"，包含 4 个检查项。
+
+**R5 检查项**：
+
+| 检查项 | 说明 | 覆盖率阈值 |
+|--------|------|-----------|
+| R5-1 | 每个 logic step 有对应代码实现 | 100% |
+| R5-2 | 每个 condition 分支有 if/else 实现 | 100% |
+| R5-3 | 每个 call action 有实际外部调用（非 log 占位） | 100% |
+| R5-4 | `logic-coverage-matrix.yaml` 文件存在且所有指标 100% | 100% |
+
+**失败处理**：
+1. R5 任意检查项未通过 → `block_and_return_to_develop`
+2. develop-expert 修复后重新验证（最多 2 轮）
+3. 2 轮后仍失败 → 升级到 orchestrator，汇报用户请求人工干预
+
+**与 Step 4.3 的关系**：
+- Step 4.3 是 develop-expert **自检**（由开发方自己执行）
+- R5 是 contract-validator **独立验证**（由 orchestrator 调用第三方验证）
+- 两者形成双层防御：即使 Step 4.3 被跳过或遗漏，R5 仍然能捕获问题
+
+## 17. 常见问题
 
 ### Q: 安装后找不到 /dev-flow 命令？
 

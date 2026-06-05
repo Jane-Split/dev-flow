@@ -187,6 +187,46 @@ is_background: true
 5. Service Implementation - 服务实现
 6. Controller - 控制器
 
+**🔴🔴 逻辑步骤标注规范（必须遵守）**：
+
+> **目的**：让每个 logic step 在代码中有明确的锚点，使 Step 4.3 逻辑回溯验证可以自动化匹配。
+
+**规则**：当 design-contract.yaml 中定义了 logic steps 时，Service 实现类中必须用注释标注每个步骤：
+
+```java
+// Step 1: validate - 校验订单参数
+if (orderDTO == null || orderDTO.getId() == null) {
+    throw new BusinessException("订单参数不能为空");
+}
+
+// Step 2: query - 查询订单是否存在
+OrderEntity existing = orderMapper.selectById(orderDTO.getId());
+if (existing == null) {
+    throw new BusinessException("订单不存在");
+}
+
+// Step 3: branch - 判断订单状态
+if (existing.getStatus() == OrderStatus.DRAFT.getCode()) {
+    // Step 3.1: call - 调用 SAP 推送
+    SapResponse response = sapFeignClient.pushOrder(convertToSapDTO(existing));
+    if (!response.isSuccess()) {
+        throw new BusinessException("SAP推送失败: " + response.getErrorMsg());
+    }
+    // Step 3.2: assign - 更新订单状态
+    existing.setStatus(OrderStatus.PUSHED.getCode());
+    orderMapper.updateById(existing);
+} else {
+    // Step 3.3: throw - 非草稿状态不允许推送
+    throw new BusinessException("订单状态非草稿，不允许推送");
+}
+```
+
+**标注格式要求**：
+- `// Step {N}: {action_type} - {描述}` — 必须包含步骤编号、action 类型、简短描述
+- 步骤编号与 design-contract.yaml 中的 logic step 编号一一对应
+- action 类型使用标准值：`validate` / `query` / `convert` / `assign` / `throw` / `return` / `call` / `branch`
+- 如果 design-contract.yaml 未定义 logic steps（简单需求），则不需要标注
+
 **编码规范**：
 - 遵循项目已有命名风格
 - 使用项目已有注解模式

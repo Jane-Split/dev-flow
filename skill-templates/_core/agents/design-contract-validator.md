@@ -232,12 +232,22 @@ phase_5_develop:
   step_5_5: "调用 verify-expert 质量检查"
 ```
 
-### 与 step-enforcer 的关系
+### 与其他验证 Agent 的关系
 
-- **step-enforcer**: 验证文件存在性和格式
-- **design-contract-validator**: 验证代码内容实质（设计 vs 实现）
+> **验证 Agent 分工矩阵**（v2.1 明确）：
 
-两者互补，共同防止日志占位问题。
+| Agent | 验证维度 | 执行时机 | 执行者 |
+|-------|---------|---------|--------|
+| design-contract-validator | 设计文档 call action 完整性 + 日志占位对比 | 开发过程中（可选） | develop-expert |
+| step-enforcer | 文件存在性、格式、禁止事项扫描、早期覆盖率预警 | 开发过程中（强制） | develop-expert |
+| contract-validator | 结构一致性 + 逻辑覆盖率最终验证 | 开发完成后（强制） | orchestrator |
+| verify-expert | 代码质量、编译验证、需求满足度 | 最终验证阶段（强制） | orchestrator |
+| bytecode-analyzer | 编译后字节码分析（深度检测） | 编译完成后（可选） | verify-expert |
+
+**关键区分**：
+- **design-contract-validator**：关注设计文档本身是否完整（call action 是否有 target/method/params）
+- **contract-validator R5**：关注代码实现是否覆盖了设计（logic step → 代码映射）
+- 两者互补但不重叠：前者验证"设计写对了吗"，后者验证"代码做对了吗"
 
 ## 失败处理
 

@@ -1,9 +1,9 @@
 # dev-flow
 
 [![node](https://img.shields.io/node/v/dev-flow.svg)](https://nodejs.org)
-[![version](https://img.shields.io/badge/version-v2.0.0-blue)]()
+[![version](https://img.shields.io/badge/version-v2.1.0-blue)]()
 
-> **当前版本: v2.0.0** | [更新日志](./CHANGELOG.md)
+> **当前版本: v2.1.0** | [更新日志](./CHANGELOG.md)
 
 AI 开发全流程编排 Skill，适用于 Cursor、Trae、Qoder、Claude Code、OpenAI Codex 等 AI 编程工具。
 
@@ -23,6 +23,15 @@ AI 编程工具（Cursor/Trae/Qoder/Claude Code/Codex）虽然强大，但在处
 dev-flow 通过**结构化的流程编排 + 项目记忆 + 长期记忆 + 学习能力 + 多 Subagent 并行**解决这些问题，让 AI 编程工具**越用越好用**。
 
 ## 特性
+
+### v2.1.0 验证闭环强化
+
+- **设计→代码逻辑回溯验证** — 新增 Step 4.3 强制验证 design-contract.yaml 中每个逻辑步骤都有代码实现，覆盖率必须 100%
+- **逻辑步骤标注规范** — Service 实现中使用 `// Step N: action_type - description` 标准标注，支持自动化回溯
+- **多层验证闭环** — orchestrator Step 5 整合 develop-expert 自检 → contract-validator 独立验证 → verify-expert 质量检查三层防线
+- **验证 Agent 分工矩阵** — 5 个验证 Agent（design-contract-validator / step-enforcer / contract-validator / verify-expert / bytecode-analyzer）明确分工和执行时机
+- **调度引擎循环依赖检测** — dispatch.cjs 修复依赖解析 bug，新增循环依赖检测、文件级冲突检测（3 种类型）、DAG 自动修复
+- **contract-validator R5 规则** — 逻辑步骤覆盖率校验（4 个 check item，threshold 100%），与 step-enforcer R3-4-1/R3-4-2 形成双层防御
 
 ### v2.0.0 核心特性
 
@@ -53,7 +62,7 @@ dev-flow 通过**结构化的流程编排 + 项目记忆 + 长期记忆 + 学习
 - **长期记忆** - 记录常见代码模式、错误修复方案、用户偏好、架构决策（6 个文件），跨会话持久化
 - **结构化业务逻辑** - 设计阶段输出结构化决策表（8 种 Action 类型），开发阶段精确翻译为代码，消除自然语言歧义
 - **编译验证闭环** - 开发完成后必须编译验证（Java/前端），解析错误并自动修复（最多 3 轮循环）
-- **契约一致性校验** - contract-validator 自动验证方法签名、Entity 字段、实现完整性、依赖调用一致性
+- **契约一致性校验** - contract-validator 自动验证方法签名、Entity 字段、实现完整性、依赖调用一致性、**逻辑步骤覆盖率（R5）**
 - **全局集成编译** - 所有子任务完成后全局编译 + 契约验证 + 错误分类 + 循环修复
 - **错误经验学习** - 从编译错误、契约违反、测试失败中提取模式，生成预防策略，持续改进
 - **步骤强制执行** (v1.0.3) - Step Enforcer 验证关键步骤完成质量，防止 AI "偷懒" 跳过
@@ -105,7 +114,7 @@ npx dev-flow install
 | task-split-expert | `agents/task-split-expert.md` | 智能任务拆分，生成子任务级设计 + DAG |
 | develop-expert | `agents/develop-expert.md` | 代码开发（可并行，支持子任务级输入） |
 | verify-expert | `agents/verify-expert.md` | 代码验证，质量检查 |
-| contract-validator | `agents/contract-validator.md` | 契约一致性校验 |
+| contract-validator | `agents/contract-validator.md` | 契约一致性校验 + 逻辑覆盖率验证（R5） |
 | bytecode-analyzer | `agents/bytecode-analyzer.md` | 占位模式扫描检测 |
 | design-contract-validator | `agents/design-contract-validator.md` | 设计契约完整性验证 |
 | error-pattern-learner | `agents/error-pattern-learner.md` | 错误模式学习与预防策略 |
@@ -134,7 +143,7 @@ npx dev-flow install
 | Analyze | `stages/analyze.md` | 需求分析指令（含一致性校验） |
 | Design | `stages/design.md` | 详细设计指令（含多语言契约） |
 | Task Split | `stages/task-split.md` | 任务拆分指令（含冲突检测 + 双维度） |
-| Develop | `stages/develop.md` | 代码开发指令（含代码完整性铁律 + 强制编译） |
+| Develop | `stages/develop.md` | 代码开发指令（含代码完整性铁律 + 强制编译 + 逻辑回溯验证） |
 | Unit Test | `stages/unit-test.md` | 单元测试指令 |
 | Smoke Test | `stages/smoke-test.md` | 冒烟测试指令 |
 | E2E Test | `stages/e2e-test.md` | 端到端测试指令 |
@@ -237,6 +246,7 @@ AI 将按阶段逐步执行，每个阶段完成后等待你确认。
               ├── design-expert    → 详细设计，输出 design-contract.yaml
               ├── task-split-expert → 智能拆分，输出 DAG + 子任务设计
               ├── develop-expert   → 子任务级代码开发（可并行多个）
+              ├── contract-validator → 契约一致性校验 + 逻辑覆盖率验证（R5）← v2.1.0
               └── verify-expert    → 代码验证
 ```
 
@@ -261,7 +271,7 @@ Hotfix（独立模式，随时可用，直接输出无需等待确认）
 | **Analyze** | 解析需求、关联已有代码、识别歧义、**一致性校验**、评估影响范围 | 需求分析文档 |
 | **Design** | 读取项目记忆、设计数据模型、API 接口、组件树、业务流程 | `design-contract.yaml`（含接口契约，支持多语言） |
 | **Task Split** | 拆分为子任务、**冲突检测**、构建 DAG、**双维度选择**、生成子任务级设计 | `task-dag.yaml` + `subtask-{id}-design.yaml` + `interface-registry.yaml` |
-| **Develop** | 读取子任务设计、按 DAG 批次并行生成代码、**强制编译验证** | 代码文件 |
+| **Develop** | 读取子任务设计、按 DAG 批次并行生成代码、**强制编译验证**、**逻辑回溯验证** | 代码文件 + `logic-coverage-matrix.yaml` |
 | **Unit Test** | 生成单元测试（覆盖正常/异常/边界）、执行测试 | 单元测试报告 |
 | **Smoke Test** | 快速验证核心流程可运行（curl/手动验证） | 冒烟测试报告 |
 | **E2E Test** | 端到端自动化测试（Java 完整链路 / Playwright 浏览器测试） | E2E 测试报告 |
@@ -456,6 +466,7 @@ dev-flow/
 │   └── codex/             # OpenAI Codex 构建输出
 ├── scripts/
 │   ├── build.cjs          # 构建脚本（模板组装 + 路径替换 + 校验 + references）
+│   ├── dispatch.cjs       # 平台调度引擎（DAG 解析 + 拓扑排序 + 冲突检测 + 循环检测）← v2.1.0 增强
 │   ├── install.js         # 安装脚本（零依赖，含 references 和会话/长期记忆分类）
 │   ├── version-check.js   # 版本号一致性检查 + --fix 自动修复
 │   └── pre-publish.js     # 发布前完整检查

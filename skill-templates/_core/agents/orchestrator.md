@@ -31,6 +31,7 @@ is_background: false
 | Design | design-expert | `stages/design.md` |
 | Task Split | task-split-expert | `stages/task-split.md` |
 | Develop | develop-expert | `stages/develop.md` |
+| Contract Validation | contract-validator | `agents/contract-validator.md` |
 | Verify | verify-expert | `stages/unit-test.md` |
 
 **传递方式**：在 task-context.yaml 的 `constraints` 字段中注明阶段指令文件路径，
@@ -140,10 +141,74 @@ tasks:
 - 串行任务：`/research-expert` 或 `/analyze-expert`
 - 并行任务：同时发送多个 `/develop-expert` 调用
 
-### Step 5: 结果验证
-- 检查所有子任务输出是否完整
-- 验证代码可编译性
-- 确认需求满足度
+### Step 5: 结果验证（🔴 多层验证闭环）
+
+> **铁律**：每个批次的 develop-expert 完成后，必须经过多层验证闭环才能进入下一批次。
+> 单层验证不足够——需要自检 + 外部验证 + 编译验证三层防线。
+
+**验证链执行顺序（每个批次完成后）**：
+
+```
+develop-expert 完成代码生成
+  │
+  ▼
+Step 5.1: 开发自检（develop-expert 内部执行）
+  ├── Step 4.3 逻辑回溯验证（develop.md 中定义）
+  ├── 输出 logic-coverage-matrix.yaml
+  └── 全部 100% 覆盖 → 通过
+  │
+  ▼
+Step 5.2: contract-validator 独立验证
+  ├── R1-R4: 结构一致性验证（签名、字段、接口、依赖）
+  ├── R5: 逻辑步骤覆盖率校验（🔴 关键）
+  │     ├── R5-1: logic step → 代码实现 100%
+  │     ├── R5-2: condition → if/else 分支 100%
+  │     ├── R5-3: call action → 实际调用 100%
+  │     └── R5-4: logic-coverage-matrix.yaml 完整性
+  └── 输出 contract-validation-report.yaml
+  │
+  ▼
+Step 5.3: verify-expert 质量检查
+  ├── 代码质量、完整性、一致性检查
+  ├── 编译验证（mvn compile / npm build）
+  └── 输出 verify-report.md
+  │
+  ├── 全部通过 → 进入下一批次
+  │
+  └── 任一验证失败
+        ├── Step 5.2 R5 失败 → 返回 develop-expert 补充实现
+        ├── Step 5.3 编译失败 → 返回 develop-expert 修复
+        └── 重试 2 次仍失败 → 升级到 Orchestrator 人工处理
+```
+
+**验证 Agent 调用映射**：
+
+| 验证阶段 | Agent | 触发时机 | 阻塞级别 |
+|---------|-------|---------|---------|
+| Step 5.1 | develop-expert（自检） | 代码生成后 | 阻塞 |
+| Step 5.2 | contract-validator | Step 5.1 通过后 | 阻塞（R5 为 critical） |
+| Step 5.3 | verify-expert | Step 5.2 通过后 | 阻塞（编译为 critical） |
+
+**并行模式下的验证策略**：
+- **同一批次的多个 develop-expert 全部完成后**，统一执行验证链
+- Step 5.2 (contract-validator) 对每个 develop-expert 的产出独立验证
+- 如果某任务的验证失败，**只阻塞依赖该任务的后续任务**，不阻塞同批次的其他任务
+- 批次中所有验证通过后，才启动下一批次
+
+**验证失败重试策略**：
+```yaml
+retry_policy:
+  max_retries: 2
+  retry_target: "develop-expert"  # 总是返回给开发方修复
+  escalation:
+    trigger: "retry_count >= max_retries"
+    action: "Orchestrator 汇报用户，请求人工干预"
+    message: |
+      ⚠️ 任务 {task_id} 验证失败已达最大重试次数。
+      失败详情：
+      {verification_report_summary}
+      建议：用户检查需求是否清晰、设计是否合理后决定下一步。
+```
 
 ## 与 Subagent 通信协议
 

@@ -2,6 +2,47 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.1.0] - 2026-06-05
+
+### 验证闭环强化：逻辑回溯验证 + 调度引擎增强 + 验证 Agent 整合
+
+**核心变化**：新增设计→代码逻辑回溯验证机制（Step 4.3）、修复 dispatch.cjs 关键 bug、整合 5 个验证 Agent 形成完整验证闭环。
+
+#### 设计→代码逻辑回溯验证（Step 4.3）
+
+- **develop.md 新增 Step 4.3**：在编译通过 + Quick Test 通过后，强制执行逻辑回溯验证
+  - Step 4.3.1：从 design-contract.yaml 提取所有逻辑单元（logic_steps / conditions / call actions）
+  - Step 4.3.2：在代码中逐条定位实现，验证 action 类型与代码特征匹配
+  - Step 4.3.3：计算覆盖率（logic_step / condition / call_action），所有指标必须 100%
+  - Step 4.3.4：未覆盖项处理（最多 2 轮修复）
+  - 输出 `logic-coverage-matrix.yaml` 包含完整可追溯矩阵
+- **develop-expert.md 新增逻辑步骤标注规范**：Service 实现中使用 `// Step N: action_type - description` 标准标注
+- **contract-validator.md 新增 R5 规则**：逻辑步骤覆盖率校验（4 个 check item，threshold 100%）
+
+#### dispatch.cjs 调度引擎修复与增强
+
+- 🔴 **修复 parseTaskDag 依赖解析 bug**：`dependencies:` 列表格式未设置 `_collecting` 标记，导致所有依赖被忽略
+- **循环依赖检测**：Kahn 算法后检测未处理节点，发现循环时立即报错退出（exit 1）
+- **文件级冲突检测**：3 种冲突类型（write-write / write-read / read-write）
+- **DAG 自动修复**：write-read / read-write 冲突自动添加依赖并重新拓扑排序
+- **parallel_group 兜底检测**：兼容无文件信息的任务
+- **增强 YAML 解析**：支持 target_files / read_files / name 字段
+
+#### 验证 Agent 闭环整合
+
+- **orchestrator.md Step 5 重写**：从单行描述扩展为完整的多层验证闭环
+  - Step 5.1：develop-expert 开发自检（Step 4.3 逻辑回溯）
+  - Step 5.2：contract-validator 独立验证（R1-R5，R5 为 critical 阻塞）
+  - Step 5.3：verify-expert 质量检查（编译验证、代码质量）
+  - 并行模式下的验证策略：批次统一验证、失败隔离
+- **验证 Agent 分工矩阵**：在 5 个 Agent 文件中统一添加分工说明
+  - design-contract-validator：设计文档完整性（开发中可选）
+  - step-enforcer：文件存在性 + 禁止事项（开发中强制）
+  - contract-validator：结构一致性 + 逻辑覆盖率（开发后强制）
+  - verify-expert：代码质量 + 编译验证（最终强制）
+  - bytecode-analyzer：字节码深度分析（编译后可选）
+- **step-enforcer R3-4-1/R3-4-2 与 contract-validator R5 的关系说明**：明确双层防御机制
+
 ## [2.0.0] - 2026-06-04
 
 ### 架构优化：Router 精简 + Agent 拆分 + 测试覆盖 + 记忆系统增强

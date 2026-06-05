@@ -623,6 +623,135 @@ Test 阶段正式测试（Full Test）：
 > **⚠️ 前置测试不能替代正式 Test 阶段**。前置测试是"快速筛查"，
 > 正式 Test 阶段会做更深入、更全面的测试（包括并发、性能、集成等）。
 
+### 🔴 Step 4.3: 设计逻辑回溯验证（🔴 编译通过+前置测试通过后必须执行）
+
+> **目的**：compile pass + Quick Test pass ≠ 业务逻辑 100% 正确。本步骤逐条对比
+> design-contract.yaml 中的每个 logic step / condition / action 与实际代码实现，
+> 确保设计意图被完整翻译为代码，无遗漏、无偷换。
+
+**触发条件**：Step 4 编译通过 且 Step 4.2 前置测试通过（或标记跳过）
+
+**执行流程**：
+
+```
+Step 4.3.1: 提取设计契约中的所有逻辑单元
+  ├── 读取 .dev-flow/docs/{需求简称}-design-contract.yaml
+  ├── 提取每个 Service 方法的 logic_steps 列表（step 编号 + action 类型）
+  ├── 提取每个 logic step 的 conditions（条件分支定义）
+  ├── 提取每个 call action 的 target + method + params
+  └── 输出：design_logic_inventory.yaml
+
+Step 4.3.2: 在生成的代码中逐条定位实现
+  ├── 对每个 logic step，在对应 ServiceImpl 中搜索实现代码
+  │   ├── Grep "// Step {N}:" 或方法体中对应的业务逻辑段落
+  │   ├── 验证 action 类型与代码特征匹配：
+  │   │   ├── validate → 存在 if/null-check/@Valid/@NotNull
+  │   │   ├── query → 存在 mapper.select/list/get 调用
+  │   │   ├── convert → 存在 Entity↔DTO 转换代码（BeanUtils.copy 或手动赋值）
+  │   │   ├── assign → 存在字段赋值操作（setXxx / builder.setXxx）
+  │   │   ├── throw → 存在 throw new XxxException
+  │   │   ├── return → 存在 return 语句（非 return null）
+  │   │   ├── call → 存在 target.method(...) 调用（非 log 替代）
+  │   │   └── branch → 存在 if/else 或 switch/case 结构
+  │   └── 记录：logic step → 代码行号范围 → 实现状态
+  │
+  ├── 对每个 condition，在代码中搜索对应的 if/else 分支
+  │   ├── 验证 condition 的 field + operator 在代码中有对应判断
+  │   ├── 验证 onSuccess 和 onFail 分支都有实现
+  │   └── 记录：condition → 代码 if 行号 → else/throw 行号 → 实现状态
+  │
+  └── 对每个 call action，在代码中搜索实际外部调用
+      ├── 验证 target.method 在代码中存在（非 log.info 替代）
+      ├── 验证参数列表与设计一致
+      └── 记录：call action → 代码行号 → 调用匹配状态
+
+Step 4.3.3: 计算覆盖率并生成矩阵
+  ├── 覆盖率计算：
+  │   ├── logic_step_coverage = (已实现 step 数 / 设计 step 总数) × 100%
+  │   ├── condition_coverage = (已实现 condition 数 / 设计 condition 总数) × 100%
+  │   └── call_action_coverage = (已实现 call action 数 / 设计 call action 总数) × 100%
+  │
+  ├── 覆盖率阈值：
+  │   ├── logic_step_coverage 必须 = 100%（不允许任何 step 遗漏）
+  │   ├── condition_coverage 必须 = 100%（每个分支都必须有实现）
+  │   └── call_action_coverage 必须 = 100%（每个外部调用必须有实际代码）
+  │
+  └── 输出：logic-coverage-matrix.yaml
+
+Step 4.3.4: 处理未覆盖项
+  ├── 覆盖率 = 100% → 验证通过，继续
+  ├── 覆盖率 < 100% → 列出所有未覆盖项，逐项修复
+  │   ├── 读取未覆盖 logic step 的设计定义
+  │   ├── 在代码中补充实现
+  │   ├── 重新编译验证（Step 4）
+  │   └── 重新计算覆盖率
+  └── 最多 2 轮修复，超过则暂停报告用户
+```
+
+**逻辑覆盖率矩阵输出**：
+
+```yaml
+# .dev-flow/runtime/logic-coverage-matrix.yaml
+logic_traceability:
+  timestamp: "2026-06-05T12:30:00"
+  task_id: "Task-5"
+  service: "XxxServiceImpl"
+  
+  coverage_summary:
+    logic_steps_total: 12
+    logic_steps_implemented: 12
+    logic_step_coverage: "100%"
+    conditions_total: 8
+    conditions_implemented: 8
+    condition_coverage: "100%"
+    call_actions_total: 5
+    call_actions_implemented: 5
+    call_action_coverage: "100%"
+    overall_status: "passed"
+  
+  logic_steps:
+    - step: 1
+      action: "validate"
+      design: "校验订单参数"
+      code_location: "ServiceImpl.java:45-52"
+      implementation: "if (orderDTO == null) throw new BusinessException(...)"
+      status: "matched"
+    - step: 2
+      action: "query"
+      design: "查询订单是否存在"
+      code_location: "ServiceImpl.java:53-55"
+      implementation: "OrderEntity existing = orderMapper.selectById(orderDTO.getId())"
+      status: "matched"
+    # ... 每个步骤逐条记录
+  
+  conditions:
+    - id: "cond_001"
+      design: "order.status == DRAFT"
+      code_if: "ServiceImpl.java:60"
+      code_else: "ServiceImpl.java:68"
+      on_fail: "throw BusinessException"
+      status: "matched"
+    # ... 每个条件逐条记录
+  
+  call_actions:
+    - target: "sapFeignClient"
+      method: "pushOrder"
+      code_location: "ServiceImpl.java:72"
+      has_real_call: true
+      status: "matched"
+    # ... 每个外部调用逐条记录
+  
+  uncovered_items: []  # 为空表示全部覆盖
+```
+
+**与 step-enforcer R3-4-1/R3-4-2 的集成**：
+
+> Step 4.3 的逻辑覆盖率验证与 step-enforcer.md 中的 R3-4-1（逻辑步骤覆盖率验证）
+> 和 R3-4-2（条件分支覆盖率验证）形成双重保障：
+> - **Step 4.3** 由 develop-expert 自执行，在开发阶段就完成逻辑回溯
+> - **R3-4-1/R3-4-2** 由 step-enforcer 独立执行，作为外部验证
+> 两者独立运行，结果交叉比对，确保无遗漏。
+
 ### 🔴 失败恢复策略
 
 如果代码生成过程中遇到无法解决的问题：
@@ -870,10 +999,11 @@ Step 6.5: 输出集成验证报告
 | 1 | 所有设计文档中的文件都已生成 | ⬜ 待确认 |
 | 2 | 所有文件编译通过（Step 4 实际编译验证） | ⬜ 待确认 |
 | 3 | 前置单元测试通过或已标记需深入验证（Step 4.2） | ⬜ 待确认 |
-| 4 | 无 TODO/FIXME/空方法体残留 | ⬜ 待确认 |
-| 5 | Import 路径、方法签名、类型全部验证通过 | ⬜ 待确认 |
-| 6 | 跨服务 Feign Client 与目标 Controller 端点一致 | ⬜ 待确认 |
-| 7 | 开发报告已输出 | ⬜ 待确认 |
+| 4 | **设计逻辑 100% 覆盖（Step 4.3 逻辑回溯验证）** | ⬜ 待确认 |
+| 5 | 无 TODO/FIXME/空方法体残留 | ⬜ 待确认 |
+| 6 | Import 路径、方法签名、类型全部验证通过 | ⬜ 待确认 |
+| 7 | 跨服务 Feign Client 与目标 Controller 端点一致 | ⬜ 待确认 |
+| 8 | 开发报告已输出 | ⬜ 待确认 |
 
 **暂停，等待用户确认。**
 **用户确认后，系统自动写入 `develop.confirmed` 确认文件。**
