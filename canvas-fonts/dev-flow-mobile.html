@@ -1,0 +1,656 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=3.0, user-scalable=yes">
+    <title>dev-flow Architecture - Mobile</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0d1b2a;
+            color: #edf2f4;
+            min-height: 100vh;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding: 20px;
+        }
+        
+        .header h1 {
+            font-size: 28px;
+            color: #4361ee;
+            margin-bottom: 8px;
+        }
+        
+        .header p {
+            font-size: 14px;
+            color: #8d99ae;
+        }
+        
+        .card {
+            background: #1b263b;
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 20px;
+            border: 1px solid #2d3a4f;
+        }
+        
+        .card-title {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .flow-container {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        
+        .phase {
+            background: linear-gradient(135deg, rgba(67, 97, 238, 0.2), rgba(67, 97, 238, 0.1));
+            border-left: 4px solid #4361ee;
+            padding: 14px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .phase.analyze { border-left-color: #74b9ff; background: linear-gradient(135deg, rgba(116, 185, 255, 0.2), rgba(116, 185, 255, 0.1)); }
+        .phase.design { border-left-color: #f77f00; background: linear-gradient(135deg, rgba(247, 127, 0, 0.2), rgba(247, 127, 0, 0.1)); }
+        .phase.split { border-left-color: #ffb703; background: linear-gradient(135deg, rgba(255, 183, 3, 0.2), rgba(255, 183, 3, 0.1)); }
+        .phase.develop { border-left-color: #06d6a0; background: linear-gradient(135deg, rgba(6, 214, 160, 0.2), rgba(6, 214, 160, 0.1)); }
+        .phase.test { border-left-color: #e63946; background: linear-gradient(135deg, rgba(230, 57, 70, 0.2), rgba(230, 57, 70, 0.1)); }
+        
+        .phase-number {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 14px;
+        }
+        
+        .phase-content {
+            flex: 1;
+        }
+        
+        .phase-name {
+            font-weight: bold;
+            font-size: 16px;
+            margin-bottom: 4px;
+        }
+        
+        .phase-desc {
+            font-size: 13px;
+            color: #8d99ae;
+        }
+        
+        .connector {
+            text-align: center;
+            color: #8d99ae;
+            font-size: 20px;
+            padding: 4px 0;
+        }
+        
+        .orchestrator {
+            background: linear-gradient(135deg, rgba(247, 127, 0, 0.2), rgba(247, 127, 0, 0.1));
+            border: 2px solid #f77f00;
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        
+        .orchestrator h3 {
+            font-size: 20px;
+            color: #f77f00;
+            margin-bottom: 8px;
+        }
+        
+        .orchestrator p {
+            font-size: 13px;
+            color: #8d99ae;
+        }
+        
+        .memory-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+        
+        .memory-item {
+            background: rgba(67, 97, 238, 0.15);
+            border: 1px solid #4361ee;
+            border-radius: 8px;
+            padding: 12px;
+            text-align: center;
+        }
+        
+        .memory-item h4 {
+            font-size: 14px;
+            color: #74b9ff;
+            margin-bottom: 4px;
+        }
+        
+        .memory-item p {
+            font-size: 11px;
+            color: #8d99ae;
+        }
+        
+        .contract-box {
+            background: rgba(247, 127, 0, 0.15);
+            border: 1px solid #f77f00;
+            border-radius: 8px;
+            padding: 14px;
+            margin-bottom: 12px;
+        }
+        
+        .contract-box h4 {
+            color: #f77f00;
+            font-size: 15px;
+            margin-bottom: 6px;
+        }
+        
+        .contract-box p {
+            font-size: 12px;
+            color: #8d99ae;
+        }
+        
+        .dag-box {
+            background: rgba(6, 214, 160, 0.15);
+            border: 1px solid #06d6a0;
+            border-radius: 8px;
+            padding: 14px;
+        }
+        
+        .dag-box h4 {
+            color: #06d6a0;
+            font-size: 15px;
+            margin-bottom: 6px;
+        }
+        
+        .dag-box p {
+            font-size: 12px;
+            color: #8d99ae;
+        }
+        
+        .subagent-section {
+            margin-bottom: 16px;
+        }
+        
+        .subagent-group {
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 10px;
+        }
+        
+        .subagent-title {
+            font-size: 14px;
+            font-weight: bold;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        
+        .subagent-title.research { color: #4361ee; }
+        .subagent-title.analyze { color: #74b9ff; }
+        .subagent-title.design { color: #f77f00; }
+        .subagent-title.split { color: #ffb703; }
+        .subagent-title.develop { color: #06d6a0; }
+        .subagent-title.verify { color: #e63946; }
+        
+        .subagent-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+        
+        .subagent-tag {
+            background: rgba(255, 255, 255, 0.08);
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 11px;
+            color: #edf2f4;
+        }
+        
+        .batch-example {
+            background: rgba(6, 214, 160, 0.1);
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 10px;
+        }
+        
+        .batch-title {
+            font-size: 14px;
+            font-weight: bold;
+            color: #06d6a0;
+            margin-bottom: 8px;
+        }
+        
+        .task-row {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-bottom: 8px;
+        }
+        
+        .task-tag {
+            background: rgba(6, 214, 160, 0.2);
+            border: 1px solid #06d6a0;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+        }
+        
+        .task-tag.serial {
+            background: rgba(247, 127, 0, 0.2);
+            border-color: #f77f00;
+        }
+        
+        .parallel-badge {
+            font-size: 10px;
+            color: #06d6a0;
+            margin-left: 6px;
+        }
+        
+        .serial-badge {
+            font-size: 10px;
+            color: #f77f00;
+            margin-left: 6px;
+        }
+        
+        .platform-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+        
+        .platform-item {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            padding: 14px;
+            text-align: center;
+        }
+        
+        .platform-name {
+            font-size: 15px;
+            font-weight: bold;
+            margin-bottom: 4px;
+        }
+        
+        .platform-status {
+            font-size: 12px;
+        }
+        
+        .status-good { color: #06d6a0; }
+        .status-warning { color: #ffb703; }
+        .status-bad { color: #e63946; }
+        
+        .legend-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+        
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .legend-color {
+            width: 24px;
+            height: 4px;
+            border-radius: 2px;
+        }
+        
+        .legend-label {
+            font-size: 13px;
+            color: #8d99ae;
+        }
+        
+        .version {
+            text-align: center;
+            margin-top: 30px;
+            padding: 20px;
+            font-size: 12px;
+            color: #6c757d;
+        }
+        
+        .image-container {
+            margin: 20px 0;
+            text-align: center;
+        }
+        
+        .image-container img {
+            max-width: 100%;
+            height: auto;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+        }
+        
+        .section-divider {
+            height: 1px;
+            background: linear-gradient(90deg, transparent, #2d3a4f, transparent);
+            margin: 24px 0;
+        }
+        
+        @media (max-width: 480px) {
+            body {
+                padding: 12px;
+            }
+            
+            .header h1 {
+                font-size: 24px;
+            }
+            
+            .memory-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .platform-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>DEV-FLOW</h1>
+        <p>AI Development Workflow Orchestration System</p>
+    </div>
+    
+    <!-- Main Pipeline -->
+    <div class="card">
+        <div class="card-title">
+            <span style="color: #4361ee;">⬡</span>
+            Main Pipeline
+        </div>
+        <div class="flow-container">
+            <div class="phase">
+                <div class="phase-number">1</div>
+                <div class="phase-content">
+                    <div class="phase-name">Research</div>
+                    <div class="phase-desc">Project Scan & Memory Generation</div>
+                </div>
+            </div>
+            <div class="connector">↓ User Confirm ↓</div>
+            
+            <div class="phase analyze">
+                <div class="phase-number">2</div>
+                <div class="phase-content">
+                    <div class="phase-name">Analyze</div>
+                    <div class="phase-desc">Requirement Analysis & Impact Assessment</div>
+                </div>
+            </div>
+            <div class="connector">↓ User Confirm ↓</div>
+            
+            <div class="phase design">
+                <div class="phase-number">3</div>
+                <div class="phase-content">
+                    <div class="phase-name">Design</div>
+                    <div class="phase-desc">Technical Design & API Specification</div>
+                </div>
+            </div>
+            <div class="connector">↓ User Confirm ↓</div>
+            
+            <div class="phase split">
+                <div class="phase-number">4</div>
+                <div class="phase-content">
+                    <div class="phase-name">Task Split</div>
+                    <div class="phase-desc">Parallel Planning & DAG Construction</div>
+                </div>
+            </div>
+            <div class="connector">↓ User Confirm ↓</div>
+            
+            <div class="phase develop">
+                <div class="phase-number">5</div>
+                <div class="phase-content">
+                    <div class="phase-name">Develop</div>
+                    <div class="phase-desc">Code Implementation by Multiple Experts</div>
+                </div>
+            </div>
+            <div class="connector">↓ User Confirm ↓</div>
+            
+            <div class="phase test">
+                <div class="phase-number">6</div>
+                <div class="phase-content">
+                    <div class="phase-name">Test</div>
+                    <div class="phase-desc">Unit Test → Smoke Test → Integration Test</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Orchestrator -->
+    <div class="orchestrator">
+        <h3>ORCHESTRATOR</h3>
+        <p>Central Coordinator: Task Scheduling | DAG Execution | Result Integration</p>
+    </div>
+    
+    <!-- Memory Layer -->
+    <div class="card">
+        <div class="card-title">
+            <span style="color: #4361ee;">◈</span>
+            Persistent Memory Layer
+        </div>
+        <div class="memory-grid">
+            <div class="memory-item">
+                <h4>project-overview</h4>
+                <p>Project structure & tech stack</p>
+            </div>
+            <div class="memory-item">
+                <h4>service-registry</h4>
+                <p>Service catalog & APIs</p>
+            </div>
+            <div class="memory-item">
+                <h4>dependency-graph</h4>
+                <p>Service dependencies</p>
+            </div>
+            <div class="memory-item">
+                <h4>conventions</h4>
+                <p>Coding standards</p>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Design Contract & DAG -->
+    <div class="card">
+        <div class="card-title">
+            <span style="color: #f77f00;">◉</span>
+            Key Artifacts
+        </div>
+        <div class="contract-box">
+            <h4>design-contract.yaml</h4>
+            <p>Standard data exchange format between Design and Develop phases</p>
+            <p style="margin-top: 8px; color: #06d6a0;">Entities | DTOs | Services | Controllers | FeignClients</p>
+        </div>
+        <div class="dag-box">
+            <h4>task-dag.yaml</h4>
+            <p>Task Dependency Graph with parallel/serial execution</p>
+            <p style="margin-top: 8px; color: #06d6a0;">Batches | Interface Registry | Transitive Dependencies</p>
+        </div>
+    </div>
+    
+    <div class="section-divider"></div>
+    
+    <!-- Subagents -->
+    <div class="card">
+        <div class="card-title">
+            <span style="color: #06d6a0;">◈</span>
+            Subagent Architecture
+        </div>
+        
+        <div class="subagent-section">
+            <div class="subagent-group">
+                <div class="subagent-title research">Research Expert</div>
+                <div class="subagent-list">
+                    <span class="subagent-tag">@structure-analyzer</span>
+                    <span class="subagent-tag">@dependency-scanner</span>
+                    <span class="subagent-tag">@config-analyzer</span>
+                </div>
+            </div>
+            
+            <div class="subagent-group">
+                <div class="subagent-title analyze">Analyze Expert</div>
+                <div class="subagent-list">
+                    <span class="subagent-tag">@impact-assessor</span>
+                    <span class="subagent-tag">@risk-analyzer</span>
+                </div>
+            </div>
+            
+            <div class="subagent-group">
+                <div class="subagent-title design">Design Expert</div>
+                <div class="subagent-list">
+                    <span class="subagent-tag">@entity-designer</span>
+                    <span class="subagent-tag">@interface-designer</span>
+                    <span class="subagent-tag">@logic-designer</span>
+                </div>
+            </div>
+            
+            <div class="subagent-group">
+                <div class="subagent-title split">Task Split Expert</div>
+                <div class="subagent-list">
+                    <span class="subagent-tag">@dag-builder</span>
+                    <span class="subagent-tag">@interface-registry</span>
+                    <span class="subagent-tag">@transitive-dep</span>
+                </div>
+            </div>
+            
+            <div class="subagent-group">
+                <div class="subagent-title develop">Develop Expert</div>
+                <div class="subagent-list">
+                    <span class="subagent-tag">@context-manager</span>
+                    <span class="subagent-tag">@on-demand-loader</span>
+                    <span class="subagent-tag">@step-enforcer</span>
+                </div>
+            </div>
+            
+            <div class="subagent-group">
+                <div class="subagent-title verify">Verify Expert</div>
+                <div class="subagent-list">
+                    <span class="subagent-tag">@unit-test</span>
+                    <span class="subagent-tag">@smoke-test</span>
+                    <span class="subagent-tag">@integration-test</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Parallel Execution Model -->
+    <div class="card">
+        <div class="card-title">
+            <span style="color: #06d6a0;">▶</span>
+            Parallel Execution Model
+        </div>
+        
+        <div class="batch-example">
+            <div class="batch-title">Batch 1 <span class="parallel-badge">[PARALLEL]</span></div>
+            <div class="task-row">
+                <span class="task-tag">Entity A</span>
+                <span class="task-tag">Entity B</span>
+                <span class="task-tag">Enum C</span>
+            </div>
+            <p style="font-size: 11px; color: #8d99ae;">No dependencies, execute simultaneously</p>
+        </div>
+        
+        <div class="batch-example">
+            <div class="batch-title">Batch 2 <span class="parallel-badge">[PARALLEL]</span></div>
+            <div class="task-row">
+                <span class="task-tag">DTO A</span>
+                <span class="task-tag">Mapper A</span>
+            </div>
+            <p style="font-size: 11px; color: #8d99ae;">After Batch 1 complete</p>
+        </div>
+        
+        <div class="batch-example">
+            <div class="batch-title">Batch 3 <span class="serial-badge">[SERIAL]</span></div>
+            <div class="task-row">
+                <span class="task-tag serial">Service A</span>
+            </div>
+            <p style="font-size: 11px; color: #8d99ae;">Depends on DTO & Mapper from Batch 2</p>
+        </div>
+    </div>
+    
+    <!-- Platform Compatibility -->
+    <div class="card">
+        <div class="card-title">
+            <span style="color: #8d99ae;">◉</span>
+            Platform Compatibility
+        </div>
+        <div class="platform-grid">
+            <div class="platform-item">
+                <div class="platform-name">Trae</div>
+                <div class="platform-status status-good">Native Subagent / Full Support</div>
+            </div>
+            <div class="platform-item">
+                <div class="platform-name">Cursor</div>
+                <div class="platform-status status-bad">No Subagent Support</div>
+            </div>
+            <div class="platform-item">
+                <div class="platform-name">Claude Code</div>
+                <div class="platform-status status-bad">No Subagent Support</div>
+            </div>
+            <div class="platform-item">
+                <div class="platform-name">Codex</div>
+                <div class="platform-status status-warning">Limited Support</div>
+            </div>
+            <div class="platform-item">
+                <div class="platform-name">Qoder</div>
+                <div class="platform-status status-bad">No Subagent Support</div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Legend -->
+    <div class="card">
+        <div class="card-title">
+            <span style="color: #8d99ae;">◈</span>
+            Color Legend
+        </div>
+        <div class="legend-grid">
+            <div class="legend-item">
+                <div class="legend-color" style="background: #4361ee;"></div>
+                <span class="legend-label">Data Flow</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: #f77f00;"></div>
+                <span class="legend-label">User Interaction</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: #06d6a0;"></div>
+                <span class="legend-label">Execution / Output</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: #e63946;"></div>
+                <span class="legend-label">Testing / Verification</span>
+            </div>
+        </div>
+    </div>
+    
+    <div class="version">
+        <p>dev-flow Architecture Overview</p>
+        <p>Version 3.1.0</p>
+    </div>
+</body>
+</html>
