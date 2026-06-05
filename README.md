@@ -1,9 +1,9 @@
 # dev-flow
 
 [![node](https://img.shields.io/node/v/dev-flow.svg)](https://nodejs.org)
-[![version](https://img.shields.io/badge/version-v2.1.0-blue)]()
+[![version](https://img.shields.io/badge/version-v3.0.0-blue)]()
 
-> **当前版本: v2.1.0** | [更新日志](./CHANGELOG.md)
+> **当前版本: v3.0.0** | [更新日志](./CHANGELOG.md) | [发布说明](./RELEASE.md)
 
 AI 开发全流程编排 Skill，适用于 Cursor、Trae、Qoder、Claude Code、OpenAI Codex 等 AI 编程工具。
 
@@ -23,6 +23,15 @@ AI 编程工具（Cursor/Trae/Qoder/Claude Code/Codex）虽然强大，但在处
 dev-flow 通过**结构化的流程编排 + 项目记忆 + 长期记忆 + 学习能力 + 多 Subagent 并行**解决这些问题，让 AI 编程工具**越用越好用**。
 
 ## 特性
+
+### v3.0.0 上下文注入革命 + 结构化分段生成
+
+- **上下文自动注入** — 新增 `prepare-context.cjs`，Subagent 派发前自动收集任务信息、设计文档、Design Contract、编码规范、依赖类定义，生成 `task-brief-{taskId}.md`（最大 120KB），Subagent 打开即有完整上下文
+- **50KB 硬约束全面移除** — `minimum_safe_context: "50KB"` → `"auto"`，基于模型上下文窗口和任务需求动态计算，三段降级策略（正常执行 → 分段执行 → 保存续传）
+- **结构化代码分段生成** — 新增 `segment-code.cjs`，当预估代码输出 > 20KB 时自动启用"骨架 + 逐方法填充"四阶段协议，每次填充 5-10KB 保持在质量安全区（85-95%）
+- **自动产出校验** — 新增 `validate-result.cjs`，Subagent 完成后自动校验文件存在性、TODO/FIXME、空方法体、log-only 体、return null、Design Contract 签名一致性，支持 `--compile` 编译验证
+- **Subagent 通信协议升级** — task-protocol.md 新增 Context Injection Protocol，orchestrator 集成 prepare-context + validate-result + segment-code 三大脚本
+- **dispatch.cjs 调度引擎升级** — DAG 解析后自动运行 prepare-context.cjs，执行说明新增 validate-result.cjs 校验步骤
 
 ### v2.1.0 验证闭环强化
 
@@ -68,7 +77,7 @@ dev-flow 通过**结构化的流程编排 + 项目记忆 + 长期记忆 + 学习
 - **步骤强制执行** (v1.0.3) - Step Enforcer 验证关键步骤完成质量，防止 AI "偷懒" 跳过
 - **错误模式自动应用** (v1.0.3) - Error Pattern Learner 自动将学习到的模式应用到 Agent 指导
 - **三层防御体系** (v1.0.4) - 防止 Import 路径猜测错误，代码生成前 Grep 强制验证 + 编译前阻塞 + 编译后自动修复
-- **上下文智能管理** (v1.0.4_opt) - Context Manager 50KB 硬约束 + 三级监控 + 分段执行 + 串行兜底
+- **上下文智能管理** (v1.0.4/v3.0.0) - Context Manager 动态计算 + 三级监控 + 分段执行 + 串行兜底（v3.0.0 移除 50KB 硬约束，新增自动上下文注入）
 - **代码完整性铁律** (v1.0.5) - 正面规则 + 生产可用测试 + 方法体最低标准，确保每个方法体都是 100% 可执行的完整实现
 - **代码完整性防线** (v1.0.5) - 每个文件写入后立即扫描 TODO/空实现/日志占位，当场修复
 - **全平台防护统一** (v1.0.5) - step-enforcer/contract-validator/bytecode-analyzer 等防护 agent 从 Trae-only 提升为全平台共享
@@ -271,7 +280,7 @@ Hotfix（独立模式，随时可用，直接输出无需等待确认）
 | **Analyze** | 解析需求、关联已有代码、识别歧义、**一致性校验**、评估影响范围 | 需求分析文档 |
 | **Design** | 读取项目记忆、设计数据模型、API 接口、组件树、业务流程 | `design-contract.yaml`（含接口契约，支持多语言） |
 | **Task Split** | 拆分为子任务、**冲突检测**、构建 DAG、**双维度选择**、生成子任务级设计 | `task-dag.yaml` + `subtask-{id}-design.yaml` + `interface-registry.yaml` |
-| **Develop** | 读取子任务设计、按 DAG 批次并行生成代码、**强制编译验证**、**逻辑回溯验证** | 代码文件 + `logic-coverage-matrix.yaml` |
+| **Develop** | 读取子任务设计、按 DAG 批次并行生成代码、**上下文自动注入**、**结构化分段生成**、**强制编译验证**、**逻辑回溯验证** | 代码文件 + `code-generation-plan.yaml` + `logic-coverage-matrix.yaml` |
 | **Unit Test** | 生成单元测试（覆盖正常/异常/边界）、执行测试 | 单元测试报告 |
 | **Smoke Test** | 快速验证核心流程可运行（curl/手动验证） | 冒烟测试报告 |
 | **E2E Test** | 端到端自动化测试（Java 完整链路 / Playwright 浏览器测试） | E2E 测试报告 |
@@ -466,7 +475,11 @@ dev-flow/
 │   └── codex/             # OpenAI Codex 构建输出
 ├── scripts/
 │   ├── build.cjs          # 构建脚本（模板组装 + 路径替换 + 校验 + references）
-│   ├── dispatch.cjs       # 平台调度引擎（DAG 解析 + 拓扑排序 + 冲突检测 + 循环检测）← v2.1.0 增强
+│   ├── dispatch.cjs       # 平台调度引擎（DAG 解析 + 拓扑排序 + 冲突检测 + 循环检测）← v3.0.0 集成 prepare-context + validate-result
+│   ├── prepare-context.cjs # Subagent 上下文自动注入脚本（v3.0.0 新增）
+│   ├── segment-code.cjs   # 结构化代码分段生成脚本（骨架+逐方法填充，v3.0.0 新增）
+│   ├── validate-result.cjs # Subagent 产出自动校验脚本（v3.0.0 新增）
+│   ├── validate-contract.cjs # Design Contract 校验脚本
 │   ├── install.js         # 安装脚本（零依赖，含 references 和会话/长期记忆分类）
 │   ├── version-check.js   # 版本号一致性检查 + --fix 自动修复
 │   └── pre-publish.js     # 发布前完整检查
@@ -481,6 +494,7 @@ dev-flow/
 ├── USER_GUIDE.md          # 用户操作手册
 ├── README.md
 ├── CHANGELOG.md
+├── RELEASE.md             # 发布说明（v3.0.0 新增）
 ├── LICENSE
 └── package.json
 ```
