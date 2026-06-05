@@ -373,20 +373,104 @@ notes: ""
 > **按需加载机制**：每个阶段的详细指令已拆分为独立文件。进入对应阶段时，读取对应文件获取详细指令。
 > 这样做可以将 SKILL.md 的体积从 140KB 降低到 ~9KB，为代码生成释放 90%+ 的上下文空间。
 
-| 阶段 | 指令文件 | 加载时机 |
-|------|---------|---------|
-| Research（项目调研） | `{{STAGES_PATH}}research.md` | 进入阶段一 |
-| Analyze（需求分析） | `{{STAGES_PATH}}analyze.md` | 进入阶段二 |
-| Design（详细设计） | `{{STAGES_PATH}}design.md` | 进入阶段三 |
-| Task Split（任务拆分） | `{{STAGES_PATH}}task-split.md` | 进入阶段四 |
-| **Develop（开发执行）** | **`{{STAGES_PATH}}develop.md`** | **进入阶段五** |
-| Unit Test（单元测试） | `{{STAGES_PATH}}unit-test.md` | 进入阶段六 |
-| Fix（Bug 修复） | `{{STAGES_PATH}}fix.md` | 进入阶段七 |
-| Hotfix（独立模式） | `{{STAGES_PATH}}hotfix.md` | 使用 Hotfix 模式 |
-| Smoke Test（冒烟测试） | `{{STAGES_PATH}}smoke-test.md` | 进入阶段八 |
-| E2E Test（端到端测试） | `{{STAGES_PATH}}e2e-test.md` | 进入阶段九 |
-| Integration Test（集成测试） | `{{STAGES_PATH}}integration-test.md` | 进入阶段十 |
-| Delivery（交付报告） | `{{STAGES_PATH}}delivery.md` | 进入阶段十一 |
+### 🔴🔴 Router 层硬性门禁（最高优先级，任何阶段进入前必须执行）
+
+> **这是系统级硬约束，不是 prompt 级软约束。无论通过何种方式进入某阶段，都必须先执行此门禁检查。**
+> **此检查在读取阶段指令文件之前执行，确保即使 AI 跳过阶段指令中的门禁描述，也无法绕过检查。**
+
+**门禁检查流程（进入任何阶段前，第一条执行的逻辑）**：
+
+```
+🔴 阶段门禁硬性检查（Router 层执行）
+
+进入目标阶段 X 之前：
+
+  Step Gate-1: 读取确认文件目录
+    ├── 执行：Bash "ls .dev-flow/stage-confirmations/" 或 Glob ".dev-flow/stage-confirmations/*.confirmed"
+    └── 获取已确认的阶段列表
+
+  Step Gate-2: 匹配前置阶段确认
+    ├── 根据「阶段依赖链」检查前置阶段确认文件是否存在
+    │
+    │  阶段依赖链（严格顺序）：
+    │  Research ← (无前置) ← 第一个阶段，无需检查
+    │  Analyze  ← Research.confirmed 必须存在
+    │  Design   ← analyze.confirmed 必须存在
+    │  TaskSplit ← design.confirmed 必须存在
+    │  Develop  ← task-split.confirmed 必须存在
+    │  UnitTest ← develop.confirmed 必须存在
+    │  SmokeTest ← unit-test.confirmed 必须存在
+    │  E2ETest  ← smoke-test.confirmed 必须存在
+    │  IntegrationTest ← e2e-test.confirmed 必须存在
+    │  Fix      ← 由 Test 阶段触发，无前置确认要求
+    │  Delivery ← integration-test.confirmed 必须存在
+    │
+    └── 读取对应的确认文件，校验内容：
+        ├── 文件必须包含 stage 字段且值匹配
+        ├── 文件必须包含 confirmed_at 时间戳
+        └── 文件必须包含 checklist 且每个 item 状态为 confirmed
+
+  Step Gate-3: 门禁判定
+    ├── ✅ 前置确认文件存在且内容完整 → 允许进入目标阶段
+    ├── ❌ 确认文件不存在 → 拒绝进入，输出以下信息并停止：
+    │
+    │   【🔴 阶段门禁阻止】
+    │   当前尝试进入：{目标阶段}
+    │   缺少前置确认：{前置阶段}.confirmed
+    │   原因：{前置阶段} 尚未完成用户确认
+    │   操作：请先完成 {前置阶段} 并确认后，再进入 {目标阶段}
+    │
+    └── ❌ 确认文件内容不完整 → 拒绝进入，提示补充确认
+```
+
+**特殊场景处理**：
+
+| 场景 | 门禁规则 |
+|------|---------|
+| `/dev-flow -research` | 无前置要求，直接执行 |
+| `/dev-flow -analyze <需求>` | 检查 research.confirmed |
+| `/dev-flow -design <需求>` | 检查 analyze.confirmed |
+| `/dev-flow -split <需求>` | 检查 design.confirmed |
+| `/dev-flow -develop <需求>` | 检查 task-split.confirmed（全流程时）/ 无前置（直接开发时） |
+| `/dev-flow -fix` | 无前置确认要求（由 Bug 触发） |
+| `/dev-flow --resume` | 读取最后一个 confirmed 文件，从下一阶段继续 |
+| 跳过某阶段（用户明确要求） | 自动跳过该阶段的门禁检查，但后续阶段的门禁仍检查最后一个已确认的阶段 |
+| L0 轻量模式 | 仅检查 research.confirmed（如存在） |
+
+**确认文件内容校验规则**：
+
+```yaml
+# 有效的确认文件必须包含以下所有字段：
+stage: "research"              # 必填：阶段名称
+confirmed_at: "2026-06-05T..." # 必填：确认时间
+confirmed_by: "user"            # 必填：确认人
+session_id: "session-xxx"       # 必填：会话 ID
+checklist:                      # 必填：确认清单
+  - item: "项目架构已识别"
+    status: "confirmed"         # 每个item必须为confirmed
+# 至少包含以下校验：
+artifacts_checksum: "abc123"    # 可选：产出物校验和（防伪造）
+```
+
+> **⚠️ 关键规则**：即使阶段指令文件（如 research.md）中也包含门禁检查描述，**Router 层的检查仍然必须执行**。这是双重保险机制。
+> **执行顺序**：先执行 Router 层门禁检查（本节）→ 通过后 → 再读取目标阶段指令文件 → 阶段指令中的门禁作为二次确认。
+
+---
+
+| 阶段 | 指令文件 | 加载时机 | 前置确认文件 |
+|------|---------|---------|------------|
+| Research（项目调研） | `{{STAGES_PATH}}research.md` | 进入阶段一 | 无 |
+| Analyze（需求分析） | `{{STAGES_PATH}}analyze.md` | 进入阶段二 | `research.confirmed` |
+| Design（详细设计） | `{{STAGES_PATH}}design.md` | 进入阶段三 | `analyze.confirmed` |
+| Task Split（任务拆分） | `{{STAGES_PATH}}task-split.md` | 进入阶段四 | `design.confirmed` |
+| **Develop（开发执行）** | **`{{STAGES_PATH}}develop.md`** | **进入阶段五** | `task-split.confirmed` |
+| Unit Test（单元测试） | `{{STAGES_PATH}}unit-test.md` | 进入阶段六 | `develop.confirmed` |
+| Fix（Bug 修复） | `{{STAGES_PATH}}fix.md` | 进入阶段七 | 无（Bug 触发） |
+| Hotfix（独立模式） | `{{STAGES_PATH}}hotfix.md` | 使用 Hotfix 模式 | 无 |
+| Smoke Test（冒烟测试） | `{{STAGES_PATH}}smoke-test.md` | 进入阶段八 | `unit-test.confirmed` |
+| E2E Test（端到端测试） | `{{STAGES_PATH}}e2e-test.md` | 进入阶段九 | `smoke-test.confirmed` |
+| Integration Test（集成测试） | `{{STAGES_PATH}}integration-test.md` | 进入阶段十 | `e2e-test.confirmed` |
+| Delivery（交付报告） | `{{STAGES_PATH}}delivery.md` | 进入阶段十一 | `integration-test.confirmed` |
 
 ### 加载规则
 

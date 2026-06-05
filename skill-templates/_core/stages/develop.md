@@ -537,6 +537,92 @@ fix_rounds:
     result: "compile_pass"
 ```
 
+### 🔴 Step 4.2: 前置单元测试验证（🔴 编译通过后必须执行）
+
+> **目的**：compile pass ≠ 逻辑正确。编译通过只证明语法正确，不证明业务逻辑正确。
+> 在每个 develop-expert 完成代码后、声明完成之前，立即运行针对该代码的基础单元测试，
+> 形成开发-验证闭环，将逻辑错误拦截在 Develop 阶段而非等到 Test 阶段才发现。
+
+**触发条件**：Step 4 编译通过后
+
+**执行流程**：
+
+```
+Step 4.2.1: 生成针对本次开发代码的单元测试
+  ├── 读取本次开发的 Service/Mapper/Controller
+  ├── 为每个 Service 方法生成基础单元测试
+  │   ├── 正向测试：合法输入 → 期望输出
+  │   ├── 参数校验测试：非法输入 → 期望抛异常
+  │   └── 空值/边界测试：null/空集合 → 期望优雅处理
+  ├── 测试类命名：{ClassName}QuickTest.java（区别于正式测试的 *Test.java）
+  └── 测试放置路径：src/test/java/.../quicktest/
+
+Step 4.2.2: 运行前置测试
+  ├── Java 项目：mvn test -Dtest={ClassName}QuickTest -pl {module} -q
+  ├── 前端项目：npx jest --testPathPattern="quicktest" --passWithNoTests
+  └── 超时限制：30 秒（防止测试卡住）
+
+Step 4.2.3: 分析测试结果
+  ├── 全部通过 → 代码逻辑基本正确，继续
+  ├── 部分失败 → 进入前置修复循环
+  │   ├── 读取失败信息（断言值不匹配 / 空指针 / 异常）
+  │   ├── 判断失败原因：
+  │   │   ├── 代码逻辑错误 → 修复业务代码（不是改测试！）
+  │   │   ├── 测试用例本身错误 → 修正测试用例
+  │   │   └── 环境问题（如数据库未启动）→ 标记跳过，记录原因
+  │   ├── 修复后重新编译 + 重新运行测试
+  │   └── 最多 2 轮修复，超过则标记为"需 Test 阶段深入验证"
+  └── 测试类不存在/框架未配置 → 跳过前置测试，记录到 develop-result.yaml
+```
+
+**前置测试要求**：
+
+| 要求 | 说明 |
+|------|------|
+| 测试必须可运行 | 不能只生成测试代码而不执行 |
+| 修复目标为业务代码 | 测试失败时，优先修复业务代码而非修改测试 |
+| 超时保护 | 30 秒超时防止卡住 |
+| 轻量化 | 只测本次开发的代码，不运行全量测试 |
+| 不阻塞整体流程 | 2 轮修复仍失败 → 标记并继续，由 Test 阶段深入处理 |
+
+**前置测试结果记录**：
+
+```yaml
+# .dev-flow/runtime/pre-test-result.yaml
+quick_test:
+  timestamp: "2026-06-05T12:00:00"
+  task_id: "Task-5"
+  test_class: "XxxServiceQuickTest"
+  test_count: 5
+  passed: 4
+  failed: 1
+  failed_tests:
+    - method: "testCreate_withNullParam"
+      error: "AssertionError: expected NullPointerException but no exception was thrown"
+      fix_applied: "Added @NotNull validation in XxxServiceImpl.create()"
+      retest_result: "pass"
+  overall: "pass_with_fixes"
+```
+
+**前置测试与 Test 阶段的关系**：
+
+```
+Develop 阶段前置测试（Quick Test）：
+  ├── 目标：快速验证本次开发代码的基本逻辑正确性
+  ├── 范围：仅本次开发的 Service/Mapper
+  ├── 深度：正向+参数校验+空值边界
+  └── 文件名：*QuickTest.java
+
+Test 阶段正式测试（Full Test）：
+  ├── 目标：全面验证所有代码的正确性
+  ├── 范围：全部修改/新增的代码 + 回归测试
+  ├── 深度：正向+异常+边界+并发+集成
+  └── 文件名：*Test.java
+```
+
+> **⚠️ 前置测试不能替代正式 Test 阶段**。前置测试是"快速筛查"，
+> 正式 Test 阶段会做更深入、更全面的测试（包括并发、性能、集成等）。
+
 ### 🔴 失败恢复策略
 
 如果代码生成过程中遇到无法解决的问题：
@@ -722,6 +808,17 @@ Step 6.4: 依赖传递验证
   ├── 对每个 "needs_to_know" 验证前置任务的产出是否已就绪
   └── 缺失 → 标记为阻塞
 
+Step 6.4.5: interface-registry 运行时验证（🔴 必须执行）
+  ├── 读取 .dev-flow/docs/interface-registry.yaml
+  ├── 逐项验证每个声明的接口是否在代码中真实存在
+  │   ├── Grep "public.*{methodName}" → 验证方法签名是否与声明一致
+  │   ├── Grep "class {className}" → 验证类是否存在
+  │   └── 对比参数类型和返回类型是否匹配
+  ├── 验证结果：
+  │   ├── 所有声明已兑现 → 接口契约运行时验证通过
+  │   └── 有声明未兑现 → 标记为违约，需修复
+  └── 验证报告追加到集成验证文档
+
 Step 6.5: 输出集成验证报告
   └── 写入 .dev-flow/docs/{需求简称}-develop集成验证.md
 ```
@@ -772,10 +869,11 @@ Step 6.5: 输出集成验证报告
 |---|--------|------|
 | 1 | 所有设计文档中的文件都已生成 | ⬜ 待确认 |
 | 2 | 所有文件编译通过（Step 4 实际编译验证） | ⬜ 待确认 |
-| 3 | 无 TODO/FIXME/空方法体残留 | ⬜ 待确认 |
-| 4 | Import 路径、方法签名、类型全部验证通过 | ⬜ 待确认 |
-| 5 | 跨服务 Feign Client 与目标 Controller 端点一致 | ⬜ 待确认 |
-| 6 | 开发报告已输出 | ⬜ 待确认 |
+| 3 | 前置单元测试通过或已标记需深入验证（Step 4.2） | ⬜ 待确认 |
+| 4 | 无 TODO/FIXME/空方法体残留 | ⬜ 待确认 |
+| 5 | Import 路径、方法签名、类型全部验证通过 | ⬜ 待确认 |
+| 6 | 跨服务 Feign Client 与目标 Controller 端点一致 | ⬜ 待确认 |
+| 7 | 开发报告已输出 | ⬜ 待确认 |
 
 **暂停，等待用户确认。**
 **用户确认后，系统自动写入 `develop.confirmed` 确认文件。**

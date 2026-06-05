@@ -38,6 +38,30 @@ subagent 会在开始工作前自动读取。
 
 ## 工作流
 
+### Step 0: 平台检测与调度引擎初始化
+
+**🔴 必须执行的初始化步骤**：
+
+```
+Step 0.1: 检测当前平台
+  ├── Bash: node scripts/dispatch.cjs --dry-run
+  ├── 读取输出中的平台检测结果
+  └── 确认平台检测正确
+
+Step 0.2: 读取任务 DAG（如有）
+  ├── 读取 .dev-flow/docs/{需求简称}-task-dag.yaml
+  └── 如不存在 → 等待 Task Split 阶段完成
+
+Step 0.3: 生成调度计划
+  ├── Bash: node scripts/dispatch.cjs --dry-run
+  ├── 读取输出的调度计划（批次划分、并行命令）
+  └── 展示给用户确认调度策略
+```
+
+> **调度引擎（scripts/dispatch.cjs）**：提供可执行的 DAG 解析、拓扑排序、冲突检测和跨平台调度命令生成。
+> Orchestrator 必须先运行调度引擎获取调度计划，再按计划执行调度。
+> 调度引擎支持 `--dry-run` 模式预览、`--platform` 指定平台。
+
 ### Step 1: 需求理解
 - 与用户确认需求细节
 - 识别涉及的服务和模块
