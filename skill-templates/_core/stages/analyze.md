@@ -269,7 +269,63 @@ Step 3.5.3: 输出校验报告
 - 模型：[已有模型列表]
 ```
 
-**Step 5: 自检**
+**Step 5: 需求追踪矩阵（🔴 必须执行）**
+
+> **目的**：为每个功能点分配唯一 ID，建立从需求 → 设计 → 代码 → 测试的完整追溯链，确保后续每个环节都不遗漏。
+
+**矩阵格式**：
+
+```yaml
+# .dev-flow/docs/{需求简称}-traceability.yaml
+requirements:
+  - id: "REQ-001"
+    title: "用户注册"
+    description: "支持邮箱注册，包含验证码"
+    priority: P0
+
+  - id: "REQ-002"
+    title: "用户登录"
+    description: "支持邮箱+密码登录"
+    priority: P0
+
+  - id: "REQ-003"
+    title: "用户信息管理"
+    description: "查看/修改个人资料"
+    priority: P1
+```
+
+**追溯关系**（后续阶段持续更新）：
+
+```yaml
+traceability:
+  REQ-001:
+    design:
+      section: "3.1 用户注册接口设计"
+      file: "design-result.md"
+    code:
+      - file: "entity/User.java"
+        type: Entity
+      - file: "controller/UserController.java"
+        type: Controller
+        method: "register()"
+      - file: "service/UserService.java"
+        type: Service
+        method: "register()"
+    test:
+      - file: "UserServiceTest.java"
+        method: "testRegister()"
+        status: pending
+    status: analyzed  # analyzed → designed → developed → tested
+```
+
+**每个功能点必须分配 REQ-XXX 格式的唯一 ID**，后续 Design、Develop、Test 阶段都会引用此 ID 确保追溯。
+
+**自检**：
+- 每个功能点是否都已分配 REQ-XXX ID
+- ID 编号是否连续无跳号
+- 描述是否清晰无歧义
+
+**Step 6: 自检**
 - 验证每个功能点是否都有对应的已有代码关联
 - 验证影响范围是否完整覆盖所有受影响模块（Java 项目需覆盖 Entity/Mapper/Service/Controller/DTO/Enum）
 - 验证歧义项是否都已提出澄清建议
@@ -345,6 +401,6 @@ Step 3.5.3: 输出校验报告
 | 5 | 歧义项已全部澄清或提出建议方案 | ⬜ 待确认 |
 | 6 | 跨服务调用链（多服务模式）已完整识别 | ⬜ 待确认 |
 
-**用户操作**：确认无误 → 回复 "确认" 进入 Design 阶段；需要修改 → 指出具体问题
+**用户操作**：确认无误 → 回复 "确认" 进入 Design 阶段（系统自动写入 `analyze.confirmed`）；需要修改 → 指出具体问题
 
 ---

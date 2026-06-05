@@ -687,6 +687,48 @@ checkpoint:
 **暂停，等待用户确认后再进入 Test 阶段。**
 
 > **🔴 Develop 完成后必须输出开发报告**：
+
+---
+
+**🔴 Step 6: 并行开发集成验证检查点（Subagent 模式必须执行）**
+
+> **目的**：当多个 subagent 并行开发完成后，在进入 Test 阶段前，执行全局集成验证，确保各 subagent 的产出能够正确协同工作。
+
+**触发条件**：使用了多个 subagent 并行执行 Develop 任务
+
+**验证流程**：
+
+```
+Step 6.1: 收集所有 subagent 的 task-result.yaml
+  ├── 检查每个 subagent 的 status 字段是否为 success
+  └── status 为 partial/failed → 标记为需要 Fix
+
+Step 6.2: 全局编译验证
+  ├── Java：mvn compile -q（所有涉及的服务/模块）
+  ├── 前端：npm run build 或 npx tsc --noEmit
+  └── 编译失败 → 自动进入编译修复循环（最多 3 次）
+
+Step 6.3: 接口一致性校验
+  ├── 读取 design-contract.yaml 中冻结的接口定义
+  ├── 验证每个 subagent 产出的接口是否与契约一致
+  │   ├── Controller 路径和参数与契约匹配
+  │   ├── Service 方法签名与契约匹配
+  │   ├── DTO 字段类型和注解与契约匹配
+  │   └── Feign Client 与目标 Controller 端点匹配（多服务模式）
+  └── 不一致 → 记录并标记需要 Fix
+
+Step 6.4: 依赖传递验证
+  ├── 遍历所有 task-result.yaml 的 dependencies_provided 字段
+  ├── 对每个 "needs_to_know" 验证前置任务的产出是否已就绪
+  └── 缺失 → 标记为阻塞
+
+Step 6.5: 输出集成验证报告
+  └── 写入 .dev-flow/docs/{需求简称}-develop集成验证.md
+```
+
+**如果验证全部通过**：进入 Test 阶段
+**如果存在失败项**：进入 Fix 阶段修复后重新验证（最多 3 次，超过则暂停报告用户）
+
 > - **正式文档**：`.dev-flow/docs/{需求简称}-开发报告.md`
 > - **会话记录**：追加到 `.dev-flow/sessions/` 当前会话文件
 > - **更新记忆**：更新 `patterns.md`（新模式）、`mistakes.md`（遇到的问题）
@@ -736,3 +778,4 @@ checkpoint:
 | 6 | 开发报告已输出 | ⬜ 待确认 |
 
 **暂停，等待用户确认。**
+**用户确认后，系统自动写入 `develop.confirmed` 确认文件。**

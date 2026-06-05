@@ -26,6 +26,76 @@ type: stage-instruction
 
 ### 执行步骤
 
+**Step 0: 全局集成编译 + Design Contract 契约验证（🔴 并行开发后必须执行）**
+
+> **目的**：在 E2E 测试之前，先确保所有并行开发的产出能够正确编译集成，且接口契约一致。
+> 这是并行开发模式的关键检查点，防止不同 subagent 生成的代码之间存在接口不一致。
+
+**触发条件**： Develop 阶段使用了多个 subagent 并行开发（Subagent 模式）
+
+**验证流程**：
+
+```
+Step 0.1: 全局编译验证
+  ├── Java 项目：mvn compile -q（全模块编译）
+  ├── 前端项目：npm run build 或 npx tsc --noEmit
+  └── 编译失败 → 进入 Fix 阶段，修复后再重新执行 E2E
+
+Step 0.2: Design Contract 契约一致性校验
+  ├── 读取 .dev-flow/docs/{需求简称}-design-contract.yaml
+  ├── 逐项校验：
+  │   ├── API 接口路径是否与 Controller 实现一致
+  │   ├── DTO 字段名和类型是否与设计一致
+  │   ├── 方法命名是否与 Service 接口一致
+  │   ├── 跨服务 Feign Client 是否与目标 Controller 端点匹配
+  │   └── Enum 值是否与设计文档一致
+  └── 不一致项 → 记录到集成验证报告，进入 Fix 阶段
+
+Step 0.3: 接口注册表自动校验
+  ├── 读取 task-result.yaml 中每个 subagent 声明的 dependencies_provided
+  ├── 验证每个 "provided" 依赖在对应代码中确实存在
+  ├── 验证每个 "needs_to_know" 的输入信息已正确传递
+  └── 缺失项 → 补充或修复
+
+Step 0.4: 输出集成验证报告
+  └── 写入 .dev-flow/docs/{需求简称}-集成验证报告.md
+```
+
+**集成验证报告模板**：
+```markdown
+# 集成验证报告：{需求标题}
+
+<!-- last-updated: YYYY-MM-DD HH:mm -->
+
+## 1. 编译验证
+| 项目 | 结果 | 说明 |
+|------|------|------|
+| 全局编译 | ✅/❌ | 编译耗时 Xs，Y 个模块 |
+
+## 2. Design Contract 契约校验
+| # | 校验项 | 设计定义 | 实际实现 | 状态 |
+|---|--------|---------|---------|------|
+| 1 | API 路径 POST /api/xxx | design-contract.yaml | XxxController.java | ✅ 一致 |
+| 2 | DTO 字段 XxxDTO.name | String, @NotNull | String, @NotBlank | ⚠️ 注解不一致 |
+
+## 3. Subagent 产出一致性
+| Subagent | 产出文件 | 依赖声明 | 校验结果 |
+|----------|---------|---------|---------|
+| develop-expert-1 | XxxMapper.java | 提供查询方法 | ✅ 已验证 |
+| develop-expert-2 | XxxService.java | 依赖 XxxMapper | ✅ 已验证 |
+
+## 4. 不一致项清单
+| # | 类型 | 描述 | 影响范围 | 修复建议 |
+|---|------|------|---------|---------|
+```
+
+**如果集成验证失败**：
+1. 不进入 E2E 测试
+2. 自动进入 Fix 阶段修复集成问题
+3. 修复后重新执行集成验证，通过后再执行 E2E
+
+---
+
 **Step 1: 识别端到端测试场景**
 - 从需求分析文档中提取核心业务场景
 - 识别每个场景的完整调用链路（Controller → Service → Mapper/Feign → DB/外部服务）
@@ -292,3 +362,4 @@ test.describe('用户管理 E2E 测试', () => {
 | 5 | 测试通过率 ≥ 100%（E2E 测试不允许失败） | ⬜ 待确认 |
 
 **暂停，等待用户确认。如有失败，进入 Fix 阶段修复后重新执行。**
+**用户确认后，系统自动写入 `e2e-test.confirmed` 确认文件。**

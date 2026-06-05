@@ -51,17 +51,19 @@ dev-flow 支持两种运行模式：
 | 平台 | Subagent 支持 | 并行能力 | 调度策略 |
 |------|--------------|---------|---------|
 | **Trae** | `/agent-name` 斜杠命令 | 原生并行 | 完整并行模式 |
-| **Cursor** | `.cursor/commands/` 无子 agent | 单会话串行 | 顺序模拟并行 |
-| **Claude Code** | `.claude/commands/` 无子 agent | 单会话串行 | 顺序模拟并行 |
-| **Qoder** | `.qoder/commands/` 无子 agent | 单会话串行 | 顺序模拟并行 |
-| **Codex** | `AGENTS.md` agents 定义 | 有限并行 | 有限并行模式 |
+| **Cursor** | `.cursor/agents/*.md` YAML frontmatter | 多 Task 调用并行 + 后台模式 + 嵌套 | Cursor 并行模式 |
+| **Claude Code** | Dynamic Workflows JS 编排 + `.claude/agents/*.md` | 16 并发 + 1000 总量 + 对抗验证 | Claude 并行模式 |
+| **Qoder** | Quest Mode 主从 Agent 架构 | 前端/后端/测试/部署方向并行 | Qoder 主从并行模式 |
+| **Codex** | `.codex/agents/*.toml` + `AGENTS.md` | 6 线程 + CSV 批量 | Codex 有限并行模式 |
 
-**平台检测**：Orchestrator 在执行前自动检测当前平台能力，选择对应调度策略。
+> **所有五大平台均支持 Subagent 并行执行**，Orchestrator 根据当前平台自动选择最优调度策略。
 
 **并行开发适配规则**：
 - **Trae**：同批次任务同时启动多个 `/develop-expert`，通过 `task-result.yaml` 传递产出
-- **Cursor/Claude/Qoder**：采用"上下文隔离 + 顺序执行"模拟并行 — 每个任务独立上下文，完成后清理，通过 `task-result.yaml` 传递产出
-- **Codex**：通过 `run agent: develop-expert` 切换 agent 上下文，按 DAG 顺序执行
+- **Cursor**：一条消息中发送多个 Task 工具调用实现真正并行，支持 `is_background: true` 后台模式，通过 `~/.cursor/subagents/` 或直接返回获取结果
+- **Claude Code**：Dynamic Workflows JS 编排脚本派发 subagent，利用 16 并发上限，对抗验证自动检查产出质量
+- **Qoder**：主 Agent 规划调度，子 Agent 按方向（前端/后端/测试/部署）并行处理，Quest Mode Checkpoints 确保质量
+- **Codex**：通过 `run agent: develop-expert` 启动 subagent，6 线程并行，通过 `task-result.yaml` 传递产出
 
 ### Subagent 模式
 
@@ -239,6 +241,57 @@ Step 0: 检测需求规模
 
 > **每个阶段完成后，必须输出结构化确认 Checklist，等待用户逐项确认。未确认不得进入下一阶段。**
 
+**🔴 确认持久化规则（文件级硬约束）**：
+
+> 阶段确认不仅是 prompt 软约束，必须写入确认文件作为硬约束。
+> 后续阶段在开始执行前，必须检查前一阶段的确认文件是否存在。
+
+```
+每个阶段确认后，必须写入确认文件：
+
+.dev-flow/stage-confirmations/
+├── research.confirmed      # Research 阶段确认文件
+├── analyze.confirmed       # Analyze 阶段确认文件
+├── design.confirmed        # Design 阶段确认文件
+├── task-split.confirmed    # Task Split 阶段确认文件
+├── develop.confirmed       # Develop 阶段确认文件
+├── unit-test.confirmed     # Unit Test 阶段确认文件
+├── smoke-test.confirmed    # Smoke Test 阶段确认文件
+├── integration-test.confirmed  # Integration Test 阶段确认文件
+└── e2e-test.confirmed      # E2E Test 阶段确认文件
+```
+
+**确认文件格式**：
+```yaml
+# .dev-flow/stage-confirmations/{stage}.confirmed
+stage: research
+confirmed_at: "2026-06-05T11:30:00"
+confirmed_by: user
+session_id: "session-xxx"
+checklist:
+  - item: "项目架构已识别"
+    status: confirmed
+  - item: "技术栈已确认"
+    status: confirmed
+  - item: "影响范围已评估"
+    status: confirmed
+notes: ""
+```
+
+**🔴 阶段门禁检查（下一阶段开始前必须执行）**：
+
+```
+进入 Analyze 阶段前 → 检查 research.confirmed 是否存在
+进入 Design 阶段前 → 检查 analyze.confirmed 是否存在
+进入 Task Split 阶段前 → 检查 design.confirmed 是否存在
+进入 Develop 阶段前 → 检查 task-split.confirmed 是否存在
+进入 Unit Test 阶段前 → 检查 develop.confirmed 是否存在
+进入 E2E Test 阶段前 → 检查 smoke-test.confirmed 是否存在
+进入 Integration Test 阶段前 → 检查 e2e-test.confirmed 是否存在
+
+如果确认文件不存在 → 拒绝进入下一阶段，提示用户先确认前一阶段
+```
+
 **标准确认 Checklist 模板**：
 ```markdown
 ## ✅ 阶段确认清单
@@ -251,7 +304,7 @@ Step 0: 检测需求规模
 | 4 | [后续阶段准备就绪] | ⬜ 待确认 |
 
 **用户操作**：
-- 确认无误 → 回复 "确认" 或 "继续" 进入下一阶段
+- 确认无误 → 回复 "确认" 或 "继续" 进入下一阶段（系统自动写入确认文件）
 - 需要修改 → 指出具体问题，返回当前阶段修正
 - 需要重新执行 → 回复 "重新执行"
 ```
@@ -259,7 +312,9 @@ Step 0: 检测需求规模
 **硬性阻断规则**：
 - ❌ 禁止跳过确认直接进入下一阶段
 - ❌ 禁止用"看起来没问题"等模糊描述代替逐项确认
+- ❌ 禁止在确认文件不存在的情况下进入下一阶段
 - ✅ 如果用户说"继续"但 Checklist 未全部确认，补充确认遗漏项
+- ✅ 用户确认后，立即将确认文件写入 `.dev-flow/stage-confirmations/`
 
 ### 项目类型检测
 

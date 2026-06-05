@@ -46,22 +46,22 @@ dev-flow 支持两种运行模式：
 
 ### 平台能力分级
 
-> **不同 AI 编程平台的 Subagent 能力差异很大，系统必须根据当前平台选择合适的调度策略。**
+> **所有五大平台均支持 Subagent 并行执行**，Orchestrator 根据当前平台自动选择最优调度策略。
 
 | 平台 | Subagent 支持 | 并行能力 | 调度策略 |
 |------|--------------|---------|---------|
 | **Trae** | `/agent-name` 斜杠命令 | 原生并行 | 完整并行模式 |
-| **Cursor** | `.cursor/commands/` 无子 agent | 单会话串行 | 顺序模拟并行 |
-| **Claude Code** | `.claude/commands/` 无子 agent | 单会话串行 | 顺序模拟并行 |
-| **Qoder** | `.qoder/commands/` 无子 agent | 单会话串行 | 顺序模拟并行 |
-| **Codex** | `AGENTS.md` agents 定义 | 有限并行 | 有限并行模式 |
-
-**平台检测**：Orchestrator 在执行前自动检测当前平台能力，选择对应调度策略。
+| **Cursor** | `.cursor/agents/*.md` YAML frontmatter | 多 Task 调用并行 + 后台模式 + 嵌套 | Cursor 并行模式 |
+| **Claude Code** | Dynamic Workflows JS 编排 + `.claude/agents/*.md` | 16 并发 + 1000 总量 + 对抗验证 | Claude 并行模式 |
+| **Qoder** | Quest Mode 主从 Agent 架构 | 前端/后端/测试/部署方向并行 | Qoder 主从并行模式 |
+| **Codex** | `.codex/agents/*.toml` + `AGENTS.md` | 6 线程 + CSV 批量 | Codex 有限并行模式 |
 
 **并行开发适配规则**：
 - **Trae**：同批次任务同时启动多个 `/develop-expert`，通过 `task-result.yaml` 传递产出
-- **Cursor/Claude/Qoder**：采用"上下文隔离 + 顺序执行"模拟并行 — 每个任务独立上下文，完成后清理，通过 `task-result.yaml` 传递产出
-- **Codex**：通过 `run agent: develop-expert` 切换 agent 上下文，按 DAG 顺序执行
+- **Cursor**：一条消息中发送多个 Task 工具调用实现真正并行，支持 `is_background: true` 后台模式，通过 `~/.cursor/subagents/` 或直接返回获取结果
+- **Claude Code**：Dynamic Workflows JS 编排脚本派发 subagent，利用 16 并发上限，对抗验证自动检查产出质量
+- **Qoder**：主 Agent 规划调度，子 Agent 按方向（前端/后端/测试/部署）并行处理，Quest Mode Checkpoints 确保质量
+- **Codex**：通过 `run agent: develop-expert` 启动 subagent，6 线程并行，通过 `task-result.yaml` 传递产出
 
 ### Subagent 模式
 

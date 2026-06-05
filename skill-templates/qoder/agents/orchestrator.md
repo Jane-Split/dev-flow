@@ -181,126 +181,67 @@ next_tasks_hint: [建议的后续任务]
 
 ## 跨平台调度策略
 
-> **不同 AI 编程平台的 Subagent 能力差异很大，Orchestrator 必须根据当前平台选择合适的调度策略。**
+> **所有五大平台均支持 Subagent 并行执行**，只是接口格式和并行上限不同。
 
 ### 平台能力矩阵
 
-| 平台 | 原生 Subagent | 并行能力 | 调度策略 |
-|------|--------------|---------|---------|
+| 平台 | Subagent 定义格式 | 并行能力 | 调度策略 |
+|------|------------------|---------|---------|
 | **Trae** | `/agent-name` 斜杠命令 | 原生并行 | 完整并行模式 |
-| **Cursor** | 无子 agent 原生支持 | 单会话串行 | 顺序模拟并行 |
-| **Claude Code** | 无子 agent 原生支持 | 单会话串行 | 顺序模拟并行 |
-| **Qoder** | 无子 agent 原生支持 | 单会话串行 | 顺序模拟并行 |
-| **Codex** | `AGENTS.md` agents 定义 | 有限并行 | 有限并行模式 |
+| **Cursor** | `.cursor/agents/*.md` YAML frontmatter | 原生并行（Task 工具多调用 + 后台模式 + 嵌套） | Cursor 并行模式 |
+| **Claude Code** | Dynamic Workflows JS 编排 + `.claude/agents/*.md` | 强并行（16 并发 + 1000 总量上限 + 对抗验证） | Claude 并行模式 |
+| **Qoder** | Quest Mode 主从 Agent 架构 | 主从并行（前端/后端/测试/部署方向） | Qoder 主从并行模式 |
+| **Codex** | `.codex/agents/*.toml` + `AGENTS.md` | 有限并行（6 线程 + max_depth:1 + CSV 批量） | Codex 有限并行模式 |
 
 ### 策略一：Trae 完整并行模式
-
 **触发条件**：当前平台为 Trae
+1. 构建完整 DAG 依赖图，拓扑排序划分批次
+2. 同一批次同时启动多个 `/develop-expert`
+3. 通过 `task-result.yaml` 汇报结果
 
-**执行方式**：
-1. 构建完整 DAG 依赖图
-2. 执行拓扑排序，划分批次
-3. **同一批次的任务同时启动多个 develop-expert**：`/develop-expert`
-4. 各 subagent 通过 `task-result.yaml` 汇报结果
-5. 主 agent 汇总批次结果后，启动下一批次
+### 策略二：Cursor 并行模式
+**触发条件**：当前平台为 Cursor（支持 `.cursor/agents/*.md` 原生 subagent）
+- 一条消息中发送多个 Task 工具调用实现真正并行
+- `is_background: true` 支持非阻塞并行
+- 后台 subagent 输出写入 `~/.cursor/subagents/`
+- 支持 subagent 嵌套（v2.5+）
 
-**并行执行命令示例**：
-```
-# 批次 1: 并行启动多个 develop-expert
-/develop-expert [Task-1 上下文]
-/develop-expert [Task-2 上下文]
-/develop-expert [Task-3 上下文]
+### 策略三：Claude Code 并行模式
+**触发条件**：当前平台为 Claude Code
+- Dynamic Workflows JS 编排脚本派发
+- 16 并发 + 1000 总量上限
+- 对抗验证自动检查产出质量
 
-# 等待批次 1 全部完成后...
-# 批次 2: 并行启动
-/develop-expert [Task-4 上下文]
-/develop-expert [Task-5 上下文]
-```
+### 策略四：Qoder 主从并行模式
+**触发条件**：当前平台为 Qoder
+- Quest Mode 主从 Agent 架构
+- 子 Agent 按方向（前端/后端/测试/部署）并行处理
+- Checkpoints 确保质量
 
-### 策略二：顺序模拟并行模式（Cursor / Claude / Qoder）
-
-**触发条件**：当前平台为 Cursor、Claude Code 或 Qoder
-
-**核心思路**：由于平台不支持原生并行 subagent，采用"**上下文隔离 + 顺序执行**"策略模拟并行效果。
-
-**执行流程**：
-
-```
-Step 1: 构建完整 DAG 依赖图 + 拓扑排序 + 划分批次
-Step 2: 对每个批次的每个任务：
-  2.1 读取 task-context.yaml（仅当前任务的上下文）
-  2.2 读取上一批次任务的 task-result.yaml（获取依赖产出）
-  2.3 执行当前任务的开发工作
-  2.4 完成后写入 task-result.yaml（产出外置）
-  2.5 主动清理已生成代码的上下文（不保留完整代码在记忆中）
-Step 3: 批次内的多个任务按上述流程顺序执行
-Step 4: 全批次完成后，进入下一批次
-```
-
-**关键约束（顺序模式必须遵守）**：
-
-| 约束项 | 说明 |
-|--------|------|
-| 上下文预算 | 每个任务控制在 30% 上下文以内 |
-| 产出外置 | 所有代码写入文件，不保留在 AI 上下文中 |
-| 依赖读取 | 从 task-result.yaml 读取前序任务的产出摘要 |
-| 上下文释放 | 每个任务完成后主动清理上下文 |
-| 恢复检查 | 每个任务开始前检查 task-result.yaml 是否存在 |
-
-**产出传递格式**：
-
-每个 develop-expert 完成任务后，必须写入 `task-result.yaml`：
-
-```yaml
-# .dev-flow/runtime/task-result-{taskId}.yaml
-task_id: "Task-4"
-task_name: "新增 XxxMapper"
-status: success
-completed_files:
-  - path: "src/main/java/.../mapper/XxxMapper.java"
-    summary: "继承 BaseMapper<XxxEntity>，包含 selectByCondition 方法"
-    key_types: ["XxxEntity", "XxxQueryDTO"]
-  - path: "src/main/resources/mapper/XxxMapper.xml"
-    summary: "XML 映射文件，包含条件查询 SQL"
-dependencies_provided:
-  - "XxxMapper 可被 Service 层注入使用"
-  - "selectByCondition(XxxQueryDTO) 返回 List<XxxEntity>"
-issues: []
-next_tasks_input:
-  - task_id: "Task-7"
-    needs_to_know: "XxxMapper 已就绪，可直接注入"
-```
-
-### 策略三：Codex 有限并行模式
-
+### 策略五：Codex 有限并行模式
 **触发条件**：当前平台为 Codex
+- `.codex/agents/*.toml` 定义 subagent
+- 6 线程并行，CSV 批量处理
+- `max_depth: 1`
 
-**执行方式**：
-1. 利用 AGENTS.md 中定义的 agents
-2. 通过 `run agent: develop-expert` 切换 agent 上下文
-3. 按 DAG 拓扑排序顺序执行
-4. 产出通过 task-result.yaml 传递
+### 通用产出传递格式
+所有平台 subagent 都必须写入 `task-result.yaml`：
+```yaml
+task_id: "Task-4"
+status: success|partial|failed
+completed_files: [...]
+dependencies_provided: [...]
+issues: []
+next_tasks_input: [...]
+```
 
 ### 平台检测方法
-
-Orchestrator 在 Step 0 执行平台检测：
-
 ```
-Step 0: 检测当前平台能力
-  │
-  ├── 检查是否支持 /agent-name 斜杠命令格式
-  │     └── ✅ 支持 → Trae 完整并行模式
-  │
-  ├── 检查是否支持 run agent: xxx 格式
-  │     └── ✅ 支持 → Codex 有限并行模式
-  │
-  └── 其他
-        └── 顺序模拟并行模式（Cursor/Claude/Qoder）
-```
-
-**检测结果输出**：
-```
-【平台检测】当前平台: Cursor
-【调度策略】顺序模拟并行模式
-【执行计划】共 4 个批次，12 个任务，预计按 DAG 依赖顺序执行
+Step 0: 检测当前平台
+  ├── .cursor/agents/ 存在 → Cursor 并行模式
+  ├── .claude/agents/ 或 CLAUDE.md 存在 → Claude Code 并行模式
+  ├── .qoder/ 存在 → Qoder 主从并行模式
+  ├── .codex/agents/ 或 AGENTS.md 存在 → Codex 有限并行模式
+  ├── /agent-name 斜杠命令 → Trae 完整并行模式
+  └── 无法检测 → 默认 Trae 模式
 ```

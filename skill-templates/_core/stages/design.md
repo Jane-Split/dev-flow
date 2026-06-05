@@ -21,6 +21,34 @@ type: stage-instruction
 - 全流程模式（Analyze 确认后）
 - 用户输入 `/dev-flow -design <需求>`
 
+### 🔴 入口前检查：阶段门禁
+
+> **必须检查前一阶段确认文件**：
+> - 检查 `.dev-flow/stage-confirmations/analyze.confirmed` 是否存在
+> - 如不存在 → 拒绝进入 Design 阶段，提示用户先确认 Analyze 阶段
+
+### 🔴 入口前检查：加载需求追踪矩阵
+
+> **必须读取** `.dev-flow/docs/{需求简称}-traceability.yaml`，获取所有 REQ-XXX 需求 ID。
+> 设计文档中的每个设计章节必须标注对应的 REQ-XXX ID，确保需求 → 设计的追溯关系。
+
+```markdown
+## 3.1 用户注册接口设计 [REQ-001]
+...
+## 3.2 用户登录接口设计 [REQ-002]
+...
+```
+
+设计完成后，更新 traceability.yaml 中每个 REQ 的 design 字段：
+```yaml
+traceability:
+  REQ-001:
+    design:
+      section: "3.1 用户注册接口设计"
+      file: "design-result.md"
+    status: designed  # analyzed → designed
+```
+
 ### ⚠️ 重要：Design 输出规范（必须遵守）
 
 > **Design 阶段的所有输出必须遵循以下规范，否则 Develop 阶段无法正确解析。**

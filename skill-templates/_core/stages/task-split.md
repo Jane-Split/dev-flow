@@ -21,6 +21,12 @@ type: stage-instruction
 - 全流程模式（Design 确认后）
 - 用户输入 `/dev-flow -split`
 
+### 入口前检查：阶段门禁
+
+> **必须检查前一阶段确认文件**：
+> - 检查 `.dev-flow/stage-confirmations/design.confirmed` 是否存在
+> - 如不存在 → 拒绝进入 Task Split 阶段，提示用户先确认 Design 阶段
+
 ### 目的
 将详细设计拆分为精确的开发任务，解决依赖关系，确定并行/串行执行顺序，为后续并行开发做准备。
 
