@@ -144,11 +144,28 @@ Step 0: 选择拆分维度
 **检测流程**：
 
 ```
+Step 2.5.0: 识别跨服务共享文件（🔴 必须先执行）
+
+  在冲突检测前，先识别所有跨服务/公共模块的共享文件：
+  - 从 Research 阶段的 memory/公共模块.md 中提取所有公共模块路径
+  - 从 design-contract.yaml 中识别被多个服务/功能引用的公共类
+  - 生成 shared_files 清单（含：common-bean、公共 DTO、公共 Enum、基础 Config 等）
+
+  共享文件分类：
+  ├── 引用型共享：多任务读取但无需修改 → 🟢 无冲突（仅 read）
+  └── 修改型共享：至少一个任务需要修改 → 🔴 必须强制声明到 write_files
+
 Step 2.5.1: 声明每个任务的文件操作集合
 
 对每个任务，声明：
   read_files: [该任务需要读取的文件列表]
   write_files: [该任务需要创建或修改的文件列表]
+
+  🔴 强制声明规则（跨服务共享文件）：
+  ├── 如果任务需要修改任何 shared_files 中的文件 → 必须显式列入 write_files
+  ├── 如果任务新增的类继承了公共模块的类（如 extends BaseEntity） → BaseEntity 模块路径列入 read_files
+  ├── 如果任务新增的 DTO 引用了公共枚举 → 公共枚举模块路径列入 read_files
+  └── 未声明的共享文件修改将被视为遗漏，Step 2.5.2 会自动扫描补充
 
 Step 2.5.2: 构建文件冲突矩阵
 
@@ -156,9 +173,16 @@ Step 2.5.2: 构建文件冲突矩阵
 
   冲突检测规则：
   ├── Ti.write ∩ Tj.write ≠ ∅  → 🔴 写写冲突 → 必须串行（Ti 先于 Tj）
+  ├── Ti.write ∩ shared_files 且 Tj.write ∩ shared_files ≠ ∅
+  │     → 🔴 跨服务写写冲突 → 两个任务必须串行，且共享文件归并到一个任务
   ├── Ti.write ∩ Tj.read ≠ ∅  → 🟡 写读约束 → Ti 先于 Tj
   ├── Ti.read ∩ Tj.write ≠ ∅  → 🟡 读写约束 → Tj 先于 Ti
   └── Ti.read ∩ Tj.read ≠ ∅   → 🟢 无冲突   → 可并行
+
+  🔴 跨服务冲突自动扫描：
+  如果 task-split-expert 声明的 write_files 中未包含 shared_files 中的任何条目，
+  但 design-contract.yaml 中有跨服务引用 → 自动将共享文件追加到相关任务的 write_files，
+  并在冲突报告中标注 "自动补充"。
 
 Step 2.5.3: 修正 DAG 依赖图
 
@@ -166,6 +190,7 @@ Step 2.5.3: 修正 DAG 依赖图
   - 写写冲突：Ti → Tj（Ti 必须在 Tj 之前完成）
   - 写读约束：Ti → Tj（Ti 必须在 Tj 之前完成）
   - 读写约束：Tj → Ti（Tj 必须在 Ti 之前完成）
+  - 跨服务写写冲突：Ti → Tj，且将共享文件写入合并到先执行的任务中
 
 Step 2.5.4: 重新拓扑排序
 
@@ -176,17 +201,27 @@ Step 2.5.4: 重新拓扑排序
 
 ```yaml
 # task-breakdown.yaml 中新增 conflicts 字段
+shared_files:
+  - path: "common-bean/src/main/java/com/common/BaseEntity.java"
+    type: "shared-entity"
+    referenced_by: ["Task-1", "Task-5", "Task-8"]
+    modified_by: []  # 无人修改，仅为引用型共享
+  - path: "common-bean/src/main/java/com/common/StatusEnum.java"
+    type: "shared-enum"
+    referenced_by: ["Task-1", "Task-3"]
+    modified_by: ["Task-3"]  # Task-3 需新增枚举值
 conflicts:
   - task_a: "Task-5"    # 新增 XxxMapper.xml
     task_b: "Task-6"    # 新增 XxxMapper (Java)
     conflict_type: "write-write"
     file: "XxxMapper"
     resolution: "Task-5 先于 Task-6"
-  - task_a: "Task-3"
-    task_b: "Task-7"
-    conflict_type: "write-read"
-    file: "XxxConfig"
+  - task_a: "Task-3"    # 修改 StatusEnum（新增枚举值）
+    task_b: "Task-7"    # 引用 StatusEnum
+    conflict_type: "cross-service-write-read"
+    file: "common-bean/.../StatusEnum.java"
     resolution: "Task-3 先于 Task-7"
+    auto_supplemented: true  # 共享文件自动扫描补充
 ```
 
 **冲突检测报告**：
@@ -194,10 +229,17 @@ conflicts:
 ```markdown
 ### 文件冲突检测结果
 
+#### 共享文件识别
+| 共享文件 | 引用任务 | 修改任务 | 类型 |
+|---------|---------|---------|------|
+| common-bean/.../BaseEntity.java | Task-1, Task-5, Task-8 | 无 | 引用型 |
+| common-bean/.../StatusEnum.java | Task-1, Task-3, Task-7 | Task-3 | 修改型 |
+
+#### 冲突矩阵
 | 任务 A | 任务 B | 冲突类型 | 冲突文件 | 解决方案 |
 |--------|--------|---------|---------|---------|
 | Task-5 | Task-6 | 🔴 写写 | XxxMapper.xml | Task-5 先执行 |
-| Task-3 | Task-7 | 🟡 写读 | XxxConfig.java | Task-3 先执行 |
+| Task-3 | Task-7 | 🔴 跨服务写读 | StatusEnum.java | Task-3 先执行（自动补充） |
 
 **冲突修正后**：原批次 1 的 Task-3 被移至批次 2
 ```
@@ -457,6 +499,7 @@ graph TD
 | 1 | 所有设计文档中的文件都已纳入任务清单 | ⬜ 待确认 |
 | 2 | 任务依赖关系（DAG）正确无遗漏 | ⬜ 待确认 |
 | 3 | 文件冲突检测结果已处理（无写写冲突残留） | ⬜ 待确认 |
+| 3.5 | **跨服务共享文件已全部识别并声明**：shared_files 清单完整，修改型共享已归并到单一任务 | ⬜ 待确认 |
 | 4 | 拆分维度选择合理（代码层/功能维度） | ⬜ 待确认 |
 | 5 | 并行/串行执行顺序符合实际开发约束 | ⬜ 待确认 |
 | 6 | 每个任务的负责 Subagent 已分配 | ⬜ 待确认 |

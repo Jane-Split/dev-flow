@@ -130,7 +130,7 @@ type: stage-instruction
 
 ### 📦 Phase 0: pre-scanner subagent（全局 Quick Scan）
 
-> **🎯 目标**：执行一次全局 Quick Scan，输出结构化的 `file-index.yaml`，供后续 13 个文件子代理直接使用。
+> **🎯 目标**：执行一次全局 Quick Scan，输出结构化的 `file-index.yaml`，供后续 11 个文件子代理直接使用。
 > **🔴 关键**：pre-scanner **不读取任何源文件内容**，只 Glob 路径和统计文件类型，上下文消耗极低（~15KB）。
 
 **pre-scanner 执行步骤**：

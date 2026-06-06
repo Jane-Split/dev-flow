@@ -503,47 +503,57 @@ function findProjectRoot() {
 }
 
 function searchClassFile(projectRoot, className) {
-  // 在项目中搜索类定义文件
+  // 纯 Node.js 实现，跨平台兼容（不依赖 find/ls 等系统命令）
   const results = [];
-  try {
-    const { execSync } = require('child_process');
-    // Java
-    const javaPatterns = `**/*${className}.java`;
-    // TypeScript
-    const tsPatterns = `**/*${className}.ts`;
-    // Python
-    const pyPatterns = `**/*${className}.py`;
+  const extensions = ['.java', '.ts', '.tsx', '.py', '.go'];
+  const maxDepth = 15;
+  const maxResults = 5;
+  const skipDirs = new Set([
+    'node_modules', '.git', '.mvn', 'target', 'build', '__pycache__',
+    '.idea', '.vscode', 'dist', '.gradle', 'bin', 'out', '.next',
+    'vendor', '.cache', 'coverage', '.nyc_output',
+  ]);
 
-    for (const pattern of [javaPatterns, tsPatterns, pyPatterns]) {
-      try {
-        const output = execSync(
-          `find "${projectRoot}" -type f -path "*/test/*" -prune -o -name "${className}.*" -print 2>/dev/null | head -5`,
-          { encoding: 'utf-8', timeout: 5000, windowsHide: true }
-        ).trim();
-        if (output) {
-          output.split('\n').filter(Boolean).forEach(f => results.push(f));
+  function walk(dir, depth) {
+    if (depth > maxDepth || results.length >= maxResults) return;
+    let entries;
+    try {
+      entries = fs.readdirSync(dir, { withFileTypes: true });
+    } catch (e) { return; }
+
+    for (const entry of entries) {
+      if (results.length >= maxResults) break;
+      const fullPath = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        if (skipDirs.has(entry.name)) continue;
+        walk(fullPath, depth + 1);
+      } else if (entry.isFile()) {
+        const ext = path.extname(entry.name);
+        if (extensions.includes(ext) && entry.name === `${className}${ext}`) {
+          results.push(fullPath);
         }
-      } catch (e) { /* ignore */ }
-    }
-  } catch (e) {
-    // Fallback: use Glob-like search
-    const searchDirs = ['src/main/java', 'src', 'lib', 'app'];
-    for (const dir of searchDirs) {
-      const target = path.join(projectRoot, dir);
-      if (fs.existsSync(target)) {
-        try {
-          const { execSync } = require('child_process');
-          const output = execSync(
-            `find "${target}" -name "${className}.*" -type f 2>/dev/null | head -3`,
-            { encoding: 'utf-8', timeout: 5000, windowsHide: true }
-          ).trim();
-          if (output) {
-            output.split('\n').filter(Boolean).forEach(f => results.push(f));
-          }
-        } catch (e) { /* ignore */ }
       }
     }
   }
+
+  // 按优先级搜索常见源码目录，最后兜底搜全项目
+  const searchDirs = [
+    path.join(projectRoot, 'src', 'main'),
+    path.join(projectRoot, 'src'),
+    path.join(projectRoot, 'pkg'),
+    path.join(projectRoot, 'lib'),
+    path.join(projectRoot, 'app'),
+    path.join(projectRoot, 'internal'),
+    projectRoot,
+  ];
+
+  for (const dir of searchDirs) {
+    if (results.length >= maxResults) break;
+    if (fs.existsSync(dir)) {
+      walk(dir, 0);
+    }
+  }
+
   return [...new Set(results)];
 }
 
