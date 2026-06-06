@@ -26,6 +26,7 @@ type: stage-instruction
 > **⚠️ 最高优先级**：主 Agent 在本阶段的唯一角色是**调度器**。
 > **主 Agent 绝对禁止直接使用 Edit/Write 工具编辑本阶段的任何产出文件。**
 > **所有文件编辑必须由 analyze-expert subagent 执行。**
+> **完整零编辑铁律、失败硬阻断规则、交付物协议见 `references/protocol.md`。**
 
 ### 执行步骤
 
@@ -552,5 +553,7 @@ traceability:
 | 8 | 需求追踪矩阵已生成（REQ-XXX ID 完整无跳号） | ⬜ 待确认 |
 
 **用户操作**：确认无误 → 回复 "确认" 进入 Design 阶段（系统自动写入 `analyze.confirmed`）；需要修改 → 指出具体问题
+
+> **阶段确认机制和交付物协议详见 `references/protocol.md`。**
 
 ---

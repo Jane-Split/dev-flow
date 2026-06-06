@@ -25,6 +25,7 @@ type: stage-instruction
 记录项目中反复出现的代码模式，供后续开发复用：
 
 **Java 项目示例：**
+
 ```markdown
 # 常见代码模式
 
@@ -111,6 +112,7 @@ public ApiResponse<PageResult<Xxx>> list(PageQueryRequest request) {
 ```
 
 **前端项目示例：**
+
 ```markdown
 # 常见代码模式
 
@@ -149,6 +151,7 @@ const schema = z.object({
 记录项目中反复出现的 Bug 及其修复方案：
 
 **Java 项目示例：**
+
 ```markdown
 # 常见错误及修复
 
@@ -260,6 +263,7 @@ private String userName;
 ```
 
 **前端项目示例：**
+
 ```markdown
 # 常见错误及修复
 

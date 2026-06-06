@@ -26,12 +26,12 @@ type: stage-instruction
 > **⚠️ 最高优先级**：主 Agent 在本阶段的唯一角色是**调度器**。
 > **主 Agent 绝对禁止直接使用 Edit/Write 工具编辑本阶段的任何产出文件。**
 > **所有文件编辑必须由 task-split-expert subagent 执行。**
+> **完整零编辑铁律、失败硬阻断规则、交付物协议见 `.qoder/references/protocol.md`。**
 
 ### 入口前检查：阶段门禁
 
-> **必须检查前一阶段确认文件**：
-> - 检查 `.dev-flow/stage-confirmations/design.confirmed` 是否存在
-> - 如不存在 → 拒绝进入 Task Split 阶段，提示用户先确认 Design 阶段
+> **完整门禁检查流程见 `.qoder/references/protocol.md` — 阶段门禁检查章节。**
+> **快速检查**：`.dev-flow/stage-confirmations/design.confirmed` 必须存在。
 
 ### 目的
 将详细设计拆分为精确的开发任务，解决依赖关系，确定并行/串行执行顺序，为后续并行开发做准备。
@@ -493,3 +493,5 @@ graph TD
 ```
 
 **用户操作**：确认无误 → 回复 "确认" 进入 Develop 阶段；需要修改 → 指出具体问题
+
+> **阶段确认机制和交付物协议详见 `.qoder/references/protocol.md`。**

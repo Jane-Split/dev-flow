@@ -48,7 +48,7 @@ is_background: false
 | Task Split | task-split-expert | `stages/task-split.md` |
 | Develop | develop-expert | `stages/develop.md` |
 | Contract Validation | contract-validator | `agents/contract-validator.md` |
-| Verify | verify-expert | `stages/unit-test.md` |
+| Verify | verify-expert | `stages/test.md` |
 
 **传递方式**：在 task-context.yaml 的 `constraints` 字段中注明阶段指令文件路径，
 subagent 会在开始工作前自动读取。

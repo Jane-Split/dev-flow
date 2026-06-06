@@ -130,7 +130,7 @@ task_driven_context_budget:
 
 ### 基于模型的动态阈值与上下文分配
 
-> 详细模型上下文窗口配置、动态计算规则和分层设计文档裁剪策略见 `{{REFERENCES_PATH}}model-context-config.md`。
+> 详细模型上下文窗口配置、动态计算规则和分层设计文档裁剪策略见 `.cursor/references/model-context-config.md`。
 > 需要计算动态阈值或分配上下文预算时读取该文件。
 
 **快速参考**：

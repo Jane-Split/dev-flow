@@ -12,9 +12,9 @@ type: stage-instruction
 ════════════════════════════════════
 目标：扫描项目结构，建立项目记忆
 输出：.dev-flow/memory/（13 个文件）
-架构：pre-scanner + 文件级子代理 × 13（5 批次）
+架构：pre-scanner + 文件级子代理 × 11（4 批次）
 预计：2-4 分钟
-批次：5 批并行
+批次：4 批并行
 ════════════════════════════════════
 ```
 
@@ -26,34 +26,34 @@ type: stage-instruction
 
 > **⚠️ 最高优先级**：主 Agent 在本阶段的唯一角色是**调度器**。
 > **主 Agent 绝对禁止直接使用 Edit/Write 工具编辑本阶段的任何产出文件。**
-> **所有文件编辑必须由专用 subagent 执行——pre-scanner 或 13 个文件级子代理。**
-> **主 Agent 不得代为写入任何 memory 文件或 file-index.yaml。**
+> **所有文件编辑必须由专用 subagent 执行——pre-scanner 或 11 个文件级子代理。**
+> **完整零编辑铁律见 `{{REFERENCES_PATH}}protocol.md`。**
 
 ---
 
 ### 🔴 架构概述：pre-scanner + 文件级子代理
 
-本阶段从 v3.1.0 起采用**双阶段多子代理架构**，从根本上解决微服务项目的上下文溢出和扫描不完整问题：
+本阶段采用**双阶段多子代理架构**，从根本上解决微服务项目的上下文溢出和扫描不完整问题：
 
 ```
 主 Agent（纯调度器，零编辑）
   │
   ├── Phase 0: pre-scanner subagent × 1
-  │     └── 全局 Quick Scan → file-index.yaml
+  │     └── 全局 Quick Scan + 模板文件初始化（mistakes.md/patterns.md）→ file-index.yaml
   │
-  └── Phase 1: 文件级子代理 × 13（5 批次并行 + 串行）
+  └── Phase 1: 文件级子代理 × 11（4 批次并行 + 串行）
         ├── Batch 1 (基础层, 3): project-overview, service-registry, architecture
         ├── Batch 2 (数据层, 3): common-modules, models, config
         ├── Batch 3 (行为层, 3): apis, utils, conventions
-        ├── Batch 4 (横切层, 2): dependency-graph, decisions
-        └── Batch 5 (模板层, 2): mistakes, patterns
+        └── Batch 4 (横切层, 2): dependency-graph, decisions
 ```
 
 **核心原理**：
-- **pre-scanner 只做一次目录遍历**，13 个子代理不再重复扫描
+- **pre-scanner 做一次目录遍历 + 初始化模板文件**，11 个子代理不再重复扫描
 - **每个文件子代理获得 file-index.yaml**，精确知道要读哪些源文件
 - **每个子代理拥有独立上下文**（~25-40KB），Smart Sampling 可从容执行甚至全量读取
 - **无需聚合器**——每个子代理直接写入目标 memory 文件，互不依赖
+- **模板文件（mistakes.md/patterns.md）由 pre-scanner 创建初始模板，后续在 Fix/Develop 阶段持续积累**
 
 ---
 
@@ -251,6 +251,34 @@ timestamp: "2026-06-05T23:30:00"
 
 > **⚠️ 目录自动创建**：pre-scanner 写入前必须检查并创建 `.dev-flow/memory/_index/` 目录。
 
+#### Step P3.5: 初始化模板文件
+
+> pre-scanner 在完成 file-index.yaml 后，顺便创建 mistakes.md 和 patterns.md 的初始模板。
+
+```
+pre-scanner 同时创建两个模板文件：
+
+文件: .dev-flow/memory/mistakes.md
+内容:
+  # 错误模式记录
+  <!-- last-updated: {timestamp} -->
+  > 本文件由 pre-scanner 初始化，在 Fix 阶段和开发过程中持续积累错误模式。
+
+  ## 已识别的错误模式
+  暂无记录，在 Fix 阶段和开发过程中持续积累。
+
+文件: .dev-flow/memory/patterns.md
+内容:
+  # 代码模式记录
+  <!-- last-updated: {timestamp} -->
+  > 本文件由 pre-scanner 初始化，在开发过程中持续积累代码模式。
+
+  ## 已识别的代码模式
+  暂无已识别的代码模式，后续开发中持续记录。
+```
+
+> **🔴 注意**：pre-scanner 创建的模板文件也必须包含 `@generated-by` 溯源注释。
+
 #### Step P4: pre-scanner 完成确认
 
 pre-scanner 输出汇总：
@@ -271,7 +299,8 @@ pre-scanner 输出汇总：
 
 ### 📦 Phase 1: 文件级子代理分批执行
 
-> **🎯 目标**：13 个文件子代理分 5 批执行，每个子代理负责写入一个 memory 文件。
+> **🎯 目标**：11 个文件子代理分 4 批执行，每个子代理负责写入一个 memory 文件。
+> 模板文件（mistakes.md/patterns.md）由 pre-scanner 在 Phase 0 创建，不单独占用子代理。
 > **核心原则**：每个子代理获得 `file-index.yaml` → 从中找到目标文件路径 → 读取源文件内容 → 提取信息 → 直接写入目标 memory 文件。
 > **独立性**：同一批次内的子代理**互不依赖**，可并行执行；不同批次间**无数据依赖**（所有信息来自 file-index.yaml + 源文件）。
 
@@ -462,32 +491,6 @@ completeness: 初始化 → 默认为 B（待后续积累）
 
 ---
 
-#### Batch 5：模板层（2 子代理，并行）
-
-> **批次说明**：这两个文件为模板文件，初始内容为"暂无"，后续在 Fix/Develop 阶段持续累积。
-
-##### 5a: mistakes-subagent
-```
-目标文件: .dev-flow/memory/mistakes.md
-输入: 无（模板文件）
-需读源码: 无
-产出内容:
-  - "暂无记录，在 Fix 阶段和开发过程中持续积累"
-completeness: N/A（模板）
-```
-
-##### 5b: patterns-subagent
-```
-目标文件: .dev-flow/memory/patterns.md
-输入: 无（模板文件）
-需读源码: 无
-产出内容:
-  - "暂无已识别的代码模式，后续开发中持续记录"
-completeness: N/A（模板）
-```
-
----
-
 #### 🔴 Phase 1 主 Agent 调度规则
 
 > **主 Agent 按以下批次顺序调度**，每批次内并行启动所有子代理。
@@ -511,23 +514,19 @@ Batch 3 (行为层): 并行启动 3 个子代理 → 等待全部完成
 Batch 4 (横切层): 并行启动 2 个子代理 → 等待全部完成
   ├── dependency-graph-subagent
   └── decisions-subagent
-
-Batch 5 (模板层): 并行启动 2 个子代理 → 等待全部完成
-  ├── mistakes-subagent
-  └── patterns-subagent
 ```
 
 **平台适配**：
 
 | 平台 | 最大并行 | 批次策略 | 说明 |
 |------|---------|---------|------|
-| Claude | 16 | 全额并行（14 个一次性） | 16 并发上限足够 |
+| Claude | 16 | 全额并行（12 个一次性） | 16 并发上限足够 |
 | Trae | 无限制 | 全额并行 | 无限制 |
 | Cursor | 多 Task | 全额并行 | 多 Task 调用 |
-| Qoder | 4 | 标准 5 批次 | 4 方向限制 |
-| Codex | 6 | 3 批次合并（5+5+4） | 6 线程限制 |
+| Qoder | 4 | 标准 4 批次 | 4 方向限制 |
+| Codex | 6 | 2 批次合并（6+6） | 6 线程限制 |
 
-> **Claude/Trae/Cursor**：可跳过批次限制，直接 14 个子代理一次性全并行（pre-scanner 完成后）。
+> **Claude/Trae/Cursor**：可跳过批次限制，直接 12 个子代理一次性全并行（pre-scanner 完成后）。
 
 **调度流程**：
 ```
@@ -562,7 +561,7 @@ Batch 5 (模板层): 并行启动 2 个子代理 → 等待全部完成
 
 > **主 Agent 执行**：汇总检查所有 13 个文件的状态。
 
-- [ ] 所有 13 个 memory 文件都已创建？（Grep 检查）
+- [ ] 所有 13 个 memory 文件都已创建？（含 2 个由 pre-scanner 创建的模板文件）
 - [ ] 每个文件大小 > 50 字节？（非空检查）
 - [ ] `common-modules.md` 包含依赖项目的类？（不能只有标题没有数据）
 - [ ] `dependency-graph.md` 包含 Maven 依赖 + Feign 调用？
@@ -593,7 +592,7 @@ Batch 5 (模板层): 并行启动 2 个子代理 → 等待全部完成
 | 服务数量 | X 个 |
 | 公共模块 | X 个 |
 | 跨服务调用 | X 个 Feign Client |
-| **扫描架构** | pre-scanner + 13 文件子代理（5 批次） |
+| **扫描架构** | pre-scanner + 11 文件子代理（4 批次） |
 | 中间件 | 列出所有中间件 |
 | 编码规范 | 从公共模块推断 |
 | memory 文件 | 13/13 已写入 ✅ |
@@ -607,7 +606,7 @@ Batch 5 (模板层): 并行启动 2 个子代理 → 等待全部完成
 | ORM | MyBatis-Plus / JPA |
 | 分层架构 | Controller / Service / Mapper / Entity / DTO / Enum / Config |
 | Entity/Service/Controller 数量 | X / X / X |
-| **扫描架构** | pre-scanner + 13 文件子代理（5 批次/全额并行） |
+| **扫描架构** | pre-scanner + 11 文件子代理（4 批次/全额并行） |
 | memory 文件 | 13/13 已写入 ✅ |
 
 **前端项目：**
@@ -617,7 +616,7 @@ Batch 5 (模板层): 并行启动 2 个子代理 → 等待全部完成
 | 语言 | TypeScript / JavaScript |
 | 框架 | React / Vue / Angular |
 | 组件/API 数量 | X / X |
-| **扫描架构** | pre-scanner + 13 文件子代理（5 批次/全额并行） |
+| **扫描架构** | pre-scanner + 11 文件子代理（4 批次/全额并行） |
 | memory 文件 | 13/13 已写入 ✅ |
 
 **暂停，等待用户确认。**
@@ -647,7 +646,7 @@ Batch 5 (模板层): 并行启动 2 个子代理 → 等待全部完成
 
 | # | 确认项 | 状态 |
 |---|--------|------|
-| 0 | **执行者审计**：本阶段由 pre-scanner + 13 文件子代理执行，主 Agent 未直接编辑任何文件 | ⬜ 待确认 |
+| 0 | **执行者审计**：本阶段由 pre-scanner + 11 文件子代理执行，主 Agent 未直接编辑任何文件 | ⬜ 待确认 |
 | 1 | 项目类型和架构已正确识别 | ⬜ 待确认 |
 | 2 | pre-scanner 已生成 file-index.yaml | ⬜ 待确认 |
 | 3 | 所有 13 个 memory 文件已创建且非空 | ⬜ 待确认 |
@@ -658,5 +657,7 @@ Batch 5 (模板层): 并行启动 2 个子代理 → 等待全部完成
 | 8 | 所有 memory 文件 completeness_level ≥ B | ⬜ 待确认 |
 
 **用户操作**：确认无误 → 回复 "确认" 进入 Analyze 阶段；需要重新扫描 → 指出遗漏项
+
+> **阶段确认机制和交付物协议详见 `{{REFERENCES_PATH}}protocol.md`。**
 
 ---

@@ -166,16 +166,53 @@ function safeRead(filePath, maxSize) {
 function findFile(dir, pattern) {
   if (!fs.existsSync(dir)) return null;
   const files = fs.readdirSync(dir);
-  const match = files.find(f => f.includes(pattern));
-  return match ? path.join(dir, match) : null;
+  // 精确匹配：优先完整文件名匹配，然后前缀匹配
+  const exact = files.find(f => f === pattern || f.startsWith(pattern + '.') || f.startsWith(pattern + '-'));
+  return exact ? path.join(dir, exact) : null;
 }
 
 function findDemandFile(prefix) {
   if (!fs.existsSync(DOCS_DIR)) return null;
   const files = fs.readdirSync(DOCS_DIR);
-  // 精确匹配
-  const exact = files.find(f => f.startsWith(prefix) || f.includes(prefix));
-  return exact ? path.join(DOCS_DIR, exact) : null;
+  // 精确匹配：前缀匹配 + .yaml/.md/.yml 扩展名
+  // 优先匹配 prefix-{suffix}.yaml，然后 prefix.yaml，然后 prefix-{suffix}.md
+  const yamlExts = ['.yaml', '.yml'];
+  const mdExts = ['.md'];
+
+  // 1. 精确前缀 + 扩展名匹配（如 "user-management-task-dag.yaml" 匹配前缀 "user-management-task-dag"）
+  for (const ext of [...yamlExts, ...mdExts]) {
+    const exact = files.find(f => f === `${prefix}${ext}`);
+    if (exact) return path.join(DOCS_DIR, exact);
+  }
+
+  // 2. 前缀 + 分隔符匹配（如 "user-management-task-dag.yaml" 匹配前缀 "user-management" + 后缀 "-task-dag"）
+  //    这里 prefix 是需求名（如 "user-management"），完整文件名是 "user-management-task-dag.yaml"
+  //    所以匹配 f.startsWith(prefix + '-') && f.endsWith(.yaml)
+  for (const ext of [...yamlExts, ...mdExts]) {
+    const prefixed = files.find(f => f.startsWith(prefix + '-') && f.endsWith(ext));
+    if (prefixed) return path.join(DOCS_DIR, prefixed);
+  }
+
+  // 3. 兜底：文件名包含 prefix（但必须是独立词边界，避免 user-management 匹配到 user-management-design-contract.yaml 而非 user-management-task-dag.yaml）
+  //    当有多个匹配时，优先选最长的（最精确的匹配）
+  const candidates = files.filter(f => {
+    const nameWithoutExt = f.replace(/\.(yaml|yml|md)$/, '');
+    // prefix 必须是文件名（去掉扩展名后）的前缀部分，通过 - 分隔
+    const parts = nameWithoutExt.split('-');
+    // 至少匹配前 N 段
+    const prefixParts = prefix.split('-');
+    return prefixParts.every((p, i) => parts[i] === p);
+  });
+
+  if (candidates.length === 1) return path.join(DOCS_DIR, candidates[0]);
+  if (candidates.length > 1) {
+    // 多个匹配，选最长的文件名（最精确）
+    candidates.sort((a, b) => b.length - a.length);
+    console.warn(`[WARN] findDemandFile('${prefix}') 匹配到多个文件，选择最精确的: ${candidates[0]} (候选: ${candidates.join(', ')})`);
+    return path.join(DOCS_DIR, candidates[0]);
+  }
+
+  return null;
 }
 
 // ============================================================

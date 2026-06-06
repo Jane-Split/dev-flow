@@ -84,6 +84,68 @@ const PLATFORM_CONFIG = {
 // 核心逻辑
 // ============================================================
 
+/**
+ * 处理 LANGUAGE-ONLY 标记
+ * 格式: <!-- LANGUAGE-ONLY: java -->内容<!-- /LANGUAGE-ONLY: java -->
+ * --lang 未指定时保留全部内容；指定时仅保留匹配语言 + 'all'
+ */
+function processLanguageOnly(content, targetLanguages) {
+  // 始终移除 LANGUAGE-ONLY 标记（它们是构建时标记，不应出现在运行时产物中）
+  // --lang 未指定时保留所有内容（仅移除标记），指定时仅保留匹配语言
+  const regex = /<!--\s*LANGUAGE-ONLY:\s*([a-zA-Z,\s]+)\s*-->([\s\S]*?)<!--\s*\/LANGUAGE-ONLY:\s*\1\s*-->/g;
+  content = content.replace(regex, (match, langList, innerContent) => {
+    if (targetLanguages && targetLanguages.length > 0) {
+      const allowedLangs = langList.split(',').map(s => s.trim().toLowerCase());
+      if (allowedLangs.includes('all') || allowedLangs.some(l => targetLanguages.includes(l))) {
+        return innerContent;
+      }
+      return ''; // 移除不匹配语言的内容
+    }
+    return innerContent; // 无 --lang 时保留所有内容
+  });
+  // 清理连续空行
+  content = content.replace(/(\r?\n){3,}/g, '\r\n\r\n');
+  return content;
+}
+
+/**
+ * 解析 YAML frontmatter 并处理平台特定内容
+ * 支持 platforms: [trae] / platforms: [cursor, claude] / platforms: [all]
+ * 内容标记: <!-- PLATFORM-ONLY: trae -->...<!-- /PLATFORM-ONLY: trae -->
+ */
+function processFrontmatter(content, targetPlatform, config) {
+  const frontmatterMatch = content.match(/^---\n([\s\S]*?)\n---\n/);
+  if (!frontmatterMatch) return content;
+
+  const fm = frontmatterMatch[1];
+  const lines = fm.split('\n');
+  let platforms = null;
+
+  for (const line of lines) {
+    const match = line.match(/^platforms:\s*\[([^\]]+)\]/);
+    if (match) {
+      platforms = match[1].split(',').map(s => s.trim());
+    }
+  }
+
+  // 如果 platforms 字段存在但当前平台不在列表中，且列表不含 'all'
+  // 则仅处理 frontmatter 中的平台标记（不隐藏整个文件）
+  // platforms 字段主要用于元数据声明，不影响内容过滤
+
+  // 处理 PLATFORM-ONLY 标记（比 TRAE-ONLY 更灵活）
+  // 格式: <!-- PLATFORM-ONLY: trae,cursor -->内容<!-- /PLATFORM-ONLY: trae,cursor -->
+  const platformOnlyRegex = /<!--\s*PLATFORM-ONLY:\s*([a-zA-Z,\s]+)\s*-->([\s\S]*?)<!--\s*\/PLATFORM-ONLY:\s*\1\s*-->/g;
+  content = content.replace(platformOnlyRegex, (match, platformList, innerContent) => {
+    const allowedPlatforms = platformList.split(',').map(s => s.trim().toLowerCase());
+    if (allowedPlatforms.includes('all') || allowedPlatforms.includes(targetPlatform)) {
+      return innerContent;
+    }
+    return ''; // 移除不属于当前平台的内容
+  });
+
+  return content;
+}
+
 function escapeRegex(str) {
   return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
@@ -134,7 +196,7 @@ function processStageContent(content, stripTraeOnly) {
 /**
  * 生成单个平台的输出文件
  */
-function generatePlatform(platform, config) {
+function generatePlatform(platform, config, targetLanguages) {
   const outputDir = path.join(ROOT, config.outputDir);
   const outputFile = path.join(outputDir, config.outputFile);
   const agentsDir = path.join(outputDir, 'agents');
@@ -148,6 +210,8 @@ function generatePlatform(platform, config) {
   }
   const coreContent = fs.readFileSync(CORE_SKILL, 'utf-8');
   let processed = processSkillContent(coreContent, config.stripTraeOnly);
+  // 平台 frontmatter 处理
+  processed = processFrontmatter(processed, platform, config);
 
   // 平台特定路径替换（{{STAGES_PATH}} 和 {{AGENTS_PATH}}）
   if (config.stagesPath) {
@@ -159,6 +223,9 @@ function generatePlatform(platform, config) {
   if (config.referencesPath) {
     processed = processed.replace(/\{\{REFERENCES_PATH\}\}/g, config.referencesPath);
   }
+
+  // LANGUAGE-ONLY 过滤
+  processed = processLanguageOnly(processed, targetLanguages);
 
   if (config.formatCodex) {
     processed = convertToCodexFormat(processed);
@@ -181,6 +248,20 @@ function generatePlatform(platform, config) {
       const src = path.join(CORE_STAGES, stageFile);
       let content = fs.readFileSync(src, 'utf-8');
       content = processStageContent(content, config.stripTraeOnly);
+      // 平台 frontmatter 处理
+      content = processFrontmatter(content, platform, config);
+      // 平台特定路径替换
+      if (config.stagesPath) {
+        content = content.replace(/\{\{STAGES_PATH\}\}/g, config.stagesPath);
+      }
+      if (config.agentsPath) {
+        content = content.replace(/\{\{AGENTS_PATH\}\}/g, config.agentsPath);
+      }
+      if (config.referencesPath) {
+        content = content.replace(/\{\{REFERENCES_PATH\}\}/g, config.referencesPath);
+      }
+      // LANGUAGE-ONLY 过滤
+      content = processLanguageOnly(content, targetLanguages);
       const dst = path.join(stagesDir, stageFile);
       fs.writeFileSync(dst, content, 'utf-8');
     }
@@ -199,6 +280,8 @@ function generatePlatform(platform, config) {
       const src = path.join(CORE_REFERENCES, refFile);
       let content = fs.readFileSync(src, 'utf-8');
       content = processStageContent(content, config.stripTraeOnly);
+      // 平台 frontmatter 处理
+      content = processFrontmatter(content, platform, config);
       // 平台路径替换
       if (config.stagesPath) {
         content = content.replace(/\{\{STAGES_PATH\}\}/g, config.stagesPath);
@@ -209,6 +292,8 @@ function generatePlatform(platform, config) {
       if (config.referencesPath) {
         content = content.replace(/\{\{REFERENCES_PATH\}\}/g, config.referencesPath);
       }
+      // LANGUAGE-ONLY 过滤
+      content = processLanguageOnly(content, targetLanguages);
       const dst = path.join(referencesDir, refFile);
       fs.writeFileSync(dst, content, 'utf-8');
     }
@@ -232,6 +317,11 @@ function generatePlatform(platform, config) {
       if (config.agentsPath) {
         content = content.replace(/\{\{AGENTS_PATH\}\}/g, config.agentsPath);
       }
+      if (config.referencesPath) {
+        content = content.replace(/\{\{REFERENCES_PATH\}\}/g, config.referencesPath);
+      }
+      // LANGUAGE-ONLY 过滤
+      content = processLanguageOnly(content, targetLanguages);
       const dst = path.join(agentsDir, agent);
       fs.writeFileSync(dst, content, 'utf-8');
     }
@@ -274,7 +364,7 @@ function convertToCodexFormat(content) {
 /**
  * 校验模式
  */
-function verifyPlatform(platform, config) {
+function verifyPlatform(platform, config, targetLanguages) {
   const outputDir = path.join(ROOT, config.outputDir);
   const outputFile = path.join(outputDir, config.outputFile);
   const agentsDir = path.join(outputDir, 'agents');
@@ -288,6 +378,7 @@ function verifyPlatform(platform, config) {
   } else {
     const coreContent = fs.readFileSync(CORE_SKILL, 'utf-8');
     let generated = processSkillContent(coreContent, config.stripTraeOnly);
+    generated = processFrontmatter(generated, platform, config);
     // 平台特定路径替换
     if (config.stagesPath) {
       generated = generated.replace(/\{\{STAGES_PATH\}\}/g, config.stagesPath);
@@ -298,6 +389,8 @@ function verifyPlatform(platform, config) {
     if (config.referencesPath) {
       generated = generated.replace(/\{\{REFERENCES_PATH\}\}/g, config.referencesPath);
     }
+    // LANGUAGE-ONLY 过滤
+    generated = processLanguageOnly(generated, targetLanguages);
     if (config.formatCodex) {
       generated = convertToCodexFormat(generated);
     }
@@ -325,6 +418,19 @@ function verifyPlatform(platform, config) {
       } else {
         let content = fs.readFileSync(src, 'utf-8');
         content = processStageContent(content, config.stripTraeOnly);
+        content = processFrontmatter(content, platform, config);
+        // 平台特定路径替换（与 generatePlatform 保持一致）
+        if (config.stagesPath) {
+          content = content.replace(/\{\{STAGES_PATH\}\}/g, config.stagesPath);
+        }
+        if (config.agentsPath) {
+          content = content.replace(/\{\{AGENTS_PATH\}\}/g, config.agentsPath);
+        }
+        if (config.referencesPath) {
+          content = content.replace(/\{\{REFERENCES_PATH\}\}/g, config.referencesPath);
+        }
+        // LANGUAGE-ONLY 过滤
+        content = processLanguageOnly(content, targetLanguages);
         const original = fs.readFileSync(dst, 'utf-8');
         if (content !== original) {
           console.log(`  \u2717 stage 不一致: ${sf}`);
@@ -371,6 +477,7 @@ dev-flow 跨平台构建脚本
   node scripts/build.cjs <p> --verify # 校验指定平台
 
 支持的平台: ${Object.keys(PLATFORM_CONFIG).join(', ')}
+支持的语言: java, typescript, python, go
 
 架构:
   _core/SKILL.md (Router ~25KB) → 各平台主文件
@@ -382,6 +489,13 @@ dev-flow 跨平台构建脚本
 
   const isVerify = args.includes('--verify');
   const targetPlatforms = args.filter(a => PLATFORM_CONFIG[a]);
+
+  // 解析 --lang 参数（语言过滤，用于 LANGUAGE-ONLY 标记）
+  let targetLanguages = [];
+  const langIdx = args.indexOf('--lang');
+  if (langIdx !== -1 && args[langIdx + 1]) {
+    targetLanguages = args[langIdx + 1].split(',').map(s => s.trim().toLowerCase());
+  }
 
   const platforms = targetPlatforms.length > 0
     ? Object.fromEntries(targetPlatforms.map(p => [p, PLATFORM_CONFIG[p]]))
@@ -396,7 +510,7 @@ dev-flow 跨平台构建脚本
         continue;
       }
       console.log(`[${platform}]`);
-      const passed = verifyPlatform(platform, config);
+      const passed = verifyPlatform(platform, config, targetLanguages);
       if (!passed) allPassed = false;
     }
     console.log(`\n=== 校验结果: ${allPassed ? '全部通过 \u2713' : '存在差异 \u2717'} ===`);
@@ -405,7 +519,11 @@ dev-flow 跨平台构建脚本
     console.log(`核心文件: ${CORE_SKILL}`);
     console.log(`阶段指令: ${CORE_STAGES}`);
     console.log(`Agent文件: ${CORE_AGENTS}`);
-    console.log(`目标平台: ${Object.keys(platforms).join(', ')}\n`);
+    console.log(`目标平台: ${Object.keys(platforms).join(', ')}`);
+    if (targetLanguages.length > 0) {
+      console.log(`语言过滤: ${targetLanguages.join(', ')} (仅保留匹配语言内容)`);
+    }
+    console.log('');
 
     for (const [platform, config] of Object.entries(platforms)) {
       if (config.skipAutoGen) {
@@ -413,7 +531,7 @@ dev-flow 跨平台构建脚本
         continue;
       }
       try {
-        generatePlatform(platform, config);
+        generatePlatform(platform, config, targetLanguages);
       } catch (err) {
         console.error(`[${platform}] \u2717 生成失败: ${err.message}`);
       }

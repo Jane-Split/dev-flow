@@ -510,6 +510,7 @@ test_status: passed|failed|not_tested
 > 以下规范与 Java 规范并列，根据 `task-context.yaml` 中的 `language` 字段选择对应路径执行。
 > **原则**：不改动现有 Java 路径，以下为追加的非 Java 语言验证规则。
 
+<!-- LANGUAGE-ONLY: typescript -->
 ### 🟦 TypeScript/Node.js 实现规范
 
 #### 项目特征检测
@@ -595,8 +596,9 @@ TypeScript/Node.js 的 import 路径规则：
 - Express 项目使用 express-async-errors 处理异步异常
 ```
 
----
+<!-- /LANGUAGE-ONLY: typescript -->
 
+<!-- LANGUAGE-ONLY: python -->
 ### 🐍 Python 实现规范
 
 #### 项目特征检测
@@ -672,8 +674,9 @@ TypeScript/Node.js 的 import 路径规则：
 - 使用 ruff 或 black 统一代码格式
 ```
 
----
+<!-- /LANGUAGE-ONLY: python -->
 
+<!-- LANGUAGE-ONLY: go -->
 ### 🐹 Go 实现规范
 
 #### 项目特征检测
@@ -760,6 +763,8 @@ Go 的接收者方法特殊格式：
 - 使用 golangci-lint 进行静态检查
 - 项目布局遵循 golang-standards/project-layout
 ```
+
+<!-- /LANGUAGE-ONLY: go -->
 
 ---
 

@@ -89,18 +89,35 @@ function validateResult(taskId, demandName) {
       }
     }
 
-    // 空方法体检查（Java）
-    const emptyMethodMatches = fileContent.match(/(public|protected|private)\s+\S+\s+\w+\([^)]*\)\s*\{\s*\}/g) || [];
+    // 空方法体检查（Java/TS/多语言）— 支持注解、泛型、多参数
+    const emptyMethodPatterns = [
+      // Java: 含注解的空方法
+      /@\w+(?:\([^)]*\))?\s*\n?\s*(?:public|protected|private|static|\s)*\w+(?:<[^>]*>)?\s+\w+\([^)]*\)\s*(?:throws\s+[\w,\s]+)?\s*\{\s*\}/g,
+      // Java: 普通空方法（含泛型）
+      /(?:public|protected|private)\s+(?:static\s+)?\w+(?:<[^>]*>)\s+\w+\([^)]*\)\s*(?:throws\s+[\w,\s]+)?\s*\{\s*\}/g,
+      // TypeScript: 空方法/函数
+      /(?:public|private|protected|async\s+)?(?:static\s+)?\w+(?:<[^>]*>)?\s*\([^)]*\)\s*(?::\s*[^{]+)?\s*\{\s*\}/g,
+      // Python: pass-only 方法
+      /def\s+\w+\([^)]*\):\s*\n\s+pass\s*\n/g,
+      // Go: 空函数体
+      /func\s+(?:\([^)]*\)\s+)?\w+\([^)]*\)\s*(?:\([^)]*\)\s+)?\{\s*\}/g,
+    ];
+    const emptyMethodMatches = [];
+    for (const pattern of emptyMethodPatterns) {
+      const matches = fileContent.match(pattern) || [];
+      emptyMethodMatches.push(...matches);
+    }
     if (emptyMethodMatches.length > 0) {
       for (const m of emptyMethodMatches) {
         errors.push(`[${path.basename(filePath)}] 空方法体: ${m.trim().substring(0, 80)}`);
       }
     }
 
-    // 日志替代业务逻辑检查
-    const logOnlyMethods = fileContent.match(/(public|protected|private)\s+\S+\s+\w+\([^)]*\)[^{]*\{[^}]*log\.(info|warn|debug|error)\([^)]*\)[^}]*\}/g) || [];
-    if (logOnlyMethods.length > 0) {
-      for (const m of logOnlyMethods) {
+    // 日志替代业务逻辑检查（多行方法体）
+    const logOnlyPattern = /(?:public|protected|private)\s+\S+\s+\w+\([^)]*\)[^{]*\{(?:[^}]*log\.(info|warn|debug|error)\([^)]*\)[^}]*)+return\s+(?:null|void|Optional\.empty|ResponseEntity\.ok)\s*;?\s*\}/g;
+    const logOnlyMatches = fileContent.match(logOnlyPattern) || [];
+    if (logOnlyMatches.length > 0) {
+      for (const m of logOnlyMatches) {
         warnings.push(`[${path.basename(filePath)}] 方法体仅含日志: ${m.trim().substring(0, 80)}`);
       }
     }
@@ -110,6 +127,39 @@ function validateResult(taskId, demandName) {
     if (returnNullMatches.length > 0) {
       for (const rn of returnNullMatches) {
         warnings.push(`[${path.basename(filePath)}] 发现 return null: ${rn.trim()}`);
+      }
+    }
+
+    // 5.5 TypeScript/Python/Go 基础校验
+    const ext = path.extname(filePath).toLowerCase();
+    if (ext === '.ts' || ext === '.tsx') {
+      // TypeScript: 检查 any 类型滥用
+      const anyMatches = fileContent.match(/:\s*any\b/g) || [];
+      if (anyMatches.length > 0) {
+        warnings.push(`[${path.basename(filePath)}] 发现 ${anyMatches.length} 处 any 类型使用`);
+      }
+      // TypeScript: 检查 @ts-ignore / @ts-nocheck
+      const tsIgnoreMatches = fileContent.match(/@ts-ignore|@ts-nocheck/g) || [];
+      if (tsIgnoreMatches.length > 0) {
+        warnings.push(`[${path.basename(filePath)}] 发现 ${tsIgnoreMatches.length} 处 @ts-ignore/@ts-nocheck`);
+      }
+    } else if (ext === '.py') {
+      // Python: 检查 bare except
+      const bareExceptMatches = fileContent.match(/except\s*:/g) || [];
+      if (bareExceptMatches.length > 0) {
+        warnings.push(`[${path.basename(filePath)}] 发现 ${bareExceptMatches.length} 处 bare except（应指定具体异常类型）`);
+      }
+      // Python: 检查 pass 占位（非 __init__ 或抽象方法）
+      const passMatches = fileContent.match(/def\s+(\w+)\([^)]*\):\s*\n\s+pass/g) || [];
+      const abstractPass = fileContent.match(/def\s+(\w+)\([^)]*\):\s*\n\s+pass.*#\s*abstract/g) || [];
+      if (passMatches.length > abstractPass.length) {
+        warnings.push(`[${path.basename(filePath)}] 发现 ${passMatches.length - abstractPass.length} 处 pass 占位方法`);
+      }
+    } else if (ext === '.go') {
+      // Go: 检查 panic 占位
+      const panicMatches = fileContent.match(/panic\s*\(\s*"(?:todo|not implemented|TODO|fixme)"\s*\)/gi) || [];
+      if (panicMatches.length > 0) {
+        errors.push(`[${path.basename(filePath)}] 发现 ${panicMatches.length} 处 panic 占位`);
       }
     }
   }
@@ -174,7 +224,7 @@ function checkContractConsistency(contractFile, completedFiles, projectRoot) {
     const serviceMethods = [];
     const serviceBlocks = contractContent.split(/\n(?=  \w+\s*$)/);
     for (const block of serviceBlocks) {
-      const methodMatches = block.match(/-\s*name:\s*"(\w+)"\s*\n\s*params:\s*\[([^\]]*)\]\s*\n\s*returnType:\s*"?(\w+)"?/);
+      const methodMatches = block.match(/-\s*name:\s*["'](\w+)["']\s*\n\s*params:\s*\[([^\]]*)\]\s*\n\s*returnType:\s*["']?([^"'\n]+?)["']?\s*(?:\n|$)/);
       for (const m of methodMatches) {
         serviceMethods.push({ name: m[1], params: m[2], returnType: m[3] });
       }
@@ -204,11 +254,30 @@ function checkContractConsistency(contractFile, completedFiles, projectRoot) {
   return { errors, warnings };
 }
 
-function findDemandFile(pattern) {
+function findDemandFile(prefix) {
   if (!fs.existsSync(DOCS_DIR)) return null;
   const files = fs.readdirSync(DOCS_DIR);
-  const match = files.find(f => f.includes(pattern));
-  return match ? path.join(DOCS_DIR, match) : null;
+  // 精确匹配：优先完整文件名 → 前缀+分隔符 → 词边界
+  for (const ext of ['.yaml', '.yml', '.md']) {
+    const exact = files.find(f => f === `${prefix}${ext}`);
+    if (exact) return path.join(DOCS_DIR, exact);
+  }
+  for (const ext of ['.yaml', '.yml', '.md']) {
+    const prefixed = files.find(f => f.startsWith(prefix + '-') && f.endsWith(ext));
+    if (prefixed) return path.join(DOCS_DIR, prefixed);
+  }
+  const candidates = files.filter(f => {
+    const nameWithoutExt = f.replace(/\.(yaml|yml|md)$/, '');
+    const prefixParts = prefix.split('-');
+    const parts = nameWithoutExt.split('-');
+    return prefixParts.every((p, i) => parts[i] === p);
+  });
+  if (candidates.length === 1) return path.join(DOCS_DIR, candidates[0]);
+  if (candidates.length > 1) {
+    candidates.sort((a, b) => b.length - a.length);
+    return path.join(DOCS_DIR, candidates[0]);
+  }
+  return null;
 }
 
 // ============================================================

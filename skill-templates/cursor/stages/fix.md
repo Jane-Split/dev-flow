@@ -26,6 +26,7 @@ type: stage-instruction
 > **⚠️ 最高优先级**：主 Agent 在本阶段的唯一角色是**调度器**。
 > **主 Agent 绝对禁止直接使用 Edit/Write 工具编辑本阶段的任何产出文件。**
 > **所有文件编辑必须由 fix-expert subagent 执行。**
+> **完整零编辑铁律、失败硬阻断规则、交付物协议见 `.cursor/references/protocol.md`。**
 
 ### 执行步骤
 
@@ -260,5 +261,7 @@ fixes:
 | 6 | Fix 报告已输出 | ⬜ 待确认 |
 
 **用户操作**：确认修复完成 → 回复 "确认" 返回测试阶段重测（系统写入确认文件）；仍有问题 → 指出遗留问题
+
+> **阶段确认机制和交付物协议详见 `.cursor/references/protocol.md`。**
 
 ---

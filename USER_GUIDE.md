@@ -12,11 +12,8 @@
   - [5.3 Design（详细设计）](#53-design详细设计)
   - [5.4 Task Split（智能任务拆分）](#54-task-split智能任务拆分)
   - [5.5 Develop（开发执行）](#55-develop开发执行)
-  - [5.6 Unit Test（单元测试）](#56-unit-test单元测试)
-  - [5.7 Smoke Test（冒烟测试）](#57-smoke-test冒烟测试)
-  - [5.8 E2E Test（端到端测试）](#58-e2e-test端到端测试)
-  - [5.9 Integration Test（集成测试）](#59-integration-test集成测试)
-  - [5.10 Fix（Bug 修复）](#510-fixbug-修复)
+  - [5.6 Test（统一测试）](#56-test统一测试)
+  - [5.7 Fix（Bug 修复）](#57-fixbug-修复)
 - [6. Subagent 模式](#6-subagent-模式)
   - [6.1 什么是 Subagent 模式](#61-什么是-subagent-模式)
   - [6.2 适用场景](#62-适用场景)
@@ -31,50 +28,20 @@
 - [7. Hotfix 模式](#7-hotfix-模式)
 - [8. 断点续传](#8-断点续传)
 - [9. 记忆系统](#9-记忆系统)
-  - [9.1 长期记忆](#91-长期记忆)
-  - [9.2 会话记忆](#92-会话记忆)
-  - [9.3 记忆使用和更新规则](#93-记忆使用和更新规则)
-  - [9.4 记忆清理](#94-记忆清理)
 - [10. 学习能力](#10-学习能力)
 - [11. v1.0.2 新特性](#11-v102-新特性)
 - [12. v1.0.3 新特性](#12-v103-新特性)
 - [13. v1.0.4 新特性](#13-v104-新特性)
 - [14. v1.0.5 架构优化](#14-v105-架构优化)
 - [15. v2.0.0 架构升级](#15-v200-架构升级)
-  - [15.1 四层按需加载架构](#151-四层按需加载架构)
-  - [15.2 会话/长期记忆分离](#152-会话长期记忆分离)
-  - [15.3 Agent 智能拆分](#153-agent-智能拆分)
-  - [15.4 完整测试覆盖与 CI](#154-完整测试覆盖与-ci)
-  - [15.5 参考文件（References）](#155-参考文件references)
 - [16. v2.1.0 验证闭环强化](#16-v210-验证闭环强化)
-  - [16.1 设计→代码逻辑回溯验证（Step 4.3）](#161-设计代码逻辑回溯验证step-43)
-  - [16.2 逻辑步骤标注规范](#162-逻辑步骤标注规范)
-  - [16.3 多层验证闭环](#163-多层验证闭环)
-  - [16.4 验证 Agent 分工矩阵](#164-验证-agent-分工矩阵)
-  - [16.5 调度引擎增强](#165-调度引擎增强)
-  - [16.6 contract-validator R5 规则](#166-contract-validator-r5-规则)
-- [17. v3.0.0 上下文注入革命 + 结构化分段生成](#17-v300-上下文注入革命--结构化分段生成)
-  - [17.1 上下文自动注入系统](#171-上下文自动注入系统)
-  - [17.2 50KB 硬约束全面移除](#172-50kb-硬约束全面移除)
-  - [17.3 结构化代码分段生成](#173-结构化代码分段生成)
-  - [17.4 自动产出校验系统](#174-自动产出校验系统)
+- [17. v3.0.0 上下文注入革命](#17-v300-上下文注入革命--结构化分段生成)
 - [18. v3.1.0 主 Agent 零编辑架构](#18-v310-主-agent-零编辑架构)
-  - [18.1 零编辑铁律](#181-零编辑铁律)
-  - [18.2 统一 Subagent 执行模型](#182-统一-subagent-执行模型)
-  - [18.3 业务代码优先铁律](#183-业务代码优先铁律)
-  - [18.4 阶段执行者审计](#184-阶段执行者审计)
-  - [18.5 主 Agent 调度协议](#185-主-agent-调度协议)
 - [19. v3.1.0 实践问题修复](#19-v310-实践问题修复)
-  - [19.1 问题 1：Research 阶段 memory 文档完整度提升](#191-问题-1research-阶段-memory-文档完整度提升)
-  - [19.2 问题 2：阶段审批机制补全](#192-问题-2阶段审批机制补全)
-  - [19.3 问题 3：Subagent 失败硬阻断规则](#193-问题-3subagent-失败硬阻断规则)
 - [20. v3.1.0 Research 多子代理分批架构](#20-v310-research-多子代理分批架构)
-  - [20.1 为什么需要多子代理](#201-为什么需要多子代理)
-  - [20.2 架构概览](#202-架构概览)
-  - [20.3 Phase 0：pre-scanner 全局索引](#203-phase-0pre-scanner-全局索引)
-  - [20.4 Phase 1：13 文件子代理 5 批次并行](#204-phase-113-文件子代理-5-批次并行)
-  - [20.5 平台自适应调度](#205-平台自适应调度)
-- [21. 常见问题](#21-常见问题)
+- [21. v3.2.0 架构精益化](#21-v320-架构精益化)
+- [22. v3.3.0 Router 上下文链优化](#22-v330-router-上下文链优化)
+- [23. 常见问题](#23-常见问题)
 
 ---
 
@@ -82,37 +49,23 @@
 
 dev-flow 是一个 AI 开发全流程编排 Skill，适用于 Cursor、Trae、Qoder、Claude Code、OpenAI Codex 等 AI 编程工具。
 
-它通过结构化的 11 阶段流程（Research → Analyze → Design → Task Split → Develop → Unit Test → Smoke Test → E2E Test → Integration Test → Fix → Delivery），让 AI 编程工具按步骤执行开发任务，避免跳过重要步骤、生成不一致代码、遗漏边界情况等问题。
+它通过结构化的 **8 阶段流程**（Research → Analyze → Design → Task Split → Develop → Test → Fix(按需) → Delivery），让 AI 编程工具按步骤执行开发任务，避免跳过重要步骤、生成不一致代码、遗漏边界情况等问题。
 
 **核心特点**：
 - 每个阶段完成后输出**结构化确认 Checklist**，逐项确认后才可进入下一阶段
 - 自动记忆项目结构和编码规范，后续开发自动遵守
 - 具备学习能力，使用越多越了解你的偏好
-- **跨平台 Subagent 调度策略**（v2.0.0）：Trae 原生并行，Cursor/Claude/Qoder 顺序模拟并行
-- **任务冲突检测**（v2.0.0）：并行任务间文件读写冲突自动检测和批次修正
-- **端到端测试**（v2.0.0）：Java @SpringBootTest 完整链路 + Playwright 浏览器测试
-- **强制编译验证**（v2.0.0）：开发完成必须编译，失败自动修复循环
-- **Design Contract 多语言**（v2.0.0）：Java / TypeScript / Python / Go 接口契约
-- **结构化业务逻辑**（v1.0.2）：设计阶段输出结构化决策表，消除自然语言歧义
-- **编译验证闭环**（v1.0.2）：开发完成后自动编译验证，解析错误并自动修复
-- **契约一致性校验**（v1.0.2）：自动验证代码与设计契约的一致性
-- **错误经验学习**（v1.0.2）：从历史错误中提取模式，生成预防策略
-- **步骤强制执行**（v1.0.3）：Step Enforcer 验证关键步骤完成质量，防止跳过
-- **错误模式自动应用**（v1.0.3）：自动将学习到的模式应用到 Agent 指导
-- **三层按需加载架构**（v1.0.5）：上下文占用从 357KB 降至 79KB，代码生成可用空间提升至 50%
-- **代码完整性铁律**（v1.0.5）：正面规则 + 生产可用测试，确保代码 100% 完整实现
-- **全平台防护统一**（v1.0.5）：step-enforcer 等防护 agent 全平台共享，不再仅限 Trae
-- **设计→代码逻辑回溯验证**（v2.1.0）：Step 4.3 强制验证设计文档中每个逻辑步骤都有代码实现，覆盖率 100%
-- **多层验证闭环**（v2.1.0）：orchestrator 整合自检 → contract-validator → verify-expert 三层防线
-- **验证 Agent 分工矩阵**（v2.1.0）：5 个验证 Agent 明确分工和执行时机
-- **调度引擎增强**（v2.1.0）：循环依赖检测、文件级冲突检测、DAG 自动修复
-- **四层按需加载 + References 层**（v2.0.0）：Router 从 27KB 精简至 17KB，新增 4 个按需参考文档
-- **会话/长期记忆分离**（v2.0.0）：会话记忆每次 Research 自动重建，长期记忆跨会话累积
-- **Agent 智能拆分**（v2.0.0）：大 Agent 核心保留，模式库外置为 references 按需加载
-- **完整测试覆盖 + CI**（v2.0.0）：4 套自动化测试 + GitHub Actions CI
 - **主 Agent 零编辑架构**（v3.1.0）：主 Agent 仅作为纯调度枢纽，所有文件操作由专门阶段 Subagent 执行
-- **统一 Subagent 执行模型**（v3.1.0）：移除"标准模式 + Subagent 模式"二元结构，所有阶段统一由 Subagent 执行
-- **业务代码优先铁律**（v3.1.0）：Develop 阶段强制业务代码优先于测试代码
+- **8 阶段流程**（v3.2.0）：Research → Analyze → Design → Task Split → Develop → Test → Fix(按需) → Delivery
+- **两档运行模式**（v3.2.0）：标准模式（串行 Subagent）/ 企业级模式（并行 Subagent）
+- **两层门禁检查**（v3.2.0）：Gate-A（前置完整性）/ Gate-B（执行者审计）
+- **LANGUAGE-ONLY 按语言过滤**（v3.3.0）：构建时按项目类型过滤多语言规范，减少 subagent 上下文负载
+- **阶段历史压缩**（v3.3.0）：每阶段确认后自动压缩为结构化摘要，防止主 Agent 上下文溢出
+- **Research 多子代理架构**（v3.1.0）：pre-scanner + 11 文件子代理 4 批次并行
+- **上下文自动注入**（v3.0.0）：Subagent 派发前自动收集完整上下文
+- **结构化代码分段生成**（v3.0.0）：大文件自动启用"骨架+逐方法填充"
+- **设计→代码逻辑回溯验证**（v2.1.0）：Step 4.3 强制验证覆盖率 100%
+- **Design Contract 多语言**：Java / TypeScript / Python / Go 接口契约
 
 ## 2. 安装
 
@@ -307,7 +260,7 @@ AI 将按以下流程执行，针对 Java 项目的特点进行适配：
 
 | 命令 | 说明 |
 |------|------|
-| `/dev-flow <需求描述>` | 执行完整流程：Research → Analyze → Design → Develop → Unit Test → Smoke Test → E2E Test → Integration Test → Fix → Delivery |
+| `/dev-flow <需求描述>` | 执行完整流程：Research → Analyze → Design → Task Split → Develop → Test → Fix(按需) → Delivery |
 
 ### 单阶段模式
 
@@ -318,13 +271,10 @@ AI 将按以下流程执行，针对 Java 项目的特点进行适配：
 | `/dev-flow -design <需求>` | 仅执行详细设计 | 需要先看设计方案再开发 |
 | `/dev-flow -split <需求>` | 仅执行任务拆分（方案C） | 需要将设计拆分为可并行的子任务 |
 | `/dev-flow -develop <需求>` | 直接开发（跳过设计和拆分） | 小需求，不需要详细设计和任务拆分 |
-| `/dev-flow -test` | 生成单元测试并执行 | 已有代码，需要补充测试 |
-| `/dev-flow -smoke` | 执行冒烟测试 | 开发完成后快速验证核心流程 |
-| `/dev-flow -e2e` | 执行端到端测试 | 冒烟测试通过后，验证功能正确性 |
-| `/dev-flow -integration` | 执行集成测试 | 端到端测试通过后，验证跨服务/跨模块集成 |
+| `/dev-flow -test` | 统一测试（单元+冒烟+E2E+集成） | 已有代码，需要完整测试验证 |
 | `/dev-flow -fix` | 分析并修复 Bug | 测试失败，需要修复 |
 | `/dev-flow -hotfix <错误信息>` | 紧急修复线上错误 | 生产环境报错，需要快速修复 |
-| `/dev-flow -subagent <需求>` | Subagent 并行模式 | 复杂任务，涉及多服务/多模块 |
+| `/dev-flow -subagent <需求>` | 企业级并行 Subagent 模式 | 复杂任务，涉及多服务/多模块 |
 
 ### 断点续传
 
@@ -531,68 +481,36 @@ provides:            # 本任务对外提供的接口
 - AI 会自动复用已有的组件和工具函数
 - v3.0.0: 大文件（>20KB）自动启用结构化分段生成，确保代码质量和完整性
 
-### 5.6 Unit Test（单元测试）
+### 5.6 Test（统一测试）
 
-**做什么**：AI 为开发的代码生成单元测试用例并执行。
+> **v3.2.0 架构优化**：原独立的 Unit Test / Smoke Test / E2E Test / Integration Test 四个阶段合并为统一 Test 阶段，按顺序执行四种测试。
+
+**做什么**：AI 为开发的代码生成测试用例并执行，按"单元测试 → 冒烟测试 → E2E测试 → 集成测试"顺序逐步验证。
 
 **执行步骤**：
-1. 为每个模块生成测试用例（组件测试、API 测试、工具函数测试）
-2. 确保覆盖正常流程、异常流程、边界情况
-3. 运行测试命令（npm test / pytest / mvn test）
-4. 生成测试报告
-5. 输出**结构化确认 Checklist**
+1. 读取项目记忆和设计文档
+2. **单元测试**：为每个模块生成测试用例（组件测试、API 测试、工具函数测试），覆盖正常/异常/边界情况，运行 `npm test` / `pytest` / `mvn test`
+3. **冒烟测试**：启动服务，快速验证核心业务流程可运行（curl 或手动调用核心 API）
+4. **E2E 测试**：使用自动化测试脚本验证完整业务流程链路（Java @SpringBootTest / Playwright / pytest httpx.AsyncClient / Gin httptest）
+5. **集成测试**：验证跨服务/跨模块集成正确性（Feign Client 端点匹配、跨服务数据一致性、接口契约一致性）
+6. 生成统一测试报告 `06-test-report.md`
+7. 输出**结构化确认 Checklist**
 
 **测试覆盖要求**：
 - 行覆盖 ≥ 90%，方法覆盖 ≥ 95%
 - 每个功能点至少有一个测试用例
 - 禁止只测试渲染而不测试交互
 
-### 5.7 Smoke Test（冒烟测试）
-
-**做什么**：快速验证核心业务流程可运行。
-
-**执行步骤**：
-1. 启动服务（如需要）
-2. 使用 curl 或手动方式调用核心 API
-3. 验证基本功能是否可用
-4. 输出冒烟测试报告
-5. 输出**结构化确认 Checklist**
-
-### 5.8 E2E Test（端到端测试）
-
-> **v2.0.0 新增阶段**。冒烟测试通过后执行，验证功能是否正确。
-
-**做什么**：使用自动化测试脚本验证完整的业务流程链路。
-
-**执行步骤**：
-1. **测试数据准备**：创建测试所需的初始数据（数据库种子、fixture 等）
-2. **调用链执行**：按业务流程顺序调用多个 API/操作
-3. **断言验证**：验证每个步骤的响应状态码、响应数据、数据库状态变更
-4. **测试清理**：清理测试数据，确保不影响后续测试
-5. 生成 E2E 测试报告
-6. 输出**结构化确认 Checklist**
-
 **技术栈适配**：
 
-| 项目类型 | 测试框架 | 测试内容 |
+| 项目类型 | 单元测试 | E2E 测试 |
 |---------|---------|---------|
-| Java (Spring Boot) | `@SpringBootTest` + `TestRestTemplate` | 完整 API 调用链、数据库状态验证 |
-| 前端 (React/Vue) | Playwright | 浏览器级用户操作、页面渲染验证 |
-| Python (FastAPI) | `pytest` + `httpx.AsyncClient` | 完整 API 调用链、数据一致性验证 |
-| Go (Gin) | `net/http/httptest` | Handler 端到端测试 |
+| Java (Spring Boot) | JUnit 5 + Mockito | `@SpringBootTest` + `TestRestTemplate` |
+| 前端 (React/Vue) | Vitest / Jest | Playwright |
+| Python (FastAPI) | pytest | `pytest` + `httpx.AsyncClient` |
+| Go (Gin) | `testing` 标准库 | `net/http/httptest` |
 
-### 5.9 Integration Test（集成测试）
-
-**做什么**：验证跨服务/跨模块的集成正确性。
-
-**执行步骤**：
-1. 验证 Feign Client 与目标 Controller 端点匹配
-2. 验证跨服务数据一致性
-3. 验证接口契约（serviceContracts/eventContracts/dataContracts）一致性
-4. 生成集成测试报告
-5. 输出**结构化确认 Checklist**
-
-### 5.10 Fix（Bug 修复）
+### 5.7 Fix（Bug 修复）
 
 **做什么**：AI 分析测试失败原因，修复代码并回归测试。
 
@@ -2297,7 +2215,156 @@ scan_timestamp: "2026-06-05T22:30:00"
 
 ---
 
-## 21. 常见问题
+## 21. v3.2.0 架构精益化
+
+v3.2.0 是一次全面的架构精益化升级，涵盖协议层提取、阶段合并、模式简化、门禁合并、多语言优化等 20+ 项改进。
+
+### 21.1 公共协议层提取
+
+**问题**：SKILL.md 和各阶段文件中的零编辑铁律、Subagent 失败硬阻断、阶段交付物协议、确认持久化规则等内容重复出现（累计 ~1500 行），维护困难且不一致。
+
+**解决方案**：新建 `references/protocol.md` 作为公共协议层，SKILL.md 和各阶段文件通过 `{{REFERENCES_PATH}}protocol.md` 引用。
+
+| 指标 | 优化前 | 优化后 | 变化 |
+|------|--------|--------|------|
+| SKILL.md | 913 行 | **411 行** | -55% |
+| 阶段文件头 | 各含完整的零编辑约束表 | 统一引用 protocol.md | 各减少 ~20 行 |
+
+### 21.2 统一 Test 阶段
+
+**问题**：Unit Test / Smoke Test / E2E Test / Integration Test 四个独立阶段导致流程过长（11 阶段），用户确认点过多。
+
+**解决方案**：四个测试阶段合并为统一 `test.md`，按顺序执行四种测试，输出单一交付物 `06-test-report.md`。
+
+**完整流程从 11 阶段精简为 8 阶段**：
+```
+Research → Analyze → Design → Task Split → Develop → Test → Fix(按需) → Delivery
+```
+
+### 21.3 develop.md 职责分离
+
+**问题**：develop.md（1308 行）包含大量与 develop-expert.md 重复的执行规范。
+
+**解决方案**：develop.md 仅保留主 Agent 调度协议（D1-D9），所有代码执行规范引用 `{{AGENTS_PATH}}develop-expert.md`。
+
+**结果**：1308 行 → 516 行（-60%）。
+
+### 21.4 模式简化（两档运行模式）
+
+**问题**：L0/L1/L2/L3 四级模式过于复杂，用户难以理解和选择。
+
+**解决方案**：简化为两档：
+- **标准模式**（默认）：串行 Subagent，Task Split 后动态重评估是否升级
+- **企业级模式**（`-subagent`）：并行 Subagent
+
+删除 `--lite`/`--detailed`/`-smoke`/`-e2e`/`-integration` 等命令。
+
+### 21.5 门禁合并（两层门禁）
+
+**问题**：Gate-1/1.5/2/2.5/3 五层门禁过于复杂，且部分门禁存在逻辑重叠。
+
+**解决方案**：合并为两层：
+- **Gate-A（前置完整性）**：确认文件目录 + 交付物存在 + 内容校验
+- **Gate-B（执行者审计）**：execution_trail.executor 校验 + zero_edit_violation 校验
+
+### 21.6 其他 v3.2.0 改进
+
+| 改进 | 说明 |
+|------|------|
+| Research 优化 | 消除 Batch 5 空操作，子代理 14→12，批次 5→4 |
+| prepare-context.cjs 精确匹配 | `findDemandFile()` 从模糊 `includes()` 改为三级精确匹配 |
+| audit.cjs 审计脚本 | 零编辑铁律 v2.0 可验证约束，SHA-256 checksum + @generated-by 验证 |
+| 多语言 Design Contract 外置 | TS/Python/Go Contract 外置到 references，design.md 1245→879 行 |
+| 结构化进度 YAML | develop.md 新增 `task-progress-{taskId}.yaml` + ASCII 进度看板 |
+| validate-result.cjs 增强 | 新增 Java/TS/Python/Go 空方法检测 + 日志替代检测 + Contract 泛型支持 |
+| build.cjs PLATFORM-ONLY 标记 | YAML frontmatter + HTML 注释标记，构建时按平台过滤内容 |
+
+---
+
+## 22. v3.3.0 Router 上下文链优化
+
+v3.3.0 聚焦 Router 上下文链优化，解决 Develop 阶段主 Agent 和 subagent 的上下文溢出风险。
+
+### 22.1 问题分析
+
+对 Develop 阶段上下文链进行定量分析，识别出上下文溢出的核心瓶颈：
+
+| 上下文消费者 | 典型负载 | 风险等级 |
+|------------|---------|---------|
+| 主 Agent（进入 Develop 时） | ~135 KB | 🟡 中等 |
+| develop-expert subagent（复杂微服务） | ~200 KB | 🔴 高风险 |
+
+在 GPT-4o/DeepSeek（100-130KB 窗口）平台，复杂微服务的 develop-expert 上下文负载必然溢出。
+
+### 22.2 LANGUAGE-ONLY 按语言过滤
+
+**问题**：develop-expert.md 包含 TS(3.8KB) + Python(3.2KB) + Go(3.7KB) 多语言规范，Java 项目全量加载 10.7KB 无效内容。
+
+**解决方案**：build.cjs 新增 `--lang` 参数，构建时按项目类型过滤语言内容。
+
+```bash
+# 构建并仅保留 Java 语言内容
+npm run build -- --lang java
+
+# 构建并保留 Java + TypeScript
+npm run build -- --lang java,typescript
+```
+
+**效果**：
+- develop-expert.md 31.6KB → 20.9KB（`--lang java`，节省 10.7KB）
+- code-reference.md 9.6KB → 8.4KB（`--lang java`，节省 1.2KB）
+
+### 22.3 阶段历史压缩
+
+**问题**：全流程模式下，到 Develop 阶段时主 Agent 对话历史已累积 40-80KB（前 4 个阶段的完整交互），接近上下文窗口上限。
+
+**解决方案**：每阶段确认后自动压缩对话历史为结构化摘要。
+
+**压缩时机**：写入 `.confirmed` 文件后、进入下一阶段门禁检查前。
+
+**摘要文件**：`.dev-flow/sessions/{id}/stage-summaries/{stage}-summary.yaml`（~1-2KB/阶段）
+
+```yaml
+stage: "research"
+completed_at: "2026-06-06T10:00:00"
+subagent: "pre-scanner + 11 file-level subagents"
+status: "confirmed"
+deliverables:
+  - path: ".dev-flow/deliverables/01-research-report.md"
+key_decisions:
+  - "采用 Spring Boot 3.2 + MyBatis-Plus 3.5"
+user_feedback: "确认扫描完整度 A 级，无需补充"
+```
+
+**摘要保留**：决策性信息、关键路径、用户偏好。
+**摘要丢弃**：subagent 每一步操作细节、中间讨论。
+
+> **平台差异**：Claude Code 支持 `/compact` 命令实现真正的上下文压缩；Cursor Task 工具有独立上下文窗口；其他平台摘要文件作为持久化阶段记忆。
+
+### 22.4 develop.md 二次瘦身
+
+在 v3.2.0 职责分离基础上进一步瘦身：
+
+| 瘦身项 | 优化前 | 优化后 |
+|--------|--------|--------|
+| 零编辑约束段 | ~26 行含完整操作权限表 | 3 行引用 protocol.md |
+| 代码开发步骤转发段 | ~64 行 "详见 develop-expert.md" | 6 行精简表格 |
+| 代码质量要求段 | 完整禁止事项表 | 1 行引用 |
+
+**结果**：567 行 24.9KB → 493 行 22.7KB（节省 1.6KB）。
+
+### 22.5 累计上下文释放效果
+
+| 优化项 | 释放量 | 释放对象 |
+|--------|--------|---------|
+| LANGUAGE-ONLY 语言过滤 | 10.7KB + 1.2KB | subagent |
+| 阶段历史压缩 | 32-72KB | 主 Agent |
+| develop.md 瘦身 | 1.6KB | 主 Agent |
+| **合计** | **~45-85KB** | |
+
+---
+
+## 23. 常见问题
 
 确保你在 AI 编程工具中打开了安装了 dev-flow 的项目目录。Skill 文件是项目级别的，不是全局的。
 

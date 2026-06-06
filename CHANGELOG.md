@@ -2,6 +2,167 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.3.0] - 2026-06-06
+
+### Router 上下文链优化 + 架构精益化
+
+**核心变化**：从 v3.1.0 到 v3.3.0 经历了两轮大规模优化——第一轮（v3.2.0）聚焦架构精益化（协议层提取、阶段合并、模式简化、门禁合并），第二轮（v3.3.0）聚焦 Router 上下文链优化（语言过滤、历史压缩、Markdown 瘦身）。
+
+#### LANGUAGE-ONLY 按语言过滤（v3.3.0 新增）
+
+- **build.cjs 新增 `processLanguageOnly()` 函数**：支持 `--lang java` 构建参数
+  - `--lang java` → develop-expert.md 31.6KB → 20.9KB（-10.7KB），code-reference.md 9.6KB → 8.4KB（-1.2KB）
+  - `--lang typescript,java` → 多语言保留
+  - 无 `--lang` → 保留全部内容（向后兼容），标记始终从构建产物中移除
+- **develop-expert.md 添加 LANGUAGE-ONLY 标记**：TS/Python/Go 多语言规范章节被 LANGUAGE-ONLY 包裹
+- **code-reference.md 添加 LANGUAGE-ONLY 标记**：多语言代码模板 / 错误示例被 LANGUAGE-ONLY 包裹
+- 所有文件类型（SKILL.md / stages / agents / references）均支持 LANGUAGE-ONLY 过滤
+
+#### 阶段历史压缩机制（v3.3.0 新增）
+
+- **protocol.md 新增「阶段历史压缩规则」章节**：每阶段确认后自动压缩对话历史为结构化摘要
+  - 摘要文件：`.dev-flow/sessions/{id}/stage-summaries/{stage}-summary.yaml`（~1-2KB/阶段）
+  - 压缩时机：写入 `.confirmed` 文件后、进入下一阶段门禁检查前
+  - 摘要保留决策性信息、关键路径、用户偏好；丢弃过程性信息
+  - 含平台差异说明（Claude Code / Cursor / 其他平台）
+- **SKILL.md 阶段确认流程更新**：写入 .confirmed → 压缩历史摘要 → 进入下一阶段
+
+#### develop.md 二次瘦身（v3.3.0）
+
+- 零编辑约束段从 ~26 行精简为 3 行引用（指向 protocol.md）
+- 代码开发步骤转发段（~64 行 "详见 develop-expert.md"）合并为 6 行精简表格
+- 代码质量要求段精简为引用
+- 结果：567 行 24.9KB → 493 行 22.7KB（节省 1.6KB）
+
+#### ⏭ protocol.md 拆分（已分析并跳过）
+
+- 分析发现 20 个 agent 文件无一引用 protocol.md
+- protocol.md 仅被主 Agent（SKILL.md + 8 个 stage 文件）使用
+- 主 Agent 需要协议层全部内容做门禁/确认/失败处理 → 无需拆分
+
+#### 公共协议层提取（v3.2.0 新增）
+
+- **新建 `references/protocol.md`**（~320 行）：单事实来源的公共协议层
+  - 提取内容：零编辑铁律 v2.0、Subagent 失败硬阻断、阶段交付物协议、确认持久化规则、门禁检查流程、确认 Checklist 模板
+  - SKILL.md 从 913 行降至 411 行（-55%）
+- **所有 10 个阶段文件头部添加 `{{REFERENCES_PATH}}protocol.md` 引用**
+- **build.cjs 阶段文件路径替换修复**：新增 `{{REFERENCES_PATH}}` 占位符处理
+- **verify 函数路径替换修复**：同步新增占位符处理
+
+#### Research 优化（v3.2.0）
+
+- **消除 Batch 5 空操作**：mistakes.md / patterns.md 改由 pre-scanner 在 Step P3.5 直接创建初始模板
+- Research 子代理从 14(1+13) 降至 12(1+11)，批次从 5 降至 4
+- 平台适配更新：Claude/Trae/Cursor 12 并行 / Qoder 4 批次 / Codex 2 批次合并(6+6)
+
+#### prepare-context.cjs 精确匹配（v3.2.0）
+
+- `findDemandFile()` 从 `f.includes(pattern)` 模糊匹配 → 三级精确匹配（精确文件名 → 前缀+分隔符 → 词边界前缀）
+- `findFile()` 同步修复
+- 多匹配场景优先选最长文件名并输出警告
+
+#### 统一 Test 阶段（v3.2.0）
+
+- **unit-test + smoke-test + e2e-test + integration-test → 统一 test.md**（629 行）
+- 6 步骤：读取记忆 → 单元测试 → 冒烟测试 → E2E 测试 → 集成测试 → 交付物
+- 统一交付物 `06-test-report.md`，统一确认清单（7 项）
+- Fix 阶段保留独立，按需触发
+- 阶段数从 11 降至 **8**（Research → Analyze → Design → Task Split → Develop → Test → Fix(按需) → Delivery）
+- 旧测试阶段文件已从所有平台输出目录清理
+
+#### develop.md 职责分离（v3.2.0）
+
+- 从 1308 行降至 516 行（-60%）
+- 重复的执行规范改为引用 `{{AGENTS_PATH}}develop-expert.md`
+- 仅保留阶段级编排：调度协议 D1-D9、编译验证、前置测试、逻辑回溯、汇报机制、交付物
+
+#### 模式简化（v3.2.0）
+
+- L0/L1/L2/L3 四级模式 → **标准模式（默认）/ 企业级模式（-subagent）** 两档
+- 删除 `--lite`/`--detailed`/`-smoke`/`-e2e`/`-integration` 命令
+- SKILL.md 模式章节从 ~80 行精简为 ~50 行
+
+#### 门禁合并（v3.2.0）
+
+- Gate-1/1.5/2/2.5/3 五层 → **Gate-A（前置完整性）/ Gate-B（执行者审计）** 两层
+- Gate-A：确认文件目录 + 交付物存在 + 内容校验
+- Gate-B：execution_trail.executor 校验 + zero_edit_violation 校验
+
+#### 审计脚本 audit.cjs（v3.2.0 新增）
+
+- **新建 `scripts/audit.cjs`**（~320 行），零外部依赖
+- 扫描阶段变更文件、检查白名单外 @generated-by 溯源注释、计算 SHA-256 checksum
+- 支持 `--strict` 模式、输出 `audit-log.yaml`
+- 与 protocol.md 的零编辑铁律 v2.0 审计流程完全对应
+
+#### 多语言 Design Contract 外置（v3.2.0 新增）
+
+- **新建 `references/design-contract-typescript.md`**、`design-contract-python.md`、`design-contract-go.md`
+- design.md 从 1245 行降至 879 行（-366 行），仅保留 Java Contract 内联
+- 非 Java Contract 通过 `{{REFERENCES_PATH}}design-contract-{lang}.md` 按需加载
+
+#### 结构化进度汇报（v3.2.0 新增）
+
+- develop.md 新增结构化 `task-progress-{taskId}.yaml` 格式定义
+- 主 Agent 解析规则 + ASCII 进度看板汇总格式
+- 支持 blocked/failed 状态触发 Subagent 失败硬阻断协议
+
+#### 校验增强 + 平台标记（v3.2.0）
+
+- **validate-result.cjs 多语言增强**：
+  - 空方法体检测升级：支持 Java 注解/泛型、TypeScript、Python pass-only、Go 空函数体
+  - 日志替代检测：多行方法体模式 + return null/void/Optional.empty
+  - 新增 TS（any/@ts-ignore）、Python（bare except/pass 占位）、Go（panic 占位）校验
+  - findDemandFile 改为精确匹配（与 prepare-context.cjs 一致）
+  - Contract 一致性正则增强（支持泛型/注解）
+- **build.cjs PLATFORM-ONLY 标记**：新增 `processFrontmatter()` 函数，支持 YAML frontmatter + PLATFORM-ONLY HTML 注释标记
+  - 5 处调用点（generatePlatform + verifyPlatform 的 SKILL / stages / references）
+
+#### 修复记录
+
+- build.cjs agents 文件路径替换缺失 → 补充 `{{REFERENCES_PATH}}` 替换
+- 4 个旧测试阶段文件已从所有平台构建输出目录清理
+
+#### 改动文件清单（v3.2.0 + v3.3.0）
+
+**新增**（v3.2.0）：
+- `skill-templates/_core/references/protocol.md` — 公共协议层（零编辑铁律 + 失败协议 + 交付物 + 门禁 + 历史压缩）
+- `skill-templates/_core/references/design-contract-typescript.md` — TypeScript Design Contract 格式
+- `skill-templates/_core/references/design-contract-python.md` — Python Design Contract 格式
+- `skill-templates/_core/references/design-contract-go.md` — Go Design Contract 格式
+- `skill-templates/_core/stages/test.md` — 统一 Test 阶段（合并自 4 个旧文件）
+- `scripts/audit.cjs` — 文件修改审计脚本（SHA-256 + @generated-by 验证）
+
+**删除**（v3.2.0）：
+- `skill-templates/_core/stages/unit-test.md`
+- `skill-templates/_core/stages/smoke-test.md`
+- `skill-templates/_core/stages/e2e-test.md`
+- `skill-templates/_core/stages/integration-test.md`
+
+**修改**（v3.2.0 + v3.3.0）：
+- `skill-templates/_core/SKILL.md` — 路由精简（913→411 行）、模式简化、门禁合并、历史压缩、LANGUAGE-ONLY
+- `skill-templates/_core/stages/research.md` — 消除 Batch 5、pre-scanner 模板初始化
+- `skill-templates/_core/stages/develop.md` — 职责分离（1308→516→493 行）、结构化进度、LANGUAGE-ONLY 引用
+- `skill-templates/_core/stages/design.md` — 多语言 Contract 外置（1245→879 行）
+- `skill-templates/_core/stages/code-reference.md` — LANGUAGE-ONLY 多语言标记
+- `skill-templates/_core/stages/*.md`（其余 6 个） — 引用协议层 + 交付物生成
+- `skill-templates/_core/references/protocol.md` — 新增历史压缩规则章节（v3.3.0）
+- `skill-templates/_core/agents/develop-expert.md` — 新增 LANGUAGE-ONLY 多语言标记（v3.3.0）
+- `scripts/build.cjs` — 新增 LANGUAGE-ONLY 处理 + PLATFORM-ONLY 标记 + path 修复
+- `scripts/prepare-context.cjs` — findDemandFile 精确匹配
+- `scripts/validate-result.cjs` — 多语言增强校验
+- `package.json` — 版本号 3.1.0 → 3.3.0
+
+#### 累计释放上下文效果
+
+| 优化项 | 释放量 | 释放对象 |
+|--------|--------|---------|
+| 协议层提取（SKILL.md 913→411 行） | ~18KB | 主 Agent |
+| develop.md 职责分离（1308→493 行） | ~33KB | 主 Agent |
+| LANGUAGE-ONLY 语言过滤 | ~12KB | subagent |
+| 阶段历史压缩 | ~32-72KB | 主 Agent |
+| **累计** | **~95-135KB** | |
+
 ## [3.1.0] - 2026-06-05
 
 ### 主 Agent 零编辑架构 + 业务代码优先铁律

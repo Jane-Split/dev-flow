@@ -25,6 +25,7 @@ type: stage-instruction
 记录项目中反复出现的代码模式，供后续开发复用：
 
 **Java 项目示例：**
+<!-- LANGUAGE-ONLY: java -->
 ```markdown
 # 常见代码模式
 
@@ -109,8 +110,10 @@ public ApiResponse<PageResult<Xxx>> list(PageQueryRequest request) {
 - 添加时间：2026-05-24
 - 使用次数：5
 ```
+<!-- /LANGUAGE-ONLY: java -->
 
 **前端项目示例：**
+<!-- LANGUAGE-ONLY: typescript -->
 ```markdown
 # 常见代码模式
 
@@ -143,12 +146,14 @@ const schema = z.object({
 - 添加时间：2026-05-24
 - 使用次数：3
 ```
+<!-- /LANGUAGE-ONLY: typescript -->
 
 ### mistakes.md - 常见错误及修复
 
 记录项目中反复出现的 Bug 及其修复方案：
 
 **Java 项目示例：**
+<!-- LANGUAGE-ONLY: java -->
 ```markdown
 # 常见错误及修复
 
@@ -258,8 +263,10 @@ private String userName;
 **最后出现**：2026-05-24
 **预防措施**：开启驼峰自动映射、使用 Lambda 查询避免手写 SQL
 ```
+<!-- /LANGUAGE-ONLY: java -->
 
 **前端项目示例：**
+<!-- LANGUAGE-ONLY: typescript -->
 ```markdown
 # 常见错误及修复
 
@@ -276,6 +283,7 @@ private String userName;
 **出现次数**：2
 **最后出现**：2026-05-24
 ```
+<!-- /LANGUAGE-ONLY: typescript -->
 
 ### preferences.md - 用户偏好
 

@@ -11,7 +11,7 @@ is_background: true
 
 ## 错误模式库
 
-> 具体错误模式定义和预防策略见 `{{REFERENCES_PATH}}error-pattern-db.md`。
+> 具体错误模式定义和预防策略见 `.claude/references/error-pattern-db.md`。
 > Step 5 模式提取完成后、Step 6 自动应用时读取该文件。
 
 你是 dev-flow 的错误模式学习专家，负责从历史错误中提取模式，生成预防策略，避免同类错误在未来重复发生。
@@ -157,7 +157,7 @@ error_pattern:
 
 #### 2.2 错误模式库
 
-> 具体错误模式定义（P001-P009）见 `{{REFERENCES_PATH}}error-pattern-db.md`。
+> 具体错误模式定义（P001-P009）见 `.claude/references/error-pattern-db.md`。
 
 ### Step 3: 根因分析
 
@@ -242,7 +242,7 @@ prevention_strategy_types:
 
 #### 4.2 预防策略定义
 
-> 具体预防策略定义（S001-S009）见 `{{REFERENCES_PATH}}error-pattern-db.md`。
+> 具体预防策略定义（S001-S009）见 `.claude/references/error-pattern-db.md`。
 
 ### Step 5: Agent 指导更新
 
@@ -339,7 +339,7 @@ guidance_updates:
 
 #### 6.2 自动更新 Agent 指导
 
-> 各模式的具体自动更新规则（auto_update_rules）见 `{{REFERENCES_PATH}}error-pattern-db.md`。
+> 各模式的具体自动更新规则（auto_update_rules）见 `.claude/references/error-pattern-db.md`。
 
 **自动更新执行**：
 
@@ -390,7 +390,7 @@ tracking:
 
 #### 6.4 知识库更新
 
-> 知识库更新格式和示例见 `{{REFERENCES_PATH}}error-pattern-db.md` 中的「知识库更新」部分。
+> 知识库更新格式和示例见 `.claude/references/error-pattern-db.md` 中的「知识库更新」部分。
 
 #### 6.5 生成学习报告
 

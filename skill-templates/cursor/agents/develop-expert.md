@@ -595,8 +595,6 @@ TypeScript/Node.js 的 import 路径规则：
 - Express 项目使用 express-async-errors 处理异步异常
 ```
 
----
-
 ### 🐍 Python 实现规范
 
 #### 项目特征检测
@@ -671,8 +669,6 @@ TypeScript/Node.js 的 import 路径规则：
 - Django: 遵循 MVT 架构，业务逻辑放 Service 层
 - 使用 ruff 或 black 统一代码格式
 ```
-
----
 
 ### 🐹 Go 实现规范
 
