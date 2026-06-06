@@ -295,7 +295,7 @@ AI 将按以下流程执行，针对 Java 项目的特点进行适配：
 
 **做什么**：AI 扫描你的项目，了解项目结构、技术栈、编码规范、已有组件和 API。
 
-> **v3.1.0 架构升级**：Research 阶段从单 agent 串行扫描升级为 **pre-scanner + 13 个文件级 subagent 分批并行** 架构。微服务项目的所有关键类全量读取，记忆完整度从采样模式提升为全量覆盖。
+> **v3.1.0 架构升级**：Research 阶段从单 agent 串行扫描升级为 **pre-scanner + 11 个文件级 subagent 4 批次并行** 架构。微服务项目的所有关键类全量读取，记忆完整度从采样模式提升为全量覆盖。
 
 **执行步骤**：
 
@@ -304,14 +304,13 @@ AI 将按以下流程执行，针对 Java 项目的特点进行适配：
 2. 执行全局 Quick Scan（Glob）- 列出所有源码文件路径（不读取文件内容）
 3. 输出 `file-index.yaml`：按模块/包分类，列出所有 Entity、DTO、Controller、Service、Config、Util 的完整路径
 
-*Phase 1 — 13 个文件子代理分批并行*
+*Phase 1 — 11 个文件子代理分批并行*
 4. **Batch 1（基础层，3 并行）**：project-overview-subagent、service-registry-subagent、architecture-overview-subagent
 5. **Batch 2（数据层，3 并行）**：common-modules-subagent、models-subagent、config-files-subagent
 6. **Batch 3（行为层，3 并行）**：project-api-subagent、utils-subagent、conventions-subagent
 7. **Batch 4（横切层，2 并行）**：dependency-graph-subagent、decisions-subagent
-8. **Batch 5（模板层，2 并行）**：mistakes-subagent、patterns-subagent
 
-每个文件子代理的工作方式：读取 `file-index.yaml` → 按路径精确定位目标源码 → 读取并提取关键信息 → 直接写入目标 memory 文件。**13 个子代理互不依赖**，无需聚合器。
+每个文件子代理的工作方式：读取 `file-index.yaml` → 按路径精确定位目标源码 → 读取并提取关键信息 → 直接写入目标 memory 文件。**11 个子代理互不依赖**，无需聚合器。
 
 **核心优势**：
 - 每个子代理独立上下文（~25-40KB），避免单 agent 上下文溢出
@@ -387,7 +386,7 @@ AI 将按以下流程执行，针对 Java 项目的特点进行适配：
 
 | 文件 | 说明 |
 |------|------|
-| `task-dag.yaml` | 任务依赖 DAG，包含节点定义和执行批次 |
+| `task-breakdown.yaml` | 任务依赖 DAG，包含节点定义和执行批次 |
 | `subtask-{id}-design.yaml` | 每个子任务的独立设计文档 |
 | `interface-registry.yaml` | 接口注册表，记录所有子任务提供的接口 |
 
@@ -571,13 +570,12 @@ Subagent 模式是 dev-flow 的高级功能，适用于复杂任务，通过任�
 ```
 用户 ←→ 主 Agent（纯调度枢纽，零编辑）
               │
-              ├── [Research: pre-scanner + 13 file-level subagents, 5 batches]
+              ├── [Research: pre-scanner + 11 file-level subagents, 4 batches]
               │     Phase 0: pre-scanner × 1          → file-index.yaml
               │     Phase 1: Batch 1 (3) → 3 memory files (overview/registry/architecture)
               │              Batch 2 (3) → 3 memory files (common/models/config)
               │              Batch 3 (3) → 3 memory files (apis/utils/conventions)
               │              Batch 4 (2) → 2 memory files (dependency/decisions)
-              │              Batch 5 (2) → 2 memory files (mistakes/patterns)
               ├── analyze-expert   → 分析需求，输出 task-breakdown.yaml
               ├── design-expert    → 详细设计，输出 design-contract.yaml
               ├── task-split-expert → 智能拆分，输出 DAG + 子任务设计
@@ -595,7 +593,7 @@ Subagent 模式是 dev-flow 的高级功能，适用于复杂任务，通过任�
 
 ### 6.5 工作流程
 
-1. **Research 阶段**：pre-scanner 全局索引 + 13 文件级 subagent 分批并行扫描，生成 13 个 memory 文件 + 阶段交付物
+1. **Research 阶段**：pre-scanner 全局索引 + 11 文件级 subagent 分批并行扫描，生成 13 个 memory 文件 + 阶段交付物
 2. **Analyze 阶段**：analyze-expert 分析需求，输出 `task-breakdown.yaml`（任务拆分和依赖关系）
 3. **Design 阶段**：design-expert 基于分析结果进行详细设计，输出 `design-contract.yaml`（含接口契约）
 4. **Task Split 阶段**：task-split-expert 将设计拆分为子任务，生成 DAG 依赖图和子任务级设计
@@ -1963,7 +1961,7 @@ v3.1.0 是一次**架构级变革**，将 dev-flow 从"主 Agent 可选执行模
 
 | 阶段 | 执行者 | 主 Agent 职责 |
 |------|--------|-------------|
-| Research | `pre-scanner` + 13 文件子代理（5 批次） | 分批调度 + 读取交付物 + 展示审批 |
+| Research | `pre-scanner` + 11 文件子代理（4 批次） | 分批调度 + 读取交付物 + 展示审批 |
 | Analyze | `analyze-expert` | 调度 + 展示结果 |
 | Design | `design-expert` | 调度 + 展示结果 |
 | Task Split | `task-split-expert` | 调度 + 展示结果 |
@@ -2114,7 +2112,7 @@ v3.1.0 实践问题修复（版本号保持 v3.1.0 不变）解决了实际使�
 
 ## 20. v3.1.0 Research 多子代理分批架构
 
-v3.1.0 将 Research 阶段从**单 agent 串行扫描**升级为 **pre-scanner + 13 个文件级 subagent 分批并行**架构，从根本上解决微服务项目的上下文溢出和扫描不完整问题。
+v3.1.0 将 Research 阶段从**单 agent 串行扫描**升级为 **pre-scanner + 11 个文件级 subagent 4 批次并行**架构，从根本上解决微服务项目的上下文溢出和扫描不完整问题。
 
 ### 20.1 为什么需要多子代理
 
@@ -2127,7 +2125,7 @@ v3.1.0 将 Research 阶段从**单 agent 串行扫描**升级为 **pre-scanner +
 
 单 agent 上下文溢出 → Smart Sampling 被迫激进 → memory 文件写入"暂无数据" → Research 不完整。
 
-**多子代理的核心价值**：每个子代理只处理 1 个 memory 文件（~25-40KB 上下文），13 个子代理互不依赖，从根源上消除上下文溢出。
+**多子代理的核心价值**：每个子代理只处理 1 个 memory 文件（~25-40KB 上下文），11 个子代理互不依赖，从根源上消除上下文溢出。
 
 ### 20.2 架构概览
 
@@ -2137,19 +2135,18 @@ Phase 0: pre-scanner × 1
   └── 输出 file-index.yaml（~15KB）
         │
         ▼
-Phase 1: 13 文件子代理，5 批次
+Phase 1: 11 文件子代理，4 批次
   Batch 1 (3 并行): project-overview / service-registry / architecture-overview
   Batch 2 (3 并行): common-modules / models / config-files
   Batch 3 (3 并行): project-api / utils / conventions
   Batch 4 (2 并行): dependency-graph / decisions
-  Batch 5 (2 并行): mistakes / patterns
 ```
 
 **核心特征**：
 - **无聚合器**：每个子代理直接写入目标 memory 文件，无需合并步骤
 - **独立上下文**：每个子代理 ~25-40KB（vs 单 agent ~250KB）
 - **故障隔离**：models.md 写入失败不影响 project-api.md
-- **互不依赖**：13 个子代理间无数据依赖，可全并行
+- **互不依赖**：11 个子代理间无数据依赖，可全并行
 
 ### 20.3 Phase 0：pre-scanner 全局索引
 
@@ -2176,7 +2173,7 @@ scan_timestamp: "2026-06-05T22:30:00"
 
 每个文件子代理从 `file-index.yaml` 中查找目标文件路径，**不再自己 Glob**。
 
-### 20.4 Phase 1：13 文件子代理 5 批次并行
+### 20.4 Phase 1：11 文件子代理 4 批次并行
 
 **通用工作模式**：
 1. 读取 `file-index.yaml` → 找到目标文件路径
@@ -2185,7 +2182,7 @@ scan_timestamp: "2026-06-05T22:30:00"
 4. 直接写入目标 memory 文件
 5. 文件末尾标注 `completeness_level`（A/B/C/D）
 
-**5 批次语义分组**：
+**4 批次语义分组**：
 
 | 批次 | 子代理 | 产出文件 | 核心职责 |
 |------|--------|---------|---------|
@@ -2207,11 +2204,11 @@ scan_timestamp: "2026-06-05T22:30:00"
 
 | 平台 | 最大并发子代理 | Research 调度方式 | 预估耗时 |
 |------|-------------|-------------------|---------|
-| **Claude Code** | 16 | 全额并行（14 子代理 1 批次） | ~30 秒 |
-| **Trae** | 无明确限制 | 全额并行（14 子代理 1 批次） | ~30 秒 |
-| **Cursor** | 多 Task 调用 | 全额并行（14 子代理 1 批次） | ~35 秒 |
-| **Qoder** | 4 方向 | 5 批次顺序执行 | ~2.5 分钟 |
-| **Codex** | 6 线程 | 3 批次合并执行（5+5+4） | ~50 秒 |
+| **Claude Code** | 16 | 全额并行（12 子代理 1 批次） | ~30 秒 |
+| **Trae** | 无明确限制 | 全额并行（12 子代理 1 批次） | ~30 秒 |
+| **Cursor** | 多 Task 调用 | 全额并行（12 子代理 1 批次） | ~35 秒 |
+| **Qoder** | 4 方向 | 4 批次顺序执行 | ~2.5 分钟 |
+| **Codex** | 6 线程 | 2 批次合并执行（6+6） | ~50 秒 |
 
 ---
 

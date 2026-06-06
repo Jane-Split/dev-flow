@@ -191,13 +191,13 @@ Hotfix（独立模式，随时可用）
 
 | 阶段 | AI 做什么 | 产出 |
 |------|----------|------|
-| **Research** | pre-scanner 全局索引 + 11 文件级 subagent 4 批次并行扫描，Smart Sampling 服务级独立，关键类强制全量读取，完整性 A/B/C/D 评级 | `.dev-flow/memory/` 13 个文件 + file-index.yaml + 阶段交付物 |
+| **Research** | pre-scanner 全局索引 + 11 文件级 subagent 4 批次并行扫描，Smart Sampling 服务级独立，关键类强制全量读取，完整性 A/B/C/D 评级 | `.dev-flow/memory/` 13 个文件 + `memory/_index/file-index.yaml` + 阶段交付物 |
 | **Analyze** | 解析需求、关联已有代码、识别歧义、一致性校验 | 需求分析文档 + 阶段交付物 |
-| **Design** | 数据模型、API 接口、组件树、业务流程、结构化决策表 | `design-contract.yaml`（含多语言接口契约） |
-| **Task Split** | 拆分子任务、冲突检测、DAG 构建、双维度选择、子任务级设计 | `task-dag.yaml` + `subtask-{id}-design.yaml` + `interface-registry.yaml` |
+| **Design** | 数据模型、API 接口、组件树、业务流程、结构化决策表 | `design-result.md` + `design-contract.yaml`（含多语言接口契约） |
+| **Task Split** | 拆分子任务、冲突检测、DAG 构建、双维度选择、子任务级设计 | `task-breakdown.yaml` + `subtask-{id}-design.yaml` + `interface-registry.yaml` |
 | **Develop** | develop-expert Subagent 按子任务开发、上下文自动注入、分段生成、业务代码优先、强制编译、逻辑回溯验证 | 代码文件 + 阶段交付物 |
 | **Test** | 统一测试：单元测试 → 冒烟测试 → E2E 测试 → 集成测试 | 统一测试报告 |
-| **Fix** | 分析失败原因、修复代码、回归测试（最多循环 3 次） | 修复后的代码（按需触发） |
+| **Fix** | 分析失败原因、修复代码、回归测试（最多循环 3 次） | `fix-report.md` + 修复后的代码（按需触发） |
 | **Delivery** | 汇总全流程成果、生成交付清单 | 交付报告 |
 
 ## 架构
