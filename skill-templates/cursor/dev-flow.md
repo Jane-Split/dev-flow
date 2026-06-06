@@ -16,6 +16,7 @@ description: AI开发全流程编排技能 - 在AI编程工具对话框中结构
 > **核心原则**：主 Agent 的角色是**交互枢纽 + 纯调度器**，绝不直接编辑任何文件。
 > **所有文件操作（Write/Edit）必须由专门的阶段 subagent 执行。**
 > **v2.0 升级**：从"协议级约束"升级为"可验证级硬约束"，引入文件白名单和产出溯源机制。
+> **详细审计规范、@generated-by 溯源格式、audit-log.yaml 格式** → 详见 `.cursor/references/zero-edit-audit.md`
 
 **主 Agent 权限定义（v2.0 增强版）**：
 
@@ -35,138 +36,27 @@ description: AI开发全流程编排技能 - 在AI编程工具对话框中结构
 | 阶段确认文件 | `.dev-flow/stage-confirmations/*.confirmed` | 记录用户阶段确认 |
 | 会话初始化文件 | `.dev-flow/sessions/{id}/session-init.yaml` | 创建新会话 |
 
-> **禁止写入的文件（非穷举示例）**：
-> - ❌ 任何源代码文件（`.java`, `.ts`, `.py`, `.go`, `.rs` 等）
-> - ❌ 任何配置文件（`.yaml`, `.yml`, `.json`, `.xml`, `.toml` 等）
-> - ❌ 任何文档文件（`.md` 除白名单外）
-> - ❌ 任何构建/部署脚本（`.sh`, `.cjs`, `.js` 等）
-> - ❌ `.dev-flow/memory/` 目录下的任何文件
-> - ❌ `.dev-flow/docs/` 目录下的任何文件
-> - ❌ `.dev-flow/deliverables/` 目录下的任何文件
-
-**🔴 产出文件溯源（v2.0 新增）**：
-
-> 每个由 subagent 产生的文件必须包含溯源信息，用于审计主 Agent 是否违规编辑。
-> 
-> **溯源要求**：
-> - 每个产出文件的第一行注释必须包含执行者标识：
->   ```
->   // @generated-by: {stage}-expert subagent | session: {session-id} | stage: {stage}
->   ```
-> - `.confirmed` 文件必须记录 `subagent_execution_trail` 字段：
->   ```yaml
->   execution_trail:
->     executor: "pre-scanner + file-level subagents (13 total, 5 batches)"
->     files_produced:
->       - path: ".dev-flow/memory/project-overview.md"
->         generated_by: "project-overview-subagent"
->         checksum: "abc123..."
->     zero_edit_violation: false  # 主 Agent 是否违规编辑
->   ```
-
-**🔴 文件修改审计（v2.0 新增）**：
-
-> 每个阶段结束后，自动执行文件修改审计，验证白名单合规性。
->
-> ```
-> 审计流程（每阶段结束时自动执行）：
-> 1. 扫描本阶段产生的所有新文件和修改的文件
-> 2. 对每个文件检查：
->    ├── 是否在白名单中？→ ✅ 合法（如 .confirmed 文件）
->    ├── 是否包含 @generated-by 溯源注释？→ 检查执行者是否为 subagent
->    │   ├── 是 subagent → ✅ 合法
->    │   └── 否 → 🔴 违规！标记 zero_edit_violation = true
->    └── 无溯源注释且不在白名单中 → 🔴 违规！
-> 3. 审计结果写入 .dev-flow/sessions/{id}/audit-log.yaml
-> ```
-
-**每个阶段都必须由专门的 subagent 执行**：
-
-| 阶段 | 执行者 | 主 Agent 职责 |
-|------|--------|-------------|
-| Research | `pre-scanner` + 13 文件子代理 | 分批调度 + 读取交付物 + 展示审批 |
-| Analyze | `analyze-expert` | 调度 + 读取交付物 + 展示审批 |
-| Design | `design-expert` | 调度 + 读取交付物 + 展示审批 |
-| Task Split | `task-split-expert` | 调度 + 读取交付物 + 展示审批 |
-| Develop | `develop-expert`（可并行多个） | 调度 + 进度监控 + 汇总 |
-| Unit Test | `test-expert` | 调度 + 读取交付物 + 展示审批 |
-| Fix | `fix-expert` | 调度 + 读取交付物 + 展示审批 |
-| Smoke Test | `smoke-test-expert` | 调度 + 读取交付物 + 展示审批 |
-| E2E Test | `e2e-test-expert` | 调度 + 读取交付物 + 展示审批 |
-| Integration Test | `integration-test-expert` | 调度 + 读取交付物 + 展示审批 |
-| Delivery | `delivery-expert` | 调度 + 读取交付物 + 展示审批 |
-
 **违反检测与纠正（v2.0 增强版）**：
 - 如果主 Agent 在执行中发现自己正在输出 `Edit` 或 `Write` 操作 → **立即停止**，改为创建对应 subagent 执行
 - 如果主 Agent 已在某个阶段直接编辑了文件 → 该阶段产出标记为无效，要求由 subagent 重新执行
 - 每个阶段结束时的文件修改审计自动检测违规 → 违规文件标记为无效，阶段必须由 subagent 重新执行
 - 连续 3 次文件修改审计发现违规 → 🔴 强制终止会话，输出违规报告
 
+> 📄 **详细内容（溯源格式、审计流程、audit-log.yaml 格式）** → 详见 `.cursor/references/zero-edit-audit.md`
+
 ### 🔴🔴 Subagent 失败硬阻断规则（最高优先级，不可违反）
 
 > **核心原则**：Subagent 执行失败后，主 Agent **绝对禁止**直接介入执行任务。
 > 必须遵循三级失败处理协议，逐步升级，最终由人工介入。
+> **详细决策树、Level 2 诊断报告模板、Level 3 升级报告模板** → 详见 `.cursor/references/failure-decision-tree.md`
 
-#### 三级失败处理协议
+#### 三级失败处理协议（摘要）
 
-```
-🔴 三级失败处理协议（硬阻断，不可跳过任何级别）
-
-Level 1 — 自动重试（Auto-Retry）
-  触发：Subagent 返回错误状态或产出不完整
-  ├── 操作：主 Agent 自动重新创建同一个 subagent，传递相同的上下文
-  ├── 信息传递：将上一次失败的诊断信息附加到 subagent 的 prompt 中
-  │   ├── 上一次失败的错误类型（编译错误/运行时错误/产出不完整/超时）
-  │   ├── 上一次失败的详细错误信息
-  │   └── 建议的修复方向（如有）
-  ├── 最大重试次数：1 次（即总共最多执行 2 次）
-  └── 成功 → 继续流程 ｜ 仍失败 → 升级到 Level 2
-
-Level 2 — 诊断重试（Diagnose & Retry）
-  触发：Level 1 自动重试后仍失败
-  ├── 操作：主 Agent 创建诊断型 subagent（同类型 expert），但 prompt 侧重于诊断
-  │   ├── 读取失败阶段的完整上下文和错误信息
-  │   ├── 分析失败根因（环境问题/上下文不足/指令歧义/任务复杂度超出能力）
-  │   ├── 输出诊断报告：`.dev-flow/sessions/{id}/diagnosis-{stage}.md`
-  │   └── 基于诊断结果，调整 subagent 的 prompt 和上下文后重新执行
-  ├── 最大重试次数：1 次（诊断 + 重试）
-  └── 成功 → 继续流程 ｜ 仍失败 → 升级到 Level 3
-
-Level 3 — 🔴 人工升级（Escalate to Human）
-  触发：Level 2 诊断重试后仍失败
-  ├── 操作：主 Agent **停止一切自动化操作**，不执行任何文件编辑
-  ├── 输出升级报告给用户：
-  │
-  │   【🔴 Subagent 执行失败 — 需要人工介入】
-  │   ═══════════════════════════════════════
-  │   失败阶段：{stage}
-  │   失败 Subagent：{stage}-expert
-  │   已尝试次数：{attempt_count} 次（含自动重试 + 诊断重试）
-  │   
-  │   失败摘要：
-  │   - 第 1 次（原始执行）：{error_summary_1}
-  │   - 第 2 次（Level 1 自动重试）：{error_summary_2}
-  │   - 第 3 次（Level 2 诊断重试）：{error_summary_3}
-  │   
-  │   诊断结果：
-  │   - 根因分析：{root_cause}
-  │   - 诊断报告：.dev-flow/sessions/{id}/diagnosis-{stage}.md
-  │   
-  │   当前状态：流程暂停，等待人工决策
-  │   
-  │   可选操作：
-  │   1. 回复「重试」→ 再次尝试执行（使用优化后的 prompt）
-  │   2. 回复「跳过」→ 跳过当前阶段，继续下一阶段
-  │   3. 回复「手动」→ 用户自行描述要求和上下文，由主 Agent 创建新的 subagent
-  │   4. 回复「终止」→ 结束本次 dev-flow 会话
-  │   ═══════════════════════════════════════
-  │
-  └── 主 Agent 进入等待状态，不再执行任何自动化操作
-```
+- **Level 1 — 自动重试**：Subagent 返回错误 → 自动重新创建同一 subagent（最大重试 1 次）
+- **Level 2 — 诊断重试**：Level 1 仍失败 → 创建诊断型 subagent 分析根因，调整后重试（最大 1 次）
+- **Level 3 — 人工升级**：Level 2 仍失败 → 🔴 停止一切自动化，输出升级报告，等待用户决策
 
 #### 🔴 主 Agent 禁止行为表（Subagent 失败场景）
-
-> **Subagent 失败后，主 Agent 的以下行为属于严重违规，触发违规告警机制。**
 
 | 违规行为 | 严重级别 | 说明 |
 |---------|---------|------|
@@ -178,32 +68,7 @@ Level 3 — 🔴 人工升级（Escalate to Human）
 | 主 Agent 在 Level 3 等待期间自行执行任务 | 🔴 P0 严重违规 | 越过人工决策 |
 | 主 Agent 向用户隐瞒 Subagent 失败的事实 | 🟡 P1 违规 | 透明度违规 |
 
-#### 强制执行流程（Subagent 失败后主 Agent 的决策树）
-
-```
-主 Agent 检测到 Subagent 返回失败状态
-  │
-  ├── Step 1: 记录失败信息
-  │   ├── 错误类型
-  │   ├── 错误详情
-  │   ├── 失败的 subagent 名称和阶段
-  │   └── 写入 .dev-flow/sessions/{id}/subagent-failures.yaml
-  │
-  ├── Step 2: 判断当前尝试次数
-  │   ├── 第 1 次失败（原始执行）→ 执行 Level 1 自动重试
-  │   ├── 第 2 次失败（Level 1 重试后）→ 执行 Level 2 诊断重试
-  │   └── 第 3 次失败（Level 2 重试后）→ 执行 Level 3 人工升级
-  │
-  └── Step 3: 🔴 自检 — 在每一步操作前检查：
-      "我是否正在准备直接编辑文件？"
-      "我是否正在准备在对话中输出代码？"
-      "我是否正在准备跳过某个级别的协议？"
-      如果任一答案为"是" → 立即停止，回退到正确的协议步骤
-```
-
-> **⚠️ 关键规则**：上述三级协议是**硬阻断机制**，不可被任何条件覆盖。
-> 即使用户说"直接帮我修复"或"你自己做吧"，主 Agent 也必须遵循此协议，不得越权执行。
-> 主 Agent 应回复：「根据 Subagent 失败硬阻断规则 Level {N}，我需要先执行 {协议步骤}。我会尽快完成并汇报结果。」
+> 📄 **完整决策树、诊断报告模板、升级报告模板、subagent-failures.yaml 格式** → 详见 `.cursor/references/failure-decision-tree.md`
 
 ## 使用方式
 
@@ -643,44 +508,10 @@ notes: ""
 - ✅ 如果用户说"继续"但 Checklist 未全部确认，补充确认遗漏项
 - ✅ 用户确认后，立即将确认文件写入 `.dev-flow/stage-confirmations/`
 
-### 项目类型检测
+### 项目类型与架构检测
 
-在 Research 阶段，根据以下特征检测项目类型：
-
-| 检测特征 | 项目类型 | 技术栈 |
-|----------|----------|--------|
-| `pom.xml` 或 `build.gradle` | Java 后端 | Spring Boot / Java EE |
-| `package.json` + `src/` 含 `.tsx/.jsx/.vue` | 前端 | React / Vue / Angular |
-| `package.json` + `src/` 含 `.ts/.js` (无 JSX/Vue) | Node.js 后端 | Express / NestJS / Fastify |
-| `pyproject.toml` 或 `requirements.txt` | Python | FastAPI / Django / Flask |
-| `go.mod` | Go | Gin / Echo / Fiber |
-| `Cargo.toml` | Rust | Axum / Actix-web |
-
-**检测优先级**：Java > 前端 > Node.js > Python > Go > Rust
-
-### 微服务架构检测
-
-**当检测到 Java 项目时，进一步判断是否为微服务架构：**
-
-**微服务根目录特征**（满足任一即判定为微服务）：
-- 根目录下存在多个子目录，每个子目录都有独立的 `pom.xml`
-- 根目录存在父级 `pom.xml`（`<packaging>pom</packaging>`），包含 `<modules>` 定义
-- 存在多个服务目录（命名不限，通过内容分析识别角色）
-
-**检测到微服务架构后，自动进入「多服务模式」：**
-- 扫描所有子服务目录，识别每个服务的角色（网关/认证/业务/公共）
-- 扫描每个服务的多模块结构（不硬编码模块名，自动发现）
-- 扫描跨服务依赖关系（Feign Client、公共依赖）
-- 建立服务间依赖图谱
-
-**单服务模式 vs 多服务模式：**
-
-| 维度 | 单服务模式 | 多服务模式 |
-|------|-----------|-----------|
-| 触发条件 | 当前目录有 `src/main/java` | 根目录有父级 `pom.xml` + 多个子服务 |
-| 扫描范围 | 当前项目 | 所有子服务 |
-| 记忆位置 | `.dev-flow/memory/` | `.dev-flow/memory/`（共享）+ 各服务 `.dev-flow/memory/` |
-| 代码生成 | 当前项目 | 根据需求分析定位到具体服务的具体模块 |
+> 项目类型检测（Java/前端/Node.js/Python/Go/Rust）和微服务架构检测逻辑，
+> 详见 `.cursor/stages/research.md`（Research 阶段指令文件）。
 
 ### 禁止事项
 - ❌ 生成 `// TODO: 实现业务逻辑` 等占位符

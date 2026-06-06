@@ -27,7 +27,6 @@
   - [6.7 任务拆分与依赖处理](#67-任务拆分与依赖处理)
   - [6.8 方案C：子任务级设计与接口契约](#68-方案c子任务级设计与接口契约)
   - [6.9 精准按需加载](#69-精准按需加载)
-  - [6.10 与标准模式的对比](#610-与标准模式的对比)
 - [7. Hotfix 模式](#7-hotfix-模式)
 - [8. 断点续传](#8-断点续传)
 - [9. 记忆系统](#9-记忆系统)
@@ -36,45 +35,7 @@
   - [9.3 记忆使用和更新规则](#93-记忆使用和更新规则)
   - [9.4 记忆清理](#94-记忆清理)
 - [10. 学习能力](#10-学习能力)
-- [11. v1.0.2 新特性](#11-v102-新特性)
-- [12. v1.0.3 新特性](#12-v103-新特性)
-- [13. v1.0.4 新特性](#13-v104-新特性)
-- [14. v1.0.5 架构优化](#14-v105-架构优化)
-- [15. v2.0.0 架构升级](#15-v200-架构升级)
-  - [15.1 四层按需加载架构](#151-四层按需加载架构)
-  - [15.2 会话/长期记忆分离](#152-会话长期记忆分离)
-  - [15.3 Agent 智能拆分](#153-agent-智能拆分)
-  - [15.4 完整测试覆盖与 CI](#154-完整测试覆盖与-ci)
-  - [15.5 参考文件（References）](#155-参考文件references)
-- [16. v2.1.0 验证闭环强化](#16-v210-验证闭环强化)
-  - [16.1 设计→代码逻辑回溯验证（Step 4.3）](#161-设计代码逻辑回溯验证step-43)
-  - [16.2 逻辑步骤标注规范](#162-逻辑步骤标注规范)
-  - [16.3 多层验证闭环](#163-多层验证闭环)
-  - [16.4 验证 Agent 分工矩阵](#164-验证-agent-分工矩阵)
-  - [16.5 调度引擎增强](#165-调度引擎增强)
-  - [16.6 contract-validator R5 规则](#166-contract-validator-r5-规则)
-- [17. v3.0.0 上下文注入革命 + 结构化分段生成](#17-v300-上下文注入革命--结构化分段生成)
-  - [17.1 上下文自动注入系统](#171-上下文自动注入系统)
-  - [17.2 50KB 硬约束全面移除](#172-50kb-硬约束全面移除)
-  - [17.3 结构化代码分段生成](#173-结构化代码分段生成)
-  - [17.4 自动产出校验系统](#174-自动产出校验系统)
-- [18. v3.1.0 主 Agent 零编辑架构](#18-v310-主-agent-零编辑架构)
-  - [18.1 零编辑铁律](#181-零编辑铁律)
-  - [18.2 统一 Subagent 执行模型](#182-统一-subagent-执行模型)
-  - [18.3 业务代码优先铁律](#183-业务代码优先铁律)
-  - [18.4 阶段执行者审计](#184-阶段执行者审计)
-  - [18.5 主 Agent 调度协议](#185-主-agent-调度协议)
-- [19. v3.1.0 实践问题修复](#19-v310-实践问题修复)
-  - [19.1 问题 1：Research 阶段 memory 文档完整度提升](#191-问题-1research-阶段-memory-文档完整度提升)
-  - [19.2 问题 2：阶段审批机制补全](#192-问题-2阶段审批机制补全)
-  - [19.3 问题 3：Subagent 失败硬阻断规则](#193-问题-3subagent-失败硬阻断规则)
-- [20. v3.1.0 Research 多子代理分批架构](#20-v310-research-多子代理分批架构)
-  - [20.1 为什么需要多子代理](#201-为什么需要多子代理)
-  - [20.2 架构概览](#202-架构概览)
-  - [20.3 Phase 0：pre-scanner 全局索引](#203-phase-0pre-scanner-全局索引)
-  - [20.4 Phase 1：13 文件子代理 5 批次并行](#204-phase-113-文件子代理-5-批次并行)
-  - [20.5 平台自适应调度](#205-平台自适应调度)
-- [21. 常见问题](#21-常见问题)
+- [11. 常见问题](#11-常见问题)
 
 ---
 
@@ -84,35 +45,14 @@ dev-flow 是一个 AI 开发全流程编排 Skill，适用于 Cursor、Trae、Qo
 
 它通过结构化的 11 阶段流程（Research → Analyze → Design → Task Split → Develop → Unit Test → Smoke Test → E2E Test → Integration Test → Fix → Delivery），让 AI 编程工具按步骤执行开发任务，避免跳过重要步骤、生成不一致代码、遗漏边界情况等问题。
 
-**核心特点**：
+**v3.2.0 核心特点**：
 - 每个阶段完成后输出**结构化确认 Checklist**，逐项确认后才可进入下一阶段
 - 自动记忆项目结构和编码规范，后续开发自动遵守
 - 具备学习能力，使用越多越了解你的偏好
-- **跨平台 Subagent 调度策略**（v2.0.0）：Trae 原生并行，Cursor/Claude/Qoder 顺序模拟并行
-- **任务冲突检测**（v2.0.0）：并行任务间文件读写冲突自动检测和批次修正
-- **端到端测试**（v2.0.0）：Java @SpringBootTest 完整链路 + Playwright 浏览器测试
-- **强制编译验证**（v2.0.0）：开发完成必须编译，失败自动修复循环
-- **Design Contract 多语言**（v2.0.0）：Java / TypeScript / Python / Go 接口契约
-- **结构化业务逻辑**（v1.0.2）：设计阶段输出结构化决策表，消除自然语言歧义
-- **编译验证闭环**（v1.0.2）：开发完成后自动编译验证，解析错误并自动修复
-- **契约一致性校验**（v1.0.2）：自动验证代码与设计契约的一致性
-- **错误经验学习**（v1.0.2）：从历史错误中提取模式，生成预防策略
-- **步骤强制执行**（v1.0.3）：Step Enforcer 验证关键步骤完成质量，防止跳过
-- **错误模式自动应用**（v1.0.3）：自动将学习到的模式应用到 Agent 指导
-- **三层按需加载架构**（v1.0.5）：上下文占用从 357KB 降至 79KB，代码生成可用空间提升至 50%
-- **代码完整性铁律**（v1.0.5）：正面规则 + 生产可用测试，确保代码 100% 完整实现
-- **全平台防护统一**（v1.0.5）：step-enforcer 等防护 agent 全平台共享，不再仅限 Trae
-- **设计→代码逻辑回溯验证**（v2.1.0）：Step 4.3 强制验证设计文档中每个逻辑步骤都有代码实现，覆盖率 100%
-- **多层验证闭环**（v2.1.0）：orchestrator 整合自检 → contract-validator → verify-expert 三层防线
-- **验证 Agent 分工矩阵**（v2.1.0）：5 个验证 Agent 明确分工和执行时机
-- **调度引擎增强**（v2.1.0）：循环依赖检测、文件级冲突检测、DAG 自动修复
-- **四层按需加载 + References 层**（v2.0.0）：Router 从 27KB 精简至 17KB，新增 4 个按需参考文档
-- **会话/长期记忆分离**（v2.0.0）：会话记忆每次 Research 自动重建，长期记忆跨会话累积
-- **Agent 智能拆分**（v2.0.0）：大 Agent 核心保留，模式库外置为 references 按需加载
-- **完整测试覆盖 + CI**（v2.0.0）：4 套自动化测试 + GitHub Actions CI
-- **主 Agent 零编辑架构**（v3.1.0）：主 Agent 仅作为纯调度枢纽，所有文件操作由专门阶段 Subagent 执行
-- **统一 Subagent 执行模型**（v3.1.0）：移除"标准模式 + Subagent 模式"二元结构，所有阶段统一由 Subagent 执行
-- **业务代码优先铁律**（v3.1.0）：Develop 阶段强制业务代码优先于测试代码
+- **主 Agent 零编辑架构**：主 Agent 仅作为调度枢纽，所有文件操作由专门的阶段 Subagent 执行
+- **Router 瘦身至 ~23KB**：详细内容外置到 6 个独立 reference 文件，按需加载不浪费初始上下文
+- **阶段交付物审批机制**：每个阶段产出独立审批文档，主 Agent 读取并打开供用户审阅
+- **Subagent 失败硬阻断**：三级失败处理协议（L1 自动重试 → L2 诊断重试 → L3 人工升级），防止主 Agent 越权
 
 ## 2. 安装
 
@@ -141,64 +81,55 @@ npx dev-flow install
 ```
 your-project/
 ├── .trae/skills/dev-flow/
-│   ├── SKILL.md                           # Router（17KB 骨架）
-│   ├── stages/                            # 13 个阶段指令文件（按需加载）
+│   ├── SKILL.md                       # Router（~23KB 骨架）
+│   ├── stages/                        # 13 个阶段指令文件（按需加载）
 │   │   ├── research.md
 │   │   ├── analyze.md
 │   │   ├── design.md
 │   │   ├── task-split.md
-│   │   ├── develop.md                      # 含代码完整性铁律 + 强制编译验证
+│   │   ├── develop.md
 │   │   ├── unit-test.md
 │   │   ├── smoke-test.md
-│   │   ├── e2e-test.md                     # 端到端测试 ← v2.0.0 新增
+│   │   ├── e2e-test.md
 │   │   ├── integration-test.md
 │   │   ├── fix.md
 │   │   ├── hotfix.md
 │   │   ├── delivery.md
-│   │   └── code-reference.md              # 代码标准模板、错误模式
-│   ├── agents/                            # 20 个 subagent 定义
-│   └── references/                        # 按需加载参考文档 ← v2.0.0 新增
-│       ├── memory-system.md               # 记忆系统详细规则
-│       ├── learning-system.md             # 学习能力详细说明
-│       ├── error-pattern-db.md            # 错误模式数据库
-│       └── model-context-config.md        # 模型上下文配置
-├── .cursor/
-│   ├── commands/dev-flow.md               # Cursor Router
-│   ├── stages/                            # 13 个阶段文件
-│   ├── agents/
-│   └── references/                        # ← v2.0.0 新增
-├── .qoder/
-│   ├── commands/dev-flow.md
-│   ├── stages/
-│   ├── agents/
-│   └── references/
-├── .claude/
-│   ├── commands/dev-flow.md
-│   ├── stages/
-│   ├── agents/
-│   └── references/
-├── AGENTS.md                              # OpenAI Codex 项目指令
-├── .agents/skills/dev-flow/SKILL.md       # OpenAI Codex 仓库级 Skill
-├── .codex/
-│   ├── config.toml
-│   ├── agents/*.toml                      # Codex custom agents
-│   └── references/                        # ← v2.0.0 新增
+│   │   └── code-reference.md
+│   ├── agents/                        # 20 个 subagent 定义
+│   └── references/                    # 10 个参考文档（按需加载）
+│       ├── zero-edit-audit.md         # 零编辑审计规范（v3.2.0 新增）
+│       ├── failure-decision-tree.md    # 失败决策树（v3.2.0 新增）
+│       ├── deliverable-protocol.md     # 交付物协议（v3.2.0 新增）
+│       ├── gate-checks.md             # 门禁检查详情（v3.2.0 新增）
+│       ├── mode-comparison.md         # 模式对比速查表（v3.2.0 新增）
+│       ├── platform-adapters.md        # 平台适配规则（v3.2.0 新增）
+│       ├── memory-system.md           # 记忆系统（v2.0.0）
+│       ├── learning-system.md          # 学习系统（v2.0.0）
+│       ├── error-pattern-db.md        # 错误模式库（v2.0.0）
+│       └── model-context-config.md     # 模型上下文配置（v2.0.0）
+├── .cursor/                          # Cursor 安装产物（结构同上）
+├── .qoder/                          # Qoder 安装产物（结构同上）
+├── .claude/                         # Claude Code 安装产物（结构同上）
+├── AGENTS.md                        # OpenAI Codex 项目指令
+├── .agents/skills/dev-flow/SKILL.md # OpenAI Codex 仓库级 Skill
+├── .codex/                         # Codex 格式适配（结构同上）
 └── .dev-flow/
-    ├── memory/                            # 长期记忆目录
+    ├── memory/                        # 长期记忆目录
     │   ├── project-overview.md
     │   ├── conventions.md
-    │   ├── patterns.md                    # 代码模式（跨会话累积）
-    │   ├── mistakes.md                    # 常见错误（跨会话累积）
-    │   ├── preferences.md                 # 用户偏好（跨会话累积）
-    │   ├── decisions.md                   # 架构决策（跨会话累积）
-    │   └── session/                       # 会话记忆 ← v2.0.0 新增
-    │       ├── modules.md                 # 模块清单（每次 Research 重建）
+    │   ├── patterns.md                # 代码模式（跨会话累积）
+    │   ├── mistakes.md                # 常见错误（跨会话累积）
+    │   ├── preferences.md             # 用户偏好（跨会话累积）
+    │   ├── decisions.md               # 架构决策（跨会话累积）
+    │   └── session/                   # 会话记忆（每次 Research 重建）
+    │       ├── modules.md
     │       ├── apis.md
     │       ├── models.md
     │       ├── utils.md
     │       ├── config.md
     │       └── architecture.md
-    └── sessions/                           # 会话记录目录
+    └── sessions/                     # 会话记录目录
         └── .gitkeep
 ```
 
@@ -244,7 +175,7 @@ npx dev-flow install
 打开 Cursor / Trae / Qoder / Claude Code，在对话框中输入：
 
 ```
-/dev-flow 实现用户登录功能，包含邮箱密码登录、表单验证和记住密码
+/dev-flow 实现用户登录功能，包含表单验证和记住密码
 ```
 
 #### Step 3：跟随阶段确认
@@ -307,7 +238,7 @@ AI 将按以下流程执行，针对 Java 项目的特点进行适配：
 
 | 命令 | 说明 |
 |------|------|
-| `/dev-flow <需求描述>` | 执行完整流程：Research → Analyze → Design → Develop → Unit Test → Smoke Test → E2E Test → Integration Test → Fix → Delivery |
+| `/dev-flow <需求描述>` | 执行完整流程：Research → Analyze → Design → Task Split → Develop → Unit Test → Smoke Test → E2E Test → Integration Test → Fix → Delivery |
 
 ### 单阶段模式
 
@@ -332,7 +263,7 @@ AI 将按以下流程执行，针对 Java 项目的特点进行适配：
 |------|------|
 | `/dev-flow --resume` | 从上次中断处继续 |
 
-### 记忆管理（v2.0.0 新增）
+### 记忆管理
 
 | 命令 | 说明 |
 |------|------|
@@ -446,7 +377,6 @@ AI 将按以下流程执行，针对 Java 项目的特点进行适配：
 ```yaml
 subtaskId: "task-003"
 name: "UserService"
-type: "ServiceTask"
 
 ownDesign:           # 本任务要实现的内容
   service:
@@ -597,6 +527,7 @@ provides:            # 本任务对外提供的接口
 **做什么**：AI 分析测试失败原因，修复代码并回归测试。
 
 **执行步骤**：
+
 1. 读取失败测试的输出，定位出错代码
 2. 分析根因（逻辑错误/类型错误/遗漏边界情况）
 3. 修复代码，确保不引入新问题
@@ -655,29 +586,24 @@ Subagent 模式是 dev-flow 的高级功能，适用于复杂任务，通过任�
               │
               ├── [Research: pre-scanner + 13 file-level subagents, 5 batches]
               │     Phase 0: pre-scanner × 1          → file-index.yaml
-              │     Phase 1: Batch 1 (3) → 3 memory files (overview/registry/architecture)
-              │              Batch 2 (3) → 3 memory files (common/models/config)
-              │              Batch 3 (3) → 3 memory files (apis/utils/conventions)
-              │              Batch 4 (2) → 2 memory files (dependency/decisions)
-              │              Batch 5 (2) → 2 memory files (mistakes/patterns)
-              ├── analyze-expert   → 分析需求，输出 task-breakdown.yaml
+              │     Phase 1: Batch 1-5, 13 subagents  → 13 memory 文件
+              ├── analyze-expert   → 分析需求，输出需求分析文档
               ├── design-expert    → 详细设计，输出 design-contract.yaml
               ├── task-split-expert → 智能拆分，输出 DAG + 子任务设计
               ├── develop-expert   → 子任务级代码开发（可并行多个）
-              ├── test-expert      → 单元测试
-              ├── smoke-test-expert → 冒烟测试
-              ├── e2e-test-expert  → 端到端测试
-              ├── integration-test-expert → 集成测试
-              ├── contract-validator → 契约一致性校验 + 逻辑覆盖率验证（R5）← v2.1.0
-              ├── fix-expert       → Bug 修复
-              ├── error-pattern-learner → 错误模式学习（v1.0.2）
-              ├── delivery-expert  → 交付报告
-              └── verify-expert    → 代码验证
+              ├── test-expert      → 单元测试，输出测试报告
+              ├── smoke-test-expert → 冒烟测试，输出冒烟测试报告
+              ├── e2e-test-expert  → 端到端测试，输出测试报告
+              ├── integration-test-expert → 集成测试，输出测试报告
+              ├── fix-expert       → Bug 修复，输出修复代码
+              └── delivery-expert  → 生成交付报告
 ```
+
+**所有阶段均由专业 subagent 执行，主 Agent 作为纯调度器**，不存在"标准模式直接执行"的路径。
 
 ### 6.5 工作流程
 
-1. **Research 阶段**：pre-scanner 全局索引 + 13 文件级 subagent 分批并行扫描，生成 13 个 memory 文件 + 阶段交付物
+1. **Research 阶段**：pre-scanner 全局索引 + 13 个文件级 subagent 分批并行扫描，生成 13 个 memory 文件 + 阶段交付物
 2. **Analyze 阶段**：analyze-expert 分析需求，输出 `task-breakdown.yaml`（任务拆分和依赖关系）
 3. **Design 阶段**：design-expert 基于分析结果进行详细设计，输出 `design-contract.yaml`（含接口契约）
 4. **Task Split 阶段**：task-split-expert 将设计拆分为子任务，生成 DAG 依赖图和子任务级设计
@@ -688,12 +614,12 @@ Subagent 模式是 dev-flow 的高级功能，适用于复杂任务，通过任�
    - 每个 develop-expert 完成后执行编译验证闭环（v1.0.2）+ 逻辑回溯验证 Step 4.3（v2.1.0）
 6. **多层验证**（v2.1.0 新增）：每个批次完成后，orchestrator 执行验证链
    - Step 5.1：develop-expert 开发自检（Step 4.3 逻辑回溯验证）
-   - Step 5.2：contract-validator 独立验证（R1-R5 规则，R5 为 critical）
-   - Step 5.3：verify-expert 质量检查（编译验证 + 代码质量）
-   - 验证失败自动返回 develop-expert 修复（最多 2 轮），超过则升级到用户
-7. **全局集成编译**（v1.0.2）：所有子任务完成后，orchestrator 执行全局编译 + 契约一致性校验 + 错误分类 + 循环修复
+   - Step 5.2：contract-validator 独立验证（R1-R5，R5 为 critical 阻塞）
+   - Step 5.3：verify-expert 质量检查（编译验证、代码质量）
+   - 并行模式下的验证策略：批次统一验证、失败隔离
+7. **全局集成编译**（v1.0.2）：所有子任务完成后，orchestrator 执行全局编译 + 契约验证 + 错误分类 + 循环修复
 8. **错误模式学习**（v1.0.2）：error-pattern-learner 从编译错误、契约违反中提取模式，生成预防策略
-8. **Verify 阶段**：verify-expert 验证所有生成代码的质量和完整性
+9. **Verify 阶段**：verify-expert 验证所有生成代码的质量和完整性
 
 ### 6.6 跨平台调度策略（v2.0.0 新增）
 
@@ -704,10 +630,10 @@ Subagent 模式是 dev-flow 的高级功能，适用于复杂任务，通过任�
 | 平台 | Subagent 支持 | 并行能力 | 调度策略 |
 |------|--------------|---------|---------|
 | **Trae** | `/agent-name` 斜杠命令 | 原生并行 | 完整并行模式 |
-| **Cursor** | 无子 agent 原生支持 | 单会话串行 | 顺序模拟并行 |
-| **Claude Code** | 无子 agent 原生支持 | 单会话串行 | 顺序模拟并行 |
-| **Qoder** | 无子 agent 原生支持 | 单会话串行 | 顺序模拟并行 |
-| **Codex** | `AGENTS.md` agents 定义 | 有限并行 | 有限并行模式 |
+| **Cursor** | `.cursor/agents/*.md` YAML frontmatter | 多 Task 调用并行 | Cursor 并行模式 |
+| **Claude Code** | Dynamic Workflows JS 编排 | 16 并发 | Claude 并行模式 |
+| **Qoder** | Quest Mode 主从架构 | 方向并行 | Qoder 主从并行模式 |
+| **Codex** | `.codex/agents/*.toml` | 6 线程 | Codex 有限并行模式 |
 
 **策略一：Trae 完整并行模式**
 
@@ -739,12 +665,13 @@ Subagent 模式是 dev-flow 的高级功能，适用于复杂任务，通过任�
 - Orchestrator 使用 Kahn 算法进行拓扑排序，确定执行批次
 
 **执行批次示例**（8 个任务）：
+
 | 批次 | 任务 | 模式 | 说明 |
 |------|------|------|------|
 | 1 | T1(实体字段) + T7(依赖配置) | 并行 | 无相互依赖 |
 | 2 | T2(ApprovalRequest DTO) + T3(Response DTO) | 并行 | 都依赖 T1 但互不依赖 |
 | 3 | T4(Service 接口) | 串行 | 依赖 T2 |
-| 4 | T5(Service 实现) + T6(Controller) | 并行 | 都依赖 T4 但互不依赖 |
+| 4 | T5(Service 实现) + T6(Controller) | 并行 | 都依赖 T4 |
 | 5 | T8(代码验证) | 串行 | 依赖所有开发任务 |
 
 ### 6.8 方案C：子任务级设计与接口契约
@@ -777,7 +704,7 @@ enums: [...]         # 枚举定义
 feignClients: [...]  # Feign Client 定义
 exceptions: [...]    # 异常类定义
 
-# 方案C新增：跨子任务接口契约
+# 方案C 新增：跨子任务接口契约
 interfaces:
   serviceContracts:  # 服务接口契约
     - name: "UserService"
@@ -843,24 +770,6 @@ interfaces:
 | develop-expert | 设计文档、任务上下文 | 当前任务相关的已有代码 | 无关模块的代码 |
 | verify-expert | 设计文档、开发结果 | 生成的代码文件 | 未被修改的文件 |
 
-### 6.10 与标准模式的对比
-
-> **v3.1.0 更新**：标准模式已移除，统一为 Subagent 执行架构。以下为历史对比参考。
-
-| 特性 | ~~标准模式（已移除）~~ | Subagent 模式（统一架构） |
-|------|----------|---------------|
-| 适用场景 | ~~简单需求、单服务~~ | **所有需求** |
-| 执行方式 | ~~单 agent 串行~~ | **多 Subagent 串行/并行** |
-| 跨平台适配 | ~~统一流程~~ | Trae 原生并行 / Cursor/Claude/Qoder 顺序模拟并行 |
-| 上下文管理 | ~~单上下文，逐步累积~~ | 多独立上下文，隔离膨胀 |
-| 任务拆分 | ~~无~~ | DAG 依赖图 + 拓扑排序 + 冲突检测 |
-| 设计粒度 | ~~完整设计文档~~ | 子任务级设计（ownDesign + dependencies + provides） |
-| 依赖处理 | ~~手动管理~~ | 接口契约 + 接口注册表 + 契约冻结 |
-| 代码生成 | ~~主 agent 直接生成~~ | **develop-expert 按子任务生成** |
-| 编译验证 | ~~建议执行~~ | **强制执行** + 修复循环（最多 3 轮） |
-| 确认机制 | ~~暂停等待~~ | 结构化确认 Checklist 逐项确认（含执行者审计） |
-| 效率 | ~~适合小任务~~ | **简单需求串行 / 复杂需求并行** |
-
 ## 7. Hotfix 模式
 
 Hotfix 是独立模式，不需要经过完整流程，随时可用。
@@ -897,7 +806,6 @@ Hotfix 是独立模式，不需要经过完整流程，随时可用。
 
 **工作原理**：
 - 每个阶段完成后，AI 会将进度写入 `.dev-flow/sessions/` 目录
-- 续传时，AI 读取最近的未完成会话，从下一个未完成的阶段继续
 
 **会话文件格式**（`.dev-flow/sessions/{sessionId}.md`）：
 ```markdown
@@ -905,7 +813,7 @@ Hotfix 是独立模式，不需要经过完整流程，随时可用。
 - 状态：进行中
 - 当前阶段：Design
 - 已完成：Research → Analyze
-- 开始时间：2026-05-24 10:00
+- 开始时间：2026-06-05 10:00
 
 ## Research 摘要
 [调研结果摘要]
@@ -983,7 +891,7 @@ try {
 }
 ```
 - 使用场景：所有 API 调用
-- 添加时间：2026-05-24
+- 添加时间：2026-06-05
 - 使用次数：5
 ```
 
@@ -997,9 +905,9 @@ try {
 @Service
 @RequiredArgsConstructor
 public class XxxServiceImpl implements XxxService {
-    
+
     private final XxxMapper xxxMapper;
-    
+
     @Override
     @Transactional(rollbackFor = Exception.class)
     public ApiResponse<Xxx> create(XxxRequest request) {
@@ -1007,22 +915,23 @@ public class XxxServiceImpl implements XxxService {
         if (request == null) {
             throw new BusinessException("请求参数不能为空");
         }
-        
+
         // 2. 业务逻辑处理
         Xxx entity = new Xxx();
         BeanUtils.copyProperties(request, entity);
-        
+
         // 3. 数据库操作
         xxxMapper.insert(entity);
-        
+
         // 4. 返回结果
         return ApiResponse.success(entity);
     }
 }
 ```
 - 使用场景：所有 Service 实现类
-- 添加时间：2026-05-24
+- 添加时间：2026-06-05
 - 使用次数：8
+```
 ```
 
 #### mistakes.md 示例
@@ -1036,7 +945,7 @@ public class XxxServiceImpl implements XxxService {
 **错误模式**：`const data = fetchUser();`（忘记 await）
 **修复方案**：`const data = await fetchUser();`
 **出现次数**：3
-**最后出现**：2026-05-24
+**最后出现**：2026-06-05
 **预防措施**：ESLint 规则 @typescript-eslint/no-floating-promises
 ```
 
@@ -1059,7 +968,7 @@ String name = Optional.ofNullable(user.getName())
     .orElse("");
 ```
 **出现次数**：5
-**最后出现**：2026-05-24
+**最后出现**：2026-06-05
 **预防措施**：使用 `@NonNull` 注解、IDE 空值检查、Optional
 ```
 
@@ -1084,13 +993,11 @@ String name = Optional.ofNullable(user.getName())
 # 架构决策记录
 
 ## ADR-001：选择 React Hook Form 而非 Formik
-**日期**：2026-05-24
+**日期**：2026-06-05
 **决策**：使用 React Hook Form 处理表单
 **原因**：性能更好、TypeScript 集成更顺畅、包体积更小
 **影响**：所有表单组件
 ```
-
-### 9.3 记忆使用和更新规则
 
 #### 读取规则
 
@@ -1141,7 +1048,7 @@ String name = Optional.ofNullable(user.getName())
 
 ## 10. 学习能力
 
-dev-flow 会从你的使用过程中持续学习，让 AI 越来越了解你的项目和偏好。
+dev-flow 具备从用户反馈中学习的能力，通过持续积累项目知识，实现"越用越好用"。
 
 ### 学习来源
 
@@ -1210,1094 +1117,7 @@ dev-flow 通过以下指标衡量学习效果：
 3. **及时确认好的输出**：当 AI 生成了满意的代码，确认"这段代码很好"
 4. **定期检查记忆文件**：查看 `.dev-flow/memory/` 目录，确认 AI 的学习是否准确
 
-## 11. v1.0.2 新特性
-
-v1.0.2 版本围绕**代码正确性和完整性**进行了 5 项重大优化，目标是在企业级项目中实现 100% 的代码正确性和完整性。
-
-### 11.1 结构化业务逻辑
-
-**问题**：设计阶段的业务逻辑使用自然语言描述，AI 理解和实现时可能产生歧义。
-
-**解决方案**：设计阶段输出结构化决策表，每个步骤定义明确的 Action 类型和条件。
-
-**支持的 Action 类型**：
-
-| Action | 说明 | Java 代码示例 |
-|--------|------|--------------|
-| `validate` | 条件验证 | `if (!(condition)) { throw ... }` |
-| `query` | 数据查询 | `user = userMapper.selectById(id);` |
-| `convert` | 对象转换 | `userDTO = UserConvertor.convert(user);` |
-| `assign` | 赋值操作 | `order.setStatus(OrderStatus.PAID);` |
-| `throw` | 抛出异常 | `throw new BusinessException(...)` |
-| `return` | 返回结果 | `return userDTO;` |
-| `call` | 调用服务 | `inventoryService.deductStock(...)` |
-| `branch` | 条件分支 | `if (condition) { ... } else { ... }` |
-
-**结构化逻辑示例**：
-
-```yaml
-logic:
-  - step: 1
-    action: "validate"
-    condition: "userId != null && userId > 0"
-    onFail:
-      action: "throw"
-      exception: "BusinessException"
-      errorCode: "INVALID_USER_ID"
-    onSuccess: "goto_step_2"
-  - step: 2
-    action: "query"
-    target: "userMapper.selectById"
-    params: ["userId"]
-    result: "user"
-```
-
-### 11.2 编译验证闭环
-
-**问题**：AI 生成的代码可能存在编译错误（方法名错误、类型不匹配、缺少 import 等）。
-
-**解决方案**：开发完成后自动执行编译验证，解析错误并自动修复。
-
-**执行流程**：
-
-```
-代码生成 → 执行编译 → 解析错误 → 自动修复 → 重新编译（最多 3 轮）
-```
-
-**支持的编译命令**：
-
-| 项目类型 | 编译命令 |
-|---------|---------|
-| Java (Maven) | `mvn clean compile -DskipTests -pl {模块} -am` |
-| Java (Gradle) | `./gradlew compileJava` |
-| 前端 (TypeScript) | `npx tsc --noEmit` |
-| 前端 (构建) | `npm run build --if-present` |
-
-**自动修复策略**：
-
-| 错误类型 | 修复策略 |
-|---------|---------|
-| 找不到符号 | 修正 import 或类名 |
-| 类型不匹配 | 添加类型转换 |
-| 方法未找到 | 修正方法名或参数 |
-| 缺少依赖 | 添加依赖声明 |
-
-### 11.3 契约一致性校验
-
-**问题**：AI 生成的代码可能与设计契约不一致（方法签名错误、字段缺失等）。
-
-**解决方案**：新增 contract-validator Agent，自动验证代码与设计契约的一致性。
-
-**5 条验证规则**（v2.1.0 新增 R5）：
-
-| 规则 | 验证内容 | 示例 |
-|------|---------|------|
-| R1 | 方法签名一致性 | 设计定义 `getById(Long)` → 代码实现 `getById(Long)` |
-| R2 | Entity 字段一致性 | 设计定义 10 个字段 → 代码实现 10 个字段 |
-| R3 | 实现完整性 | 设计定义 5 个方法 → 代码实现 5 个方法 |
-| R4 | 依赖调用一致性 | 调用方参数与提供方接口一致 |
-| R5（v2.1.0） | 逻辑步骤覆盖率 | 每个 logic step/condition/call action 都有代码实现，覆盖率 100% |
-
-### 11.4 全局集成编译
-
-**问题**：单个子任务编译通过，但集成后可能存在跨任务接口不匹配。
-
-**解决方案**：所有子任务完成后，orchestrator 执行全局编译 + 契约验证。
-
-**错误分类与修复分配**：
-
-| 类别 | 描述 | 修复策略 |
-|------|------|---------|
-| A | 单个子任务内部错误 | 重新调用 develop-expert 修复 |
-| B | 跨任务接口不匹配 | 调用 contract-validator 定位 |
-| C | 设计契约偏差 | 回退到 design-expert 更新设计 |
-| D | 依赖版本冲突 | 调用 analyze-expert 分析依赖 |
-
-### 11.5 错误经验学习
-
-**问题**：同类错误在不同任务中重复出现。
-
-**解决方案**：新增 error-pattern-learner Agent，从历史错误中提取模式，生成预防策略。
-
-**学习流程**：
-
-```
-收集错误 → 提取模式 → 根因分析 → 生成预防策略 → 更新 Agent 指导
-```
-
-**错误模式示例**：
-
-| 模式 | 描述 | 预防策略 |
-|------|------|---------|
-| P001 | Entity getter 方法名猜测错误 | 强制读取 Entity 实际定义 |
-| P002 | DTO 校验注解缺失 | 添加校验注解检查清单 |
-| P003 | Mapper 返回类型错误 | 验证 Mapper 接口签名 |
-
-## 12. v1.0.3 新特性
-
-### 12.1 步骤强制执行（Step Enforcer）
-
-**解决的问题**：AI 可能"偷懒"跳过关键步骤（如 Step 2.5 强制读取验证）
-
-**工作原理**：
-1. 在关键步骤后插入强制验证（如 Step 2.5.9）
-2. 验证必须输出文件是否存在（如 `entity-verification-table.md`）
-3. 验证文件内容是否包含特定标记（如 `confirmed: true`）
-4. 验证失败时**阻塞流程**，强制返回重试
-5. 最多重试 3 次，耗尽后升级到 orchestrator 人工处理
-
-**受保护的步骤**：
-- Step 2.5: 强制读取验证
-- Step 3.1: 结构化业务逻辑实现
-- Step 5.7: 编译验证闭环
-
-**用户价值**：
-- 确保 AI 真正执行关键步骤，不是虚假声明
-- 减少编译错误，提高代码质量
-- 特别适合企业级项目（如 QMS）的严格开发流程
-
-### 12.2 错误模式自动应用
-
-**解决的问题**：学习到的错误模式需要人工更新 Agent 文件
-
-**工作原理**：
-1. Error Pattern Learner 自动收集编译/测试错误
-2. 自动提取可复现模式（如"Entity getter 方法名猜测错误"）
-3. 自动生成预防策略
-4. **自动应用策略**到 Agent 指导（如 develop-expert.md）
-5. **自动追踪策略效果**，成功率 > 95% 标记为标准规范
-
-**自动应用条件**：
-- 模式出现 ≥ 2 次 → 自动更新 Agent 警告提示
-- 模式出现 ≥ 5 次 → 自动升级为强制检查项
-- 策略成功率 > 95% → 自动标记为标准规范
-- 策略成功率 < 50% → 自动调整策略内容
-
-**用户价值**：
-- 无需人工更新 Agent 文件
-- 系统越用越好，自动积累项目知识
-- 长期错误率下降 90%
-
-## 13. v1.0.4 新特性
-
-### 13.1 三层防御体系防止 Import 路径猜测错误
-
-**解决的问题**：AI 根据类名猜测 import 路径导致编译错误（如看到 `ReworkSop` 就猜测有 `rework` 子包）
-
-**常见错误示例**：
-```
-❌ 错误猜测：import com.xxx.entity.rework.ReworkSopRegister;
-✅ 实际路径：import com.xxx.entity.entity.ReworkSopRegister;
-```
-
-### 13.2 第一层：代码生成前防御（P0 - Step Enforcer）
-
-**强化内容**：
-- 新增 `import-verification-table.md` 强制验证
-- 验证所有 import 必须通过 Grep 搜索确认
-- 验证所有 import 状态必须为 ✅（无 ❌ 或 ⏳）
-- 验证失败时**阻塞代码生成**
-
-**验证流程**：
-```
-1. 对每个需要 import 的类，执行 Grep 搜索：
-   Grep "class ReworkSopRegister" --glob="**/*.java"
-   
-2. 找到类的实际位置后，记录到 import-verification-table.md：
-   | 类名 | 猜测路径 | 实际路径 | 验证状态 |
-   | ReworkSopRegister | entity.rework | entity.entity | ✅ 已修正 |
-
-3. Step Enforcer 验证 import-verification-table.md 通过
-
-4. 通过验证后才能生成代码
-```
-
-### 13.3 第二层：编译前防御（P1 - develop-expert）
-
-**强化内容**：
-- Step 2.5.2 明确禁止猜测 import 路径
-- 必须通过 Grep 搜索确认类的实际位置
-- 生成 import-verification-table.md 记录猜测路径 vs 实际路径
-
-**禁止行为**：
-```
-❌ 根据类名中的关键词猜测子包（如 ReworkSop → rework 子包）
-❌ 根据类名语义猜测包名（如 Exception → exception 包）
-❌ 根据命名习惯假设包结构
-```
-
-**正确做法**：
-```
-✅ 必须执行 Grep 搜索确认实际路径
-✅ 必须读取文件确认正确的 import 语句
-✅ 必须记录猜测路径用于后续对比
-```
-
-### 13.4 第三层：编译后防御（P2 - Error Pattern Learner）
-
-**强化内容**：
-- P005 (Import 路径错误) 优先级从 medium 提升到 high
-- 新增自动修复策略
-- 新增 S005 预防策略
-
-**自动修复流程**：
-```
-1. 检测编译错误：找不到符号: 类 Xxx
-
-2. 自动提取类名（如 Xxx）
-
-3. 自动 Grep 搜索：
-   Grep "class Xxx" --glob="**/*.java"
-
-4. 分析搜索结果，确定正确包路径
-
-5. 自动修正 import 语句
-
-6. 记录到 import-verification-table.md
-```
-
-### 13.5 防护效果
-
-| 错误模式 | 防护前 | 防护后 |
-|---------|--------|--------|
-| 根据类名猜测子包 | 频繁发生 | ✅ 已防护 |
-| 根据类名语义猜测包名 | 频繁发生 | ✅ 已防护 |
-| Import 路径错误发生率 | 高 | **降低 95%** |
-
-### 13.6 用户价值
-
-- **零猜测**：所有 import 必须通过 Grep 搜索确认
-- **零错误**：彻底杜绝 import 路径猜测错误
-- **零等待**：减少编译-修复循环，提高开发效率
-- **自动修复**：即使第一二层失效，第三层也能自动修复
-
-## 14. v1.0.5 架构优化
-
-v1.0.5 是一次架构级重构，围绕**上下文效率**和**代码完整性**进行了 4 项重大优化，将代码生成可用空间从 10% 提升至 50%。
-
-### 14.1 三层按需加载架构
-
-**问题**：原 SKILL.md 体积 140KB / 4000 行，AI 加载后消耗 55% 的上下文窗口，留给代码生成的空间严重不足，导致代码被截断、简化、用占位符填充。
-
-**解决方案**：将 140KB 的单体 SKILL.md 拆分为三层按需加载架构。
-
-```
-第一层：Router（27KB，始终加载）
-  ├── YAML front-matter + 命令解析
-  ├── 全局规则（禁止事项 + 完整性铁律精简版）
-  ├── 阶段路由表
-  ├── 标准模式执行流程
-  └── 记忆系统 + 学习能力
-
-第二层：阶段指令文件（按需加载）
-  ├── stages/research.md (15KB)     ← 进入 Research 阶段才加载
-  ├── stages/analyze.md (10KB)     ← 进入 Analyze 阶段才加载
-  ├── stages/design.md (22KB)      ← 进入 Design 阶段才加载
-  ├── stages/task-split.md (7KB)   ← 进入 Task Split 才加载
-  ├── stages/develop.md (28KB)     ← 进入 Develop 阶段才加载
-  ├── stages/code-reference.md (10KB) ← Develop 阶段额外加载
-  └── ...共 12 个文件
-
-第三层：Agent 文件（仅 Develop 阶段加载）
-  ├── develop-expert.md (26KB)     ← Subagent 模式下加载
-  ├── step-enforcer.md              ← 验证步骤完整性
-  ├── contract-validator.md         ← 契约一致性校验
-  └── ...共 20 个 agent
-```
-
-**加载规则**：
-- 标准模式：按顺序进入每个阶段时，读取对应阶段的 `stages/*.md` 文件
-- Subagent 模式：每个 subagent 只加载自己阶段的指令文件，不加载其他阶段
-- 跳过的阶段不加载
-
-**各平台路径适配**：
-
-| 平台 | Router 路径 | Stages 路径 | Agents 路径 |
-|------|-----------|------------|------------|
-| Trae | `.trae/skills/dev-flow/SKILL.md` | `stages/` | `agents/` |
-| Cursor | `.cursor/commands/dev-flow.md` | `.cursor/stages/` | `.cursor/agents/` |
-| Claude Code | `.claude/commands/dev-flow.md` | `.claude/stages/` | `.claude/agents/` |
-| Qoder | `.qoder/commands/dev-flow.md` | `.qoder/stages/` | `.qoder/agents/` |
-
-### 14.2 代码完整性铁律
-
-**问题**：AI 在 subagent 模式下生成的代码包含大量空实现、TODO、`log.xxx()` 占位符，而非完整可运行的代码。之前的禁止列表只说了"不要做什么"，缺少"每个方法必须包含什么"的正面规则。
-
-**解决方案**：在 develop-expert.md 中新增"代码完整性铁律"章节，定义正面规则和判断标准。
-
-**7 条正面规则**：
-
-1. **每个方法体必须包含实质性的业务操作**（数据库操作/外部调用/业务计算/状态变更）
-2. **每个条件分支都必须有完整的处理逻辑**（if/else 每个分支都有实际代码）
-3. **每个循环都必须有完整的循环体**（循环内有实际操作）
-4. **每个 try-catch 的 catch 必须有实际错误处理**（不能只有 log）
-5. **返回值必须经过实际计算/查询/转换**（不能直接 return null 或硬编码）
-6. **外部调用（Feign/RPC/MQ/Redis/DB）必须使用真实调用代码**（不能被 log 替代）
-7. **数据转换（Entity ↔ DTO）必须写完整字段映射**（不能省略）
-
-**判断标准 — 生产可用测试**：
-
-> 如果这段代码被直接部署到生产环境，它能正常工作吗？
-> 答案为"否" → 代码不够完整，必须补充。
-
-**禁止事项（扩展版）**：
-
-| 禁止行为 | 正确做法 |
-|---------|---------|
-| `// TODO: 实现业务逻辑` | 必须实现完整逻辑 |
-| `return null;` 空实现 | 必须实现完整逻辑 |
-| 只有 `log.xxx()` 的方法体 | 必须包含真实业务调用 |
-| `pass` / `...` / `raise NotImplementedError` | 必须实现完整逻辑 |
-| `throw new UnsupportedOperationException` | 必须实现完整逻辑 |
-
-### 14.3 代码完整性防线
-
-**问题**：代码完整性规则依赖 AI 自觉执行，没有技术手段强制验证。
-
-**解决方案**：在 develop-expert.md 的 Step 3（代码生成）中新增 Step 3.5"完整性防线"——每个文件写入后立即扫描占位模式，发现即修复。
-
-**防线扫描的占位模式**：
-
-- `TODO`、`FIXME`、`HACK`、`XXX` 占位注释
-- `return null;` 空实现
-- 只有 `log.xxx()` 的方法体
-- `{/* 描述 */}` React 占位组件
-- `pass` / `...` Python 占位
-- `throw new UnsupportedOperationException`
-
-**修复流程**：扫描发现占位 → 立即替换为完整实现 → 重新扫描确认 → 继续
-
-### 14.4 全平台防护统一
-
-**问题**：step-enforcer、contract-validator、bytecode-analyzer、design-contract-validator 等关键防护 agent 原本只在 Trae 平台有效，cursor/claude/qoder 平台缺少这些防护。
-
-**解决方案**：将这些 agent 从 `_platforms/trae/agents/` 提升到 `_core/agents/`，所有平台共享。
-
-**提升的 agent**（7 个）：
-
-| Agent | 功能 |
-|-------|------|
-| `step-enforcer.md` | 步骤强制执行验证器 |
-| `contract-validator.md` | 契约一致性校验 |
-| `bytecode-analyzer.md` | 占位模式扫描 |
-| `design-contract-validator.md` | 设计契约完整性验证 |
-| `context-manager.md` | 上下文管理器 |
-| `error-pattern-learner.md` | 错误模式学习 |
-| `task-split-expert.md` | 智能任务拆分 |
-
-### 14.5 标准模式执行流程
-
-v1.0.5 在 Router 中新增了显式的标准模式执行流程，明确每个阶段的"读取指令→执行→暂停确认"三步循环。
-
-**完整流程**：
-
-```
-Step 1:  Read stages/research.md → 执行 Research → 暂停确认
-Step 2:  Read stages/analyze.md → 执行 Analyze → 暂停确认
-Step 3:  Read stages/design.md → 执行 Design → 暂停确认
-Step 4:  Read stages/task-split.md → 执行 Task Split → 暂停确认
-Step 5:  Read stages/develop.md + stages/code-reference.md → 执行 Develop → 暂停确认
-Step 6:  Read stages/unit-test.md → 执行 Test → 暂停确认
-Step 7-N: Smoke Test → Integration Test → Delivery → 完成
-```
-
-**关键规则**：
-- 每个阶段开始前必须先读取对应的阶段指令文件
-- 每个阶段完成后必须暂停，等待用户确认后才能进入下一阶段
-- 如果 AI 发现上下文接近溢出，提示用户切换到 Subagent 模式
-
-### 14.6 上下文优化效果
-
-| 指标 | 优化前 (v1.0.4) | 优化后 (v1.0.5) |
-|------|----------------|----------------|
-| Router 体积 | 140KB / 4000行 | **27KB / 616行（-81%）** |
-| Develop 阶段上下文 | ~357KB（全量加载） | **~79KB（Router + develop + agent）** |
-| 代码生成可用空间 | ~10% | **~50%** |
-| 有防护的平台 | 仅 Trae | **trae/cursor/claude/qoder 全部** |
-| Agent 防护数量 | 16 个（Trae）/ 9 个（其他） | **20 个（全平台统一）** |
-| 阶段指令文件 | 0（内嵌 SKILL.md） | **12 个（按需加载）** |
-
-## 15. v2.0.0 架构升级
-
-v2.0.0 是一次重大架构升级，在 v1.0.5 三层按需加载基础上，新增 References 层、实现会话/长期记忆分离、完成 Agent 智能拆分、并建立完整测试覆盖体系。
-
-### 15.1 四层按需加载架构
-
-**问题**：v1.0.5 的 Router 仍有 27KB，其中记忆系统（目录结构、使用规则、文件格式示例）和学习能力（学习机制、示例、效果评估）占用大量空间，但这些内容并非每个阶段都需要。
-
-**解决方案**：将 Router 中的详细参考内容外置为 References 层，Router 只保留快速引用。
-
-```
-第一层：Router（17KB，始终加载）← 原 27KB，减少 37%
-  ├── 命令解析 + 全局规则
-  ├── 阶段路由表
-  ├── 记忆系统快速引用（5 行摘要 + references 链接）
-  └── 学习能力快速引用（5 行摘要 + references 链接）
-
-第二层：References（按需加载）← v2.0.0 新增
-  ├── memory-system.md (15KB)     ← Research / 需要查阅记忆规则时
-  ├── learning-system.md (8.5KB)  ← 阶段结束时读取
-  ├── error-pattern-db.md (11.5KB)← Error Pattern Learner 读取
-  └── model-context-config.md      ← Context Manager 读取
-
-第三层：阶段指令文件（进入阶段时加载）
-  └── stages/*.md（12 个文件）
-
-第四层：Agent 文件（Subagent 模式下加载）
-  └── agents/*.md（18 个文件）
-```
-
-**v2.0.0 vs v1.0.5 对比**：
-
-| 指标 | v1.0.5 | v2.0.0 | 变化 |
-|------|--------|--------|------|
-| Router 体积 | 27KB | **17KB** | **-37%** |
-| 始终加载内容 | 27KB | **17KB** | **-37%** |
-| 按需参考文档 | 0 | **4 个（35KB）** | 新增 |
-| 构建系统占位符 | `{{STAGES_PATH}}` `{{AGENTS_PATH}}` | + `{{REFERENCES_PATH}}` | 新增 |
-
-### 15.2 会话/长期记忆分离
-
-**问题**：v1.0.5 的所有记忆文件都在同一目录，Research 阶段会重建所有文件，导致长期积累的模式、错误、偏好数据丢失。不重建则可能数据过时。
-
-**解决方案**：将记忆分为长期记忆和会话记忆，分别存放。
-
-**长期记忆**（`.dev-flow/memory/` 根目录）：
-- 跨会话保留，Research 阶段只更新不重建
-- 包含：project-overview、conventions、patterns、mistakes、preferences、decisions、service-registry、dependency-graph、common-modules
-
-**会话记忆**（`.dev-flow/memory/session/` 子目录）：
-- 每次 Research 自动清空并重建，反映项目最新快照
-- 包含：modules、apis、models、utils、config、architecture
-
-**清理命令**：
-- `/dev-flow -cleanup` — 清理 `session/` 目录，保留长期记忆
-- `/dev-flow -cleanup --all` — 重置全部记忆文件
-
-**Research 阶段变化**：
-- Step 5.0 新增会话记忆清理逻辑（清空 session/ 目录 → 重建）
-- 长期记忆只在有新数据时更新，不重建
-
-### 15.3 Agent 智能拆分
-
-**问题**：error-pattern-learner (27KB) 和 context-manager (22KB) 体积过大，Subagent 模式下加载时占用大量上下文。
-
-**解决方案**：将大 Agent 中的详细数据库和配置外置为 references 文件，核心 Agent 保留工作流和关键规则。
-
-| Agent | 原大小 | 拆分后核心 | 外置 references |
-|-------|--------|-----------|----------------|
-| error-pattern-learner | 27KB | **15.7KB** | error-pattern-db.md (11.5KB) |
-| context-manager | 22KB | **18KB** | model-context-config.md |
-
-核心 Agent 文件中通过 `{{REFERENCES_PATH}}xxx.md` 引用外置内容，需要时才读取。
-
-### 15.4 完整测试覆盖与 CI
-
-**问题**：v1.0.5 没有自动化测试，构建和发布完全依赖人工验证。
-
-**解决方案**：新增 4 套自动化测试 + GitHub Actions CI。
-
-| 测试 | 文件 | 检查内容 |
-|------|------|---------|
-| 构建测试 | `tests/build.test.js` | 核心文件存在性、构建输出、Router 大小、占位符替换 |
-| 链接测试 | `tests/links.test.js` | README 链接有效性、SKILL.md 文件引用、路径替换 |
-| 大小预警 | `tests/size-warning.test.js` | Router/Stage/Agent/Reference 大小阈值 |
-| 格式检查 | `tests/format.test.js` | Markdown frontmatter 和格式规范 |
-
-**CI 配置**（`.github/workflows/ci.yml`）：
-- 双版本 Node.js（18/20）测试
-- 自动构建验证
-- 发布前检查（`scripts/pre-publish.js`）
-- npm 自动发布
-
-**版本号一致性检查**（`scripts/version-check.js`）：
-- 自动比对 `package.json` vs `README.md` vs `CHANGELOG.md`
-- `--fix` 参数自动修复 README 版本号
-
-### 15.5 参考文件（References）
-
-v2.0.0 新增的 References 层包含 4 个按需加载的深度参考文档：
-
-| 文件 | 大小 | 加载时机 | 内容 |
-|------|------|---------|------|
-| `memory-system.md` | 15KB | Research / Develop 前查阅记忆规则 | 完整的记忆目录结构、使用规则、文件格式示例 |
-| `learning-system.md` | 8.5KB | Research / Develop / Fix 结束时 | 学习机制、学习示例、效果评估 |
-| `error-pattern-db.md` | 11.5KB | Error Pattern Learner Step 5/6 | 错误模式定义 P001-P009、预防策略 S001-S009 |
-| `model-context-config.md` | — | Context Manager 计算动态阈值 | 模型上下文窗口配置、动态计算规则、分层设计文档裁剪 |
-
-**各平台 References 安装路径**：
-
-| 平台 | 路径 |
-|------|------|
-| Trae | `.trae/skills/dev-flow/references/` |
-| Cursor | `.cursor/references/` |
-| Claude Code | `.claude/references/` |
-| Qoder | `.qoder/references/` |
-| OpenAI Codex | `.codex/references/` |
-
-## 16. v2.1.0 验证闭环强化
-
-v2.1.0 围绕**多 subagent 开发阶段的代码正确性保证**进行了全面强化，新增设计→代码逻辑回溯验证、修复调度引擎关键 bug、整合 5 个验证 Agent 形成完整验证闭环。
-
-### 16.1 设计→代码逻辑回溯验证（Step 4.3）
-
-**问题**：现有验证机制（编译、契约校验、占位扫描）都是语法/结构级别的，无法保证业务逻辑的正确性。step-enforcer 定义了 R3-4-1/R3-4-2 规则但从未集成到 develop.md 的执行流程中。
-
-**解决方案**：在 develop.md 中新增 Step 4.3，在编译通过 + Quick Test 通过后**强制执行**逻辑回溯验证。
-
-**执行流程**：
-
-```
-编译通过 + Quick Test 通过
-  │
-  ▼
-Step 4.3.1: 从 design-contract.yaml 提取所有逻辑单元
-  ├── logic_steps: 每个业务步骤（validate/query/convert/call 等）
-  ├── conditions: 条件分支（if/else/case）
-  └── call_actions: 外部调用（Feign/RPC/MQ/Redis）
-  → 输出 design_logic_inventory.yaml
-  │
-  ▼
-Step 4.3.2: 在代码中逐条定位实现
-  ├── validate → 代码中必须有 if(!condition) throw
-  ├── query → 代码中必须有 mapper/db 操作
-  ├── call → 代码中必须有实际外部调用
-  └── 其他 action 类型对应检查
-  │
-  ▼
-Step 4.3.3: 计算覆盖率（全部必须 100%）
-  ├── logic_step_coverage: 100%
-  ├── condition_coverage: 100%
-  └── call_action_coverage: 100%
-  │
-  ▼
-Step 4.3.4: 未覆盖项处理（最多 2 轮修复）
-  → 输出 logic-coverage-matrix.yaml
-```
-
-**产出文件**（`.dev-flow/docs/{需求简称}-task-split/`）：
-
-| 文件 | 说明 |
-|------|------|
-| `design_logic_inventory.yaml` | 从 design-contract.yaml 提取的逻辑单元清单 |
-| `logic-coverage-matrix.yaml` | 覆盖率矩阵，每条逻辑步骤 vs 代码实现映射 |
-
-### 16.2 逻辑步骤标注规范
-
-**问题**：逻辑回溯验证需要准确定位代码中的逻辑步骤，但代码缺乏标准标注，回溯效率低。
-
-**解决方案**：在 develop-expert.md 中新增逻辑步骤标注规范，要求 Service 实现使用标准注释标注。
-
-**标注格式**：
-
-```java
-@Service
-@RequiredArgsConstructor
-public class OrderServiceImpl implements OrderService {
-    private final OrderMapper orderMapper;
-    private final SapPushService sapPushService;
-
-    @Override
-    @Transactional(rollbackFor = Exception.class)
-    public void createOrder(OrderCreateRequest request) {
-        // Step 1: validate - 校验订单参数
-        if (request == null || request.getItems() == null) {
-            throw new BusinessException("订单参数不能为空");
-        }
-
-        // Step 2: query - 查询订单是否存在
-        OrderEntity existing = orderMapper.selectByOrderNo(request.getOrderNo());
-        if (existing != null) {
-            throw new BusinessException("订单已存在");
-        }
-
-        // Step 3: convert - 转换并保存订单
-        OrderEntity entity = OrderConvertor.convert(request);
-        orderMapper.insert(entity);
-
-        // Step 4: branch - 判断是否需要推送
-        if (entity.getAmount() > 1000) {
-            // Step 4.1: call - 调用 SAP 推送
-            sapPushService.pushOrder(entity);
-        }
-
-        // Step 5: return - 返回结果
-        log.info("订单创建成功: {}", entity.getOrderNo());
-    }
-}
-```
-
-**标准 action 类型**：
-
-| Action | 代码特征 | 说明 |
-|--------|---------|------|
-| `validate` | `if(!condition) throw` | 参数/状态校验 |
-| `query` | `mapper.select` / `db.query` | 数据查询 |
-| `convert` | `BeanUtils.copy` / `Convertor` | 对象转换 |
-| `assign` | `entity.setXxx()` | 赋值操作 |
-| `throw` | `throw new XxxException` | 抛出异常 |
-| `return` | `return xxx` | 返回结果 |
-| `call` | `xxxService.xxx()` | 外部调用 |
-| `branch` | `if/else/switch` | 条件分支 |
-
-> **注意**：仅在 design-contract.yaml 定义了 logic_steps 时需要标注，简单需求（无复杂逻辑步骤）豁免。
-
-### 16.3 多层验证闭环
-
-**问题**：v2.0.0 中 orchestrator 的 Step 5 "结果验证" 只有一行描述"验证代码可编译性"，未调用任何验证 Agent。contract-validator、step-enforcer、bytecode-analyzer 等虽然定义了丰富的规则，但从未在主流程中被触发。
-
-**解决方案**：重写 orchestrator.md 的 Step 5 为完整的多层验证闭环。
-
-**验证链执行顺序**：
-
-```
-develop-expert 完成代码生成
-  │
-  ▼
-Step 5.1: 开发自检（develop-expert 内部执行）
-  ├── Step 4.3 逻辑回溯验证
-  ├── 输出 logic-coverage-matrix.yaml
-  └── 全部 100% 覆盖 → 通过
-  │
-  ▼
-Step 5.2: contract-validator 独立验证
-  ├── R1-R4: 结构一致性验证（签名、字段、接口、依赖）
-  ├── R5: 逻辑步骤覆盖率校验（critical 阻塞）
-  └── 输出 contract-validation-report.yaml
-  │
-  ▼
-Step 5.3: verify-expert 质量检查
-  ├── 代码质量、完整性、一致性检查
-  ├── 编译验证（mvn compile / npm build）
-  └── 输出 verify-report.md
-  │
-  ├── 全部通过 → 进入下一批次
-  │
-  └── 任一验证失败
-        ├── 返回 develop-expert 修复（最多 2 轮）
-        └── 超过重试次数 → 升级到用户人工处理
-```
-
-**并行模式下的验证策略**：
-- 同一批次的多个 develop-expert **全部完成后**，统一执行验证链
-- 某任务验证失败**只阻塞依赖该任务的后续任务**，不阻塞同批次其他任务
-- 批次中所有验证通过后才启动下一批次
-
-### 16.4 验证 Agent 分工矩阵
-
-**问题**：5 个验证 Agent 之间规则有重叠（step-enforcer R3-4-1 与 contract-validator R5-1 功能相同），角色分工不清。
-
-**解决方案**：在所有验证 Agent 文件中统一添加分工矩阵。
-
-| Agent | 验证维度 | 执行时机 | 执行者 | 阻塞级别 |
-|-------|---------|---------|--------|---------|
-| design-contract-validator | 设计文档 call action 完整性 | 开发过程中（可选） | develop-expert | 建议 |
-| step-enforcer | 文件存在性 + 禁止事项 + 早期覆盖率预警 | 开发过程中（强制） | develop-expert | 阻塞 |
-| contract-validator | 结构一致性 + 逻辑覆盖率最终验证 | 开发完成后（强制） | orchestrator | 阻塞（R5 critical） |
-| verify-expert | 代码质量 + 编译验证 + 需求满足度 | 最终验证（强制） | orchestrator | 阻塞 |
-| bytecode-analyzer | 编译后字节码/源码深度分析 | 编译完成后（可选） | verify-expert | 建议 |
-
-**step-enforcer 与 contract-validator R5 的双层防御关系**：
-
-| 规则 | step-enforcer | contract-validator R5 |
-|------|--------------|---------------------|
-| 逻辑步骤覆盖 | R3-4-1（早期预警） | R5-1（最终仲裁） |
-| 条件分支覆盖 | R3-4-2（早期预警） | R5-2（最终仲裁） |
-| 外部调用完整性 | — | R5-3（最终仲裁） |
-| 覆盖率矩阵完整性 | — | R5-4（最终仲裁） |
-
-- R3-4-1/R3-4-2 是**开发过程中的即时检查**，帮助 develop-expert 早期发现遗漏
-- R5 是**开发完成后的独立验证**，作为最终仲裁确保质量
-- 两者验证维度相同但执行时机和执行者不同
-
-### 16.5 调度引擎增强
-
-**问题**：dispatch.cjs 的 `parseTaskDag` 函数在解析 YAML 列表格式的 `dependencies:` 时，未设置 `_collecting` 标记导致所有依赖被忽略。这意味着循环依赖检测完全失效，文件级冲突检测也无法正确判断批次关系。
-
-**修复内容**：
-
-| 修复项 | 说明 | 影响 |
-|--------|------|------|
-| 🔴 `_collecting` bug | `dependencies:` 列表格式未设置收集标记 | 修复前所有依赖关系被忽略 |
-| 循环依赖检测 | Kahn 算法后检测 unprocessed 节点，exit 1 | 防止无限循环调度 |
-| write-write 冲突 | 两任务写同一文件 | 同批次检测 |
-| write-read 冲突 | A 写 B 读但无依赖声明 | 自动添加依赖 |
-| read-write 冲突 | B 写 A 读但无依赖声明 | 自动添加依赖 |
-| DAG 自动修复 | 对可修复冲突自动添加依赖，重新拓扑排序 | 减少人工干预 |
-| 增强 YAML 解析 | 支持 target_files / read_files / name 字段 | 更精准的冲突检测 |
-
-**使用方式**：
-
-```bash
-# 查看调度计划（dry-run）
-node scripts/dispatch.cjs --platform cursor --dry-run
-
-# 指定平台
-node scripts/dispatch.cjs --platform trae --dry-run
-
-# 如果有循环依赖，会报错退出（exit 1）并提示哪些任务参与循环
-```
-
-### 16.6 contract-validator R5 规则
-
-**问题**：contract-validator 原有 R1-R4 只验证结构一致性（签名、字段、接口、依赖），无法检测业务逻辑遗漏（如设计文档定义了 5 个逻辑步骤但代码只实现了 3 个）。
-
-**解决方案**：新增 R5 规则"逻辑步骤覆盖率校验"，包含 4 个检查项。
-
-**R5 检查项**：
-
-| 检查项 | 说明 | 覆盖率阈值 |
-|--------|------|-----------|
-| R5-1 | 每个 logic step 有对应代码实现 | 100% |
-| R5-2 | 每个 condition 分支有 if/else 实现 | 100% |
-| R5-3 | 每个 call action 有实际外部调用（非 log 占位） | 100% |
-| R5-4 | `logic-coverage-matrix.yaml` 文件存在且所有指标 100% | 100% |
-
-**失败处理**：
-1. R5 任意检查项未通过 → `block_and_return_to_develop`
-2. develop-expert 修复后重新验证（最多 2 轮）
-3. 2 轮后仍失败 → 升级到 orchestrator，汇报用户请求人工干预
-
-**与 Step 4.3 的关系**：
-- Step 4.3 是 develop-expert **自检**（由开发方自己执行）
-- R5 是 contract-validator **独立验证**（由 orchestrator 调用第三方验证）
-- 两者形成双层防御：即使 Step 4.3 被跳过或遗漏，R5 仍然能捕获问题
-
-## 17. v3.0.0 上下文注入革命 + 结构化分段生成
-
-v3.0.0 围绕 **Subagent 代码生成质量** 进行了两大核心创新，从根本上解决了 AI 模型在大量代码生成时质量下降的问题。
-
-### 17.1 上下文自动注入系统
-
-**问题**：v2.x 中 Subagent 需要自行读取多个文件获取上下文，AI 可能遗漏关键依赖，导致方法签名猜测错误、import 路径错误。
-
-**解决方案**：新增 `scripts/prepare-context.cjs`，在派发 Subagent 前自动收集所有必要上下文。
-
-- 自动收集：任务信息、子任务设计、Design Contract、编码规范、错误模式、依赖类定义
-- 输出 `task-brief-{taskId}.md`（最大 120KB）
-- Subagent 打开即有完整上下文，无需手动读取
-
-### 17.2 50KB 硬约束全面移除
-
-**问题**：v2.x 有 `minimum_safe_context: "50KB"` 硬限制，复杂任务的上下文被截断。
-
-**解决方案**：全面移除硬约束，改为基于任务实际需要的动态计算。
-
-- `minimum_safe_context: "auto"`（由 prepare-context.cjs 根据任务需求计算）
-- 上下文预算基于模型窗口动态分配（Claude 200KB / GPT-4 128KB）
-- 新增三段降级策略：正常执行 → 分段执行 → 保存续传
-
-### 17.3 结构化代码分段生成
-
-**问题**：AI 模型单次生成超过 20KB 代码时质量急剧下降（从 90% 降至 30%），出现方法截断、TODO 占位、逻辑遗漏。
-
-**解决方案**：新增 `scripts/segment-code.cjs`，采用"骨架 + 逐方法填充"策略。
-
-**核心原理**：
-
-```
-单次生成 50KB 代码 → 质量 ~30%（危险区）
-分解为 6-8 次各生成 5-10KB → 每次质量 85-95%（安全区）
-```
-
-**四阶段协议**：
-
-| 阶段 | 操作 | 输出量 | 质量 |
-|------|------|--------|------|
-| Phase 0: 规划 | segment-code.cjs --plan 生成代码架构 | ~2KB | — |
-| Phase 1: 骨架 | imports + class + fields + 方法签名（TODO 体） | ~10KB | 90% |
-| Phase 2: 填充 | 逐方法读取文件 + Edit 替换 TODO | 5-8KB/次 | 85-95% |
-| Phase 3: 验证 | 读取完整文件 + 编译 + 契约校验 | 0KB | — |
-
-**触发条件**：预估目标文件输出 > 20KB 时自动启用，无需用户手动配置。
-
-### 17.4 自动产出校验系统
-
-**问题**：Subagent 声称开发完成但实际代码可能不完整（TODO、空方法、log-only 占位）。
-
-**解决方案**：新增 `scripts/validate-result.cjs`，自动校验 Subagent 产出质量。
-
-- 检查项：文件存在性 + TODO/FIXME + 空方法体 + log-only 体 + return null + Design Contract 签名一致性
-- 支持 `--compile` 实际编译验证
-- 输出 `validation-report-{taskId}.yaml`
-
-## 18. v3.1.0 主 Agent 零编辑架构
-
-v3.1.0 是一次**架构级变革**，将 dev-flow 从"主 Agent 可选执行模式"升级为"主 Agent 绝对不可编辑的调度架构"。
-
-### 18.1 零编辑铁律
-
-**问题**：在 v3.0.0 中，标准模式下主 Agent 可以直接执行所有阶段（包括代码编辑）。这导致：
-- 主 Agent 上下文被代码生成内容填满，影响调度决策
-- AI 可能优先写测试代码而非业务代码（受 TDD 训练倾向影响）
-- 主 Agent 同时承担交互和执行双重职责，职责不清
-
-**解决方案**：定义主 Agent 权限边界。
-
-| 操作类型 | 主 Agent 是否允许 | 说明 |
-|---------|------------------|------|
-| 读取文件（Read） | ✅ 允许 | 读取配置、结果、确认文件、用户需求 |
-| 执行编译命令（Bash） | ✅ 允许 | `mvn compile`、`npm run build` 等验证命令 |
-| 编辑文件（Edit/Write） | 🔴 **绝对禁止** | 所有代码、文档、配置的编辑必须由 Subagent 执行 |
-| 创建/删除文件 | 🔴 **绝对禁止** | 除 `.dev-flow/stage-confirmations/*.confirmed` 外 |
-
-**每个阶段都必须由专门的 Subagent 执行**：
-
-| 阶段 | 执行者 | 主 Agent 职责 |
-|------|--------|-------------|
-| Research | `pre-scanner` + 13 文件子代理（5 批次） | 分批调度 + 读取交付物 + 展示审批 |
-| Analyze | `analyze-expert` | 调度 + 展示结果 |
-| Design | `design-expert` | 调度 + 展示结果 |
-| Task Split | `task-split-expert` | 调度 + 展示结果 |
-| Develop | `develop-expert`（可并行多个） | 调度 + 进度监控 + 汇总 |
-| Unit Test | `test-expert` | 调度 + 展示结果 |
-| Fix | `fix-expert` | 调度 + 展示结果 |
-| Smoke/E2E/Integration Test | 对应 test Subagent | 调度 + 展示结果 |
-| Delivery | `delivery-expert` | 调度 + 展示结果 |
-
-### 18.2 统一 Subagent 执行模型
-
-**问题**：v3.0.0 有"标准模式 + Subagent 模式"二元结构。标准模式下主 Agent 直接执行，Subagent 模式下由 Orchestrator 调度。这导致用户困惑——为什么简单需求就不能用 Subagent？
-
-**解决方案**：移除二元结构，所有需求统一由 Subagent 执行。
-
-| 需求规模 | Subagent 创建方式 | 说明 |
-|---------|-------------------|------|
-| 简单需求（≤5 文件） | 主 Agent 串行创建单个 Subagent | 一个 Subagent 完成后再创建下一个 |
-| 复杂需求（>5 文件） | Orchestrator 并行调度多个 Subagent | 按 DAG 批次并行创建 |
-
-**模式动态重评估网关**（Task Split → Develop 转换点）：
-
-读取 `task-dag.yaml` 计算复杂度指标，满足任一条件自动升级为并行调度：
-- 任务数 > 5
-- 写写冲突 > 0
-- DAG 深度 > 3
-- 批次 > 3
-
-### 18.3 业务代码优先铁律
-
-**问题**：AI 模型受 TDD 训练影响，可能优先写测试基类（`*TestBase.java`）而非业务代码（Service/Controller/Entity）。
-
-**解决方案**：在 develop.md 和 develop-expert.md 中建立强制优先级规则。
-
-| 优先级 | 代码类型 | 执行时机 |
-|--------|---------|---------|
-| **P0（最高）** | 业务代码（Enum→Entity→DTO→Mapper→Service→Controller） | Step 2 → Step 4 |
-| **P1（次高）** | 测试代码（QuickTest 等） | Step 4.2（仅在 P0 全部编译通过后） |
-
-**强制规则**：
-1. 禁止在业务代码未完成前生成任何测试类
-2. 即使上下文中出现"Re-run test"等测试失败信息，也必须先完成业务代码
-3. 仅当 `task-context.yaml` 中 `task_type` 为 `test-fix` 或 `test-only` 时允许跳过业务代码
-
-### 18.4 阶段执行者审计
-
-**问题**：主 Agent 可能违反零编辑铁律，直接编辑文件而无法检测。
-
-**解决方案**：在阶段门禁中新增执行者审计。
-
-**确认清单新增第 0 项**：
-
-| # | 确认项 | 状态 |
-|---|--------|------|
-| 0 | **执行者审计**：本阶段由 {stage}-expert Subagent 执行，主 Agent 未直接编辑任何文件 | ⬜ 待确认 |
-| 1 | [阶段核心产出描述] | ⬜ 待确认 |
-| ... | ... | ... |
-
-**门禁自动校验**（Step Gate-2.5）：进入下一阶段前，检查前一阶段确认文件中是否包含执行者审计项。如缺失或标记为主 Agent 编辑 → 拒绝进入下一阶段，要求由 Subagent 重新执行。
-
-### 18.5 主 Agent 调度协议
-
-develop.md 新增主 Agent 调度协议（Step D1-D9）：
-
-```
-Step D1: 读取阶段指令（develop.md）
-Step D2: 读取任务 DAG 和拆分文档
-Step D3: 运行 prepare-context.cjs 为每个任务生成上下文
-Step D4: 创建 develop-expert Subagent（串行/并行）
-Step D5: 监控 Subagent 执行
-Step D6: 收集所有 develop-result.yaml
-Step D7: 运行 validate-result.cjs 验证产出
-Step D8: 执行集成编译验证（如多个 Subagent）
-Step D9: 向用户汇报开发结果，等待确认
-```
-
-## 19. v3.1.0 实践问题修复
-
-v3.1.0 实践问题修复（版本号保持 v3.1.0 不变）解决了实际使用中暴露的三个核心问题。
-
-### 19.1 问题 1：Research 阶段 memory 文档完整度提升
-
-**问题**：微服务项目只做部分采样，API、architecture、models、utils、common-modules 等扫描覆盖不足。
-
-**根因**：Smart Sampling 为全局采样，微服务多模块场景下每类采样数不足，关键类被遗漏。
-
-**修复内容**：
-
-| 修复项 | 说明 |
-|--------|------|
-| Smart Sampling 服务级独立采样 | 从全局采样改为按每个服务/模块独立执行采样，每模块独立计算采样数 |
-| 关键类强制全量读取 | Base/Abstract/Core/Common 类 + `@Configuration`/`@Primary` 注解类必须全量读取 |
-| 公共模块强制全量扫描 | common-bean 等公共模块的 Entity/Enum 必须全量读取 |
-| On-Demand Loading 升级 | 从"被动补漏"升级为"主动预加载" |
-| 记忆完整性评级（A/B/C/D） | 每个 memory 文件末尾追加 `completeness_level`，低于 B 级不允许进入 Analyze |
-| Step 6 自检增强 | 新增 `completeness_level 均为 A 或 B` 和 `无 completeness_level = D 的文件` 检查项 |
-
-### 19.2 问题 2：阶段审批机制补全
-
-**问题**：每个阶段仅在对话栏输出报告，无独立交付物文档，用户无法仔细审阅。
-
-**修复内容**：
-
-| 修复项 | 说明 |
-|--------|------|
-| 阶段交付物机制 | 所有 10 个阶段文件均新增交付物生成步骤，输出到 `.dev-flow/deliverables/` |
-| 交付物目录结构 | `01-research-report.md` ~ `11-delivery-report.md`，每个阶段一个独立文档 |
-| 主 Agent 审批流程升级 | 从"向用户展示结果"改为"读取交付物 → 打开文档供审批" |
-| Gate-1.5 交付物检查 | 阶段门禁新增交付物存在性检查，缺失则拒绝进入下一阶段 |
-| 确认 Checklist 升级 | 新增交付物路径引用 + 执行者审计链 + deliverable_checksum |
-| confirmed 文件升级 | 新增 `deliverable`/`deliverable_checksum`/`execution_trail` 字段 |
-
-**交付物目录**：
-
-```
-.dev-flow/deliverables/
-├── 01-research-report.md         # Research 阶段交付物
-├── 02-analyze-result.md          # Analyze 阶段交付物
-├── 03-design-result.md           # Design 阶段交付物
-├── 04-task-breakdown.md          # Task Split 阶段交付物
-├── 05-develop-result.md          # Develop 阶段交付物
-├── 06-unit-test-report.md        # Unit Test 阶段交付物
-├── 07-fix-report.md              # Fix 阶段交付物
-├── 08-smoke-test-report.md       # Smoke Test 阶段交付物
-├── 09-e2e-test-report.md         # E2E Test 阶段交付物
-├── 10-integration-test-report.md # Integration Test 阶段交付物
-└── 11-delivery-report.md         # Delivery 阶段交付物
-```
-
-### 19.3 问题 3：Subagent 失败硬阻断规则
-
-**问题**：Subagent 执行失败一次后主 Agent 直接介入自己做任务，违反零编辑铁律。
-
-**根因**：零编辑铁律是"协议级约束"（依赖 AI 自觉遵守），缺乏"可验证硬约束"。
-
-**修复内容**：
-
-| 修复项 | 说明 |
-|--------|------|
-| 三级失败处理协议 | Level 1 自动重试（1 次）→ Level 2 诊断重试（1 次）→ Level 3 人工升级（停止一切自动化） |
-| 主 Agent 禁止行为表 | 7 项违规场景 P0/P1 分级 |
-| 强制执行决策树 | 失败 → 记录 → 判断级别 → 自检是否越权 |
-| 零编辑铁律 v2.0 | 文件白名单 + @generated-by 溯源注释 + 每阶段文件修改审计 |
-| 产出文件溯源 | 每个产出文件第一行必须包含 `@generated-by` 注释 |
-| 文件修改审计 | 每阶段结束时自动执行，验证所有产出文件的溯源信息 |
-
----
-
-## 20. v3.1.0 Research 多子代理分批架构
-
-v3.1.0 将 Research 阶段从**单 agent 串行扫描**升级为 **pre-scanner + 13 个文件级 subagent 分批并行**架构，从根本上解决微服务项目的上下文溢出和扫描不完整问题。
-
-### 20.1 为什么需要多子代理
-
-**单 agent 的瓶颈**：
-
-| 项目规模 | 扫描内容 | 估算上下文 | 问题 |
-|---------|---------|-----------|------|
-| 单服务，<50 类 | Step 1-6 全部内容 | ~60KB | ✅ 安全 |
-| 3 服务 + 2 公共模块 | Quick Scan 500 文件路径 + Smart Sampling 100 代码片段 + 强制全量读取 80 个公共类 | **~250-300KB** | 🔴 上下文溢出风险 |
-
-单 agent 上下文溢出 → Smart Sampling 被迫激进 → memory 文件写入"暂无数据" → Research 不完整。
-
-**多子代理的核心价值**：每个子代理只处理 1 个 memory 文件（~25-40KB 上下文），13 个子代理互不依赖，从根源上消除上下文溢出。
-
-### 20.2 架构概览
-
-```
-Phase 0: pre-scanner × 1
-  └── 全局 Quick Scan（Glob，不读文件内容）
-  └── 输出 file-index.yaml（~15KB）
-        │
-        ▼
-Phase 1: 13 文件子代理，5 批次
-  Batch 1 (3 并行): project-overview / service-registry / architecture-overview
-  Batch 2 (3 并行): common-modules / models / config-files
-  Batch 3 (3 并行): project-api / utils / conventions
-  Batch 4 (2 并行): dependency-graph / decisions
-  Batch 5 (2 并行): mistakes / patterns
-```
-
-**核心特征**：
-- **无聚合器**：每个子代理直接写入目标 memory 文件，无需合并步骤
-- **独立上下文**：每个子代理 ~25-40KB（vs 单 agent ~250KB）
-- **故障隔离**：models.md 写入失败不影响 project-api.md
-- **互不依赖**：13 个子代理间无数据依赖，可全并行
-
-### 20.3 Phase 0：pre-scanner 全局索引
-
-pre-scanner 是一次全局 Glob 扫描，**不读取任何源码文件内容**（仅获取文件路径）。输出 `file-index.yaml`：
-
-```yaml
-# .dev-flow/memory/_index/file-index.yaml
-project_root: "D:/project/qms-platform"
-services:
-  qms-quality:
-    entities:  [QualityTask.java, QualityItem.java, ...]
-    dtos:      [QualityTaskDTO.java, QualityItemDTO.java, ...]
-    controllers: [QualityTaskController.java, ...]
-    services:  [QualityTaskService.java, QualityTaskServiceImpl.java, ...]
-    feign_clients: [QualityFeignClient.java, ...]
-    configs:   [application.yml, MyBatisPlusConfig.java, ...]
-    utils:     [QualityDateUtil.java, ...]
-common_modules:
-  common-bean:
-    entities:  [BaseEntity.java, TenantEntity.java, ...]
-    dtos:      [ResultDTO.java, PageDTO.java, ...]
-scan_timestamp: "2026-06-05T22:30:00"
-```
-
-每个文件子代理从 `file-index.yaml` 中查找目标文件路径，**不再自己 Glob**。
-
-### 20.4 Phase 1：13 文件子代理 5 批次并行
-
-**通用工作模式**：
-1. 读取 `file-index.yaml` → 找到目标文件路径
-2. 精确读取目标源码文件
-3. 提取关键信息（字段、注解、方法签名、依赖关系等）
-4. 直接写入目标 memory 文件
-5. 文件末尾标注 `completeness_level`（A/B/C/D）
-
-**5 批次语义分组**：
-
-| 批次 | 子代理 | 产出文件 | 核心职责 |
-|------|--------|---------|---------|
-| Batch 1 | project-overview-subagent | `project-overview.md` | 技术栈、目录结构、入口文件 |
-|       | service-registry-subagent | `service-registry.md` | 服务列表、端口、角色（微服务） |
-|       | architecture-overview-subagent | `architecture-overview.md` | 分层架构、设计模式 |
-| Batch 2 | common-modules-subagent | `common-modules.md` | 公共模块 Entity/DTO/Enum（微服务） |
-|       | models-subagent | `models.md` | 所有 Entity + DTO + 数据库表 |
-|       | config-files-subagent | `config-files.md` | 数据库/Redis/Nacos 等配置 |
-| Batch 3 | project-api-subagent | `project-api.md` | Controller 端点 + Feign Client |
-|       | utils-subagent | `utils.md` | 工具类/函数 |
-|       | conventions-subagent | `conventions.md` | 命名/注解/异常处理等规范 |
-| Batch 4 | dependency-graph-subagent | `dependency-graph.md` | 服务间 Feign 调用关系（微服务） |
-|       | decisions-subagent | `decisions.md` | 架构决策记录（ADR） |
-| Batch 5 | mistakes-subagent | `mistakes.md` | 初始模板（跨会话累积） |
-|       | patterns-subagent | `patterns.md` | 初始模板（跨会话累积） |
-
-### 20.5 平台自适应调度
-
-| 平台 | 最大并发子代理 | Research 调度方式 | 预估耗时 |
-|------|-------------|-------------------|---------|
-| **Claude Code** | 16 | 全额并行（14 子代理 1 批次） | ~30 秒 |
-| **Trae** | 无明确限制 | 全额并行（14 子代理 1 批次） | ~30 秒 |
-| **Cursor** | 多 Task 调用 | 全额并行（14 子代理 1 批次） | ~35 秒 |
-| **Qoder** | 4 方向 | 5 批次顺序执行 | ~2.5 分钟 |
-| **Codex** | 6 线程 | 3 批次合并执行（5+5+4） | ~50 秒 |
-
----
-
-## 21. 常见问题
+## 11. 常见问题
 
 确保你在 AI 编程工具中打开了安装了 dev-flow 的项目目录。Skill 文件是项目级别的，不是全局的。
 
@@ -2363,3 +1183,7 @@ AI 会提示你人工介入。你可以：
 ### Q: 多人协作时记忆会冲突吗？
 
 dev-flow 的记忆文件是本地文件，建议将 `.dev-flow/memory/` 加入 `.gitignore`（安装脚本不会自动添加）。如果团队共享记忆，可以将基础记忆文件提交到 Git。
+
+---
+
+*本操作手册基于 dev-flow v3.2.0 编写。*
