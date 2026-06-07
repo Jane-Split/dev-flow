@@ -3,295 +3,316 @@
 ![node](https://img.shields.io/node/v/dev-flow.svg)
 ![version](https://img.shields.io/badge/version-v3.4.0-blue)
 
-> **Current Version: v3.4.0** | [Changelog](./CHANGELOG.md) | [User Guide](./USER_GUIDE.md)
+> **当前版本：v3.4.0** | [更新日志](./CHANGELOG.md) | [用户指南](./USER_GUIDE.md)
 
-An AI-powered development workflow orchestration skill for AI coding tools like Cursor, Trae, Qoder, Claude Code, and OpenAI Codex.
+为 Cursor、Trae、Qoder、Claude Code、OpenAI Codex 等 AI 编程工具打造的开发流程编排 Skill。
 
-With the `/dev-flow` command, AI follows a structured **8-stage workflow**: **Research → Analyze → Design → Task Split → Develop → Test → Fix (on-demand) → Delivery**, pausing after each stage for confirmation to ensure output quality.
+通过 `/dev-flow` 命令，AI 会按照结构化的 **8 阶段工作流**执行：**Research → Analyze → Design → Task Split → Develop → Test → Fix（按需）→ Delivery**，每个阶段完成后暂停确认，确保输出质量。
 
-## Why dev-flow?
+---
 
-AI coding tools (Cursor/Trae/Qoder/Claude Code/Codex) are powerful, but when handling complex requirements they tend to:
+## 为什么需要 dev-flow？
 
-- Skip important steps (like understanding project structure before writing code)
-- Generate code inconsistent with project style
-- Miss edge cases and error handling
-- Lack systematic test verification
-- Not remember user preferences and deep project knowledge
-- Have insufficient context for large projects, skipping key scanning steps
+AI 编程工具（Cursor/Trae/Qoder/Claude Code/Codex）很强大，但在处理复杂需求时往往会出现以下问题：
 
-dev-flow solves these problems through **structured workflow orchestration + project memory + long-term memory + learning capabilities + multi-subagent parallelism + main Agent zero-edit architecture**, making AI coding tools **better the more you use them**.
+- 跳过重要步骤（比如在写代码前不先理解项目结构）
+- 生成的代码与项目风格不一致
+- 遗漏边界情况和错误处理
+- 缺乏系统化的测试验证
+- 不记住用户偏好和项目深层知识
+- 大型项目上下文不足，跳过关键扫描步骤
 
-## Features
+dev-flow 通过**结构化流程编排 + 项目记忆 + 长期记忆 + 学习能力 + 多子代理并行 + 主 Agent 零编辑架构**来解决这些问题，让 AI 编程工具**越用越好用**。
 
-### Core Architecture
+---
 
-- **4-Layer On-Demand Loading Architecture** — Router (~10KB) + References (8 files) + 8 stage instructions + 20 Agents
-- **8-Stage Workflow** — Research → Analyze → Design → Task Split → Develop → Test → Fix (on-demand) → Delivery
-- **Two Operation Modes** — Standard Mode (serial subagents) / Enterprise Mode (parallel subagents), with dynamic re-evaluation and auto-upgrade
-- **Two-Layer Gate Checks** — Gate-A (prerequisite completeness: confirmation files + deliverables + content validation) / Gate-B (executor audit: execution_trail + zero_edit_violation)
-- **Cross-Platform Scheduling Strategy** — Trae native parallelism / Cursor/Claude/Qoder sequential simulation / Codex limited parallelism
+## 核心特性
 
-### Workflow Capabilities
+### 核心架构
 
-- **Intelligent Task Splitting** — Design output global contract, Task Split generates subtask-level design + DAG dependency graph + file conflict detection
-- **Interface Contract Mechanism** — Cross-subtask interface definitions, contract freeze prevents arbitrary modifications
-- **Design→Code Logic Backtracking Verification** — Step 4.3 enforces verification that every logic step has code implementation, 100% coverage
-- **Contract Consistency Validation** — contract-validator R1-R5 rules (R5 logic step coverage = critical blocking)
-- **Compilation Verification Loop** — Mandatory compilation verification after development, automatic fix loop (max 3 rounds)
+- **四层按需加载架构** — Router（~10KB）+ References（8 个文件）+ 8 个阶段指令 + 20 个 Agent
+- **8 阶段工作流** — Research → Analyze → Design → Task Split → Develop → Test → Fix（按需）→ Delivery
+- **两种运行模式** — 标准模式（串行子代理）/ 企业级模式（并行子代理），支持动态重评估与自动升级
+- **两层门禁检查** — Gate-A（前置完整性：确认文件 + 交付物 + 内容校验）/ Gate-B（执行者审计：execution_trail + zero_edit_violation）
+- **跨平台调度策略** — Trae 原生并行 / Cursor/Claude/Qoder 串行模拟 / Codex 有限并行
 
-### Memory & Learning
+### 流程能力
 
-- **Project Memory** — Long-term memory (6 files, cross-session accumulation) + Session memory (6 files, rebuilt each Research)
-- **Learning Capability** — Automatically learns from user feedback, code modifications, and test bugs
-- **Multi-Language Design Contract** — Supports Java / TypeScript / Python / Go interface contracts
-- **Unified Cross-Platform Protection** — step-enforcer/contract-validator and other protection agents shared across all platforms
-- **Session Isolation (v3.4.0)** — Requirement-nickname based directory isolation, supports multiple consecutive requirements without file overwrite
+- **智能任务拆分** — Design 输出全局契约，Task Split 生成子任务级设计 + DAG 依赖图 + 文件冲突检测
+- **接口契约机制** — 跨子任务接口定义，契约冻结防止任意修改
+- **设计→代码逻辑回溯验证** — Step 4.3 强制验证每个逻辑步骤都有代码实现，100% 覆盖
+- **契约一致性校验** — contract-validator R1-R5 规则（R5 逻辑步骤覆盖率为阻塞级）
+- **编译验证循环** — 开发完成后强制编译验证，自动修复循环（最多 3 轮）
 
-### Code Quality
+### 记忆与学习
 
-- **Main Agent Zero-Edit Constitution v2.0** — Main Agent is only an interaction hub and pure scheduler, never directly edits any files. File whitelist + @generated-by traceability + per-stage file modification audit
-- **Business Code First Constitution** — P0 business code must complete before P1 test code
-- **Structured Code Segmented Generation** — `segment-code.cjs`, "skeleton + method-by-method filling" four-stage protocol
-- **Auto Output Validation** — `validate-result.cjs`, TODO/FIXME, empty method bodies, log-only, return null, Design Contract signature consistency
-- **Context Auto-Injection** — `prepare-context.cjs`, automatically collects context before subagent dispatch, generates task-brief
-- **Stage History Compression** — After each stage confirmation, automatically compresses conversation history into structured summary (`stage-summary.yaml`), freeing main Agent context space
-- **LANGUAGE-ONLY Language Filtering** — build.cjs supports `--lang java` parameter, filters multi-language specifications by project type during build, reducing subagent context load
+- **项目记忆** — 长期记忆（6 个文件，跨会话累积）+ 会话记忆（6 个文件，每次 Research 重建）
+- **学习能力** — 自动从用户反馈、代码修改、测试 Bug 中学习
+- **多语言设计契约** — 支持 Java / TypeScript / Python / Go 接口契约
+- **跨平台统一防护** — step-enforcer/contract-validator 等防护 Agent 全平台共享
+- **Session 隔离（v3.4.0）** — 基于需求简称的目录隔离，支持连续多个需求不覆盖文件
 
-## Installation
+### 代码质量
+
+- **主 Agent 零编辑铁律 v2.0** — 主 Agent 仅是交互枢纽和纯调度器，绝不直接编辑任何文件。文件白名单 + @generated-by 溯源 + 每阶段文件修改审计
+- **业务代码优先铁律** — P0 业务代码必须先完成，P1 测试代码仅是验证手段
+- **结构化代码分段生成** — `segment-code.cjs`，"骨架 + 逐方法填充" 四阶段协议
+- **自动产出校验** — `validate-result.cjs`，TODO/FIXME、空方法体、仅日志、return null、设计契约签名一致性
+- **上下文自动注入** — `prepare-context.cjs`，子代理派发前自动收集上下文，生成 task-brief
+- **阶段历史压缩** — 每阶段确认后自动将对话历史压缩为结构化摘要（`stage-summary.yaml`），释放主 Agent 上下文空间
+- **LANGUAGE-ONLY 语言过滤** — build.cjs 支持 `--lang java` 参数，构建时按项目类型过滤多语言规范，减少子代理上下文负担
+
+---
+
+## 安装
 
 ```bash
-# 1. Install to project
+# 1. 安装到项目
 npm install dev-flow --save-dev
 
-# 2. Execute installation (generates skill files and memory directories)
+# 2. 执行安装（生成 Skill 文件和记忆目录）
 npx dev-flow install
 ```
 
-After installation, the following files are automatically generated in your project:
+安装后，项目中会自动生成以下文件：
 
-| Tool | Generated Files | Trigger Method |
-|------|-----------------|-----------------|
-| Trae | `.trae/skills/dev-flow/SKILL.md` + `stages/*.md` + `agents/*.md` + `references/*.md` | Type `/dev-flow` in input box |
-| Cursor | `.cursor/commands/dev-flow.md` + `stages/*.md` + `agents/*.md` + `references/*.md` | Type `/dev-flow` in input box |
-| Qoder | `.qoder/commands/dev-flow.md` + `stages/*.md` + `agents/*.md` + `references/*.md` | Type `/dev-flow` in input box |
-| Claude Code | `.claude/commands/dev-flow.md` + `stages/*.md` + `agents/*.md` + `references/*.md` | Type `/dev-flow` in input box |
-| OpenAI Codex | `AGENTS.md` + `.agents/skills/dev-flow/SKILL.md` + `.codex/agents/*.toml` + `.codex/references/*.md` | Type `codex` in terminal then use natural language or `$dev-flow` |
+| 工具 | 生成文件 | 触发方式 |
+|------|---------|---------|
+| Trae | `.trae/skills/dev-flow/SKILL.md` + `stages/*.md` + `agents/*.md` + `references/*.md` | 输入框输入 `/dev-flow` |
+| Cursor | `.cursor/commands/dev-flow.md` + `stages/*.md` + `agents/*.md` + `references/*.md` | 输入框输入 `/dev-flow` |
+| Qoder | `.qoder/commands/dev-flow.md` + `stages/*.md` + `agents/*.md` + `references/*.md` | 输入框输入 `/dev-flow` |
+| Claude Code | `.claude/commands/dev-flow.md` + `stages/*.md` + `agents/*.md` + `references/*.md` | 输入框输入 `/dev-flow` |
+| OpenAI Codex | `AGENTS.md` + `.agents/skills/dev-flow/SKILL.md` + `.codex/agents/*.toml` + `.codex/references/*.md` | 终端输入 `codex` 后使用自然语言或 `$dev-flow` |
 
-You can also install for specific tools only:
+也可以只为特定工具安装：
 
 ```bash
-npx dev-flow trae     # Install for Trae only
-npx dev-flow cursor   # Install for Cursor only
-npx dev-flow qoder    # Install for Qoder only
-npx dev-flow claude   # Install for Claude Code only
-npx dev-flow codex    # Install for OpenAI Codex only
+npx dev-flow trae      # 仅安装到 Trae
+npx dev-flow cursor    # 仅安装到 Cursor
+npx dev-flow qoder     # 仅安装到 Qoder
+npx dev-flow claude    # 仅安装到 Claude Code
+npx dev-flow codex     # 仅安装到 OpenAI Codex
 ```
 
-## Quick Start
+---
+
+## 快速开始
 
 ```bash
-# 1. Enter your project
+# 1. 进入你的项目
 cd your-project
 
-# 2. Install dev-flow
+# 2. 安装 dev-flow
 npm install dev-flow --save-dev
 npx dev-flow install
 
-# 3. In Cursor / Trae / Qoder / Claude Code, type:
-/dev-flow Implement user login function with form validation and remember password
+# 3. 在 Cursor / Trae / Qoder / Claude Code 中输入：
+/dev-flow 实现用户登录功能，包含表单验证和记住密码
 ```
 
-AI will execute step by step, pausing after each stage for your confirmation.
+AI 会逐步执行，每个阶段完成后暂停等待你的确认。
 
-## Usage
+---
 
-### Full Workflow Mode
+## 使用方式
 
-```
-/dev-flow <requirement description>
-```
-
-Executes: Research → Analyze → Design → Task Split → Develop → Test → Fix (on-demand) → Delivery
-
-### Single Stage Mode
-
-| Command | Description | Use Case |
-|---------|-------------|----------|
-| `/dev-flow -research` | Research stage only | First time using dev-flow, or project structure has major changes |
-| `/dev-flow -analyze <requirement>` | Analyze stage only | Need to understand requirement scope first |
-| `/dev-flow -design <requirement>` | Design stage only | Need to review design before development |
-| `/dev-flow -split <requirement>` | Task Split stage only (Scheme C) | Need to split design into parallelizable subtasks |
-| `/dev-flow -develop <requirement>` | Develop directly (skip design and split) | Small requirements, no detailed design needed |
-| `/dev-flow -test` | Unified test (unit+smoke+E2E+integration) | Already have code, need complete test verification |
-| `/dev-flow -fix` | Analyze and fix bugs | Test failures, need fixes |
-| `/dev-flow -hotfix <error message>` | Emergency hotfix for production errors | Production error, need quick fix |
-| `/dev-flow -subagent <requirement>` | Enterprise parallel subagent mode | Complex tasks, involving multi-service/multi-module |
-
-### Session Isolation (v3.4.0)
+### 完整流程模式
 
 ```
-/dev-flow <requirement description>  # First requirement
-/dev-flow <another requirement>     # Second requirement - files auto-isolated
+/dev-flow <需求描述>
 ```
 
-Each requirement's deliverables and contracts are stored in separate `{requirement-nickname}` directories, preventing file overwrite and enabling full traceability.
+执行：Research → Analyze → Design → Task Split → Develop → Test → Fix（按需）→ Delivery
 
-### Memory Management
+### 单阶段模式
 
-| Command | Description |
-|---------|-------------|
-| `/dev-flow -cleanup` | Clean session memory (`session/` directory), keep long-term memory |
-| `/dev-flow -cleanup --all` | Reset all memory files (use with caution) |
+| 命令 | 说明 | 适用场景 |
+|------|------|---------|
+| `/dev-flow -research` | 仅执行 Research 阶段 | 第一次使用 dev-flow，或项目结构有重大变化 |
+| `/dev-flow -analyze <需求>` | 仅执行 Analyze 阶段 | 需要先理解需求范围 |
+| `/dev-flow -design <需求>` | 仅执行 Design 阶段 | 需要在开发前评审设计 |
+| `/dev-flow -split <需求>` | 仅执行 Task Split 阶段（方案 C） | 需要将设计拆分为可并行子任务 |
+| `/dev-flow -develop <需求>` | 直接开发（跳过设计和拆分） | 小型需求，无需详细设计 |
+| `/dev-flow -test` | 统一测试（单元+冒烟+E2E+集成） | 已有代码，需要完整测试验证 |
+| `/dev-flow -fix` | 分析并修复 Bug | 测试失败，需要修复 |
+| `/dev-flow -hotfix <错误信息>` | 生产环境错误紧急热修复 | 生产报错，需要快速修复 |
+| `/dev-flow -subagent <需求>` | 企业级并行子代理模式 | 复杂任务，涉及多服务/多模块 |
 
-### Breakpoint Resume
-
-| Command | Description |
-|---------|-------------|
-| `/dev-flow --resume` | Continue from last interruption |
-
-## Workflow
-
-```
-Research → Analyze → Design → Task Split → Develop → Test → Fix (on-demand) → Delivery
-  Research   →  Analyze   →   Design   →  Task Split  →  Develop  →  Test  →   Fix    →  Delivery
-
-Hotfix (Independent mode, available anytime)
-```
-
-| Stage | What AI Does | Output |
-|-------|----------------|--------|
-| **Research** | pre-scanner global indexing + 11 file-level subagents in 4 batches, Smart Sampling service-level independence, critical class强制全量读取, completeness A/B/C/D rating | `.dev-flow/memory/` 13 files + `memory/_index/file-index.yaml` + stage deliverable |
-| **Analyze** | Parse requirements, associate existing code, identify ambiguities, consistency validation | Requirement analysis document + stage deliverable |
-| **Design** | Data model, API interfaces, component tree, business process, structured decision table | `design-result.md` + `design-contract.yaml` (with multi-language interface contract) |
-| **Task Split** | Split into subtasks, conflict detection, DAG construction, dual-dimension selection, subtask-level design | `task-breakdown.yaml` + `subtask-{id}-design.yaml` + `interface-registry.yaml` |
-| **Develop** | develop-expert subagent develops by subtask, context auto-injection, segmented generation, business code first, mandatory compilation, logic backtracking verification | Code files + stage deliverable |
-| **Test** | Unified test: unit test → smoke test → E2E test → integration test | Unified test report |
-| **Fix** | Analyze failure causes, fix code, regression test (max 3 loops) | `fix-report.md` + fixed code (triggered on-demand) |
-| **Delivery** | Summarize full workflow results, generate delivery checklist | Delivery report |
-
-## Architecture
-
-### 4-Layer On-Demand Loading Architecture
+### Session 隔离（v3.4.0）
 
 ```
-Layer 1: Router (SKILL.md, ~410 lines, always loaded)
-  ├── Command parsing + global rules
-  ├── Stage routing table + main Agent scheduling flow
-  ├── Memory system + learning capability quick reference
-  └── Stage confirmation mechanism (with history compression rules)
+/dev-flow <需求描述>   # 第一个需求
+/dev-flow <另一个需求>   # 第二个需求 —— 文件自动隔离
+```
 
-Layer 2: References (8 on-demand loaded reference documents)
-  ├── protocol.md (zero-edit constitution + failure protocol + deliverable + gate + history compression)
+每个需求的交付物和契约分别存放在独立的 `{需求简称}` 目录下，防止文件覆盖，支持完整追溯。
+
+### 记忆管理
+
+| 命令 | 说明 |
+|------|------|
+| `/dev-flow -cleanup` | 清理会话记忆（`session/` 目录），保留长期记忆 |
+| `/dev-flow -cleanup --all` | 重置所有记忆文件（谨慎使用） |
+
+### 断点续传
+
+| 命令 | 说明 |
+|------|------|
+| `/dev-flow --resume` | 从上次中断处继续 |
+
+---
+
+## 工作流程
+
+```
+Research → Analyze → Design → Task Split → Develop → Test → Fix（按需）→ Delivery
+
+Hotfix（独立模式，随时可用）
+```
+
+| 阶段 | AI 做什么 | 产出 |
+|------|----------|------|
+| **Research** | pre-scanner 全局索引 + 11 个文件级子代理分 4 批次，Smart Sampling 服务级独立，关键类强制全量读取，完整性 A/B/C/D 评级 | `.dev-flow/memory/` 13 个文件 + `memory/_index/file-index.yaml` + 阶段交付物 |
+| **Analyze** | 解析需求，关联已有代码，识别歧义，一致性校验 | 需求分析文档 + 阶段交付物 |
+| **Design** | 数据模型、API 接口、组件树、业务流程、结构化决策表 | `design-result.md` + `design-contract.yaml`（含多语言接口契约） |
+| **Task Split** | 拆分为子任务，冲突检测，DAG 构建，双维度选择，子任务级设计 | `task-breakdown.yaml` + `subtask-{id}-design.yaml` + `interface-registry.yaml` |
+| **Develop** | develop-expert 子代理按子任务开发，上下文自动注入，分段生成，业务代码优先，强制编译，逻辑回溯验证 | 代码文件 + 阶段交付物 |
+| **Test** | 统一测试：单元测试 → 冒烟测试 → E2E 测试 → 集成测试 | 统一测试报告 |
+| **Fix** | 分析失败原因，修复代码，回归测试（最多 3 轮循环） | `fix-report.md` + 修复后的代码（按需触发） |
+| **Delivery** | 总结全流程结果，生成交付检查清单 | 交付报告 |
+
+---
+
+## 架构
+
+### 四层按需加载架构
+
+```
+Layer 1: Router（SKILL.md，~410 行，始终加载）
+  ├── 命令解析 + 全局规则
+  ├── 阶段路由表 + 主 Agent 调度流程
+  ├── 记忆系统 + 学习能力快速参考
+  └── 阶段确认机制（含历史压缩规则）
+
+Layer 2: References（8 个按需加载的参考文档）
+  ├── protocol.md（零编辑铁律 + 失败协议 + 交付物 + 门禁 + 历史压缩）
   ├── memory-system.md / learning-system.md / error-pattern-db.md / model-context-config.md
   └── design-contract-typescript.md / design-contract-python.md / design-contract-go.md
 
-Layer 3: Stage instruction files (loaded when entering stage, 10 files)
+Layer 3: 阶段指令文件（进入阶段时加载，10 个文件）
   ├── research.md / analyze.md / design.md / task-split.md
-  ├── develop.md (only scheduling protocol, execution specs reference develop-expert.md)
-  ├── test.md (unified test: unit+smoke+E2E+integration)
+  ├── develop.md（仅保留调度协议，执行规范引用 develop-expert.md）
+  ├── test.md（统一测试：单元+冒烟+E2E+集成）
   └── fix.md / hotfix.md / delivery.md / code-reference.md
 
-Layer 4: Agent files (loaded when creating subagent, 20 files)
-  ├── develop-expert.md (supports LANGUAGE-ONLY language filtering)
+Layer 4: Agent 文件（创建子代理时加载，20 个文件）
+  ├── develop-expert.md（支持 LANGUAGE-ONLY 多语言规范过滤）
   ├── analyze-expert / design-expert / task-split-expert
   ├── contract-validator / verify-expert / step-enforcer
-  └── ...total 20 (including 5 legacy Research agents)
+  └── ...共 20 个（含 5 个遗留 Research Agent）
 ```
 
-### Subagent Execution Architecture (Unified Model)
+### 子代理执行架构（统一模型）
 
 ```
-User ←→ Main Agent (pure scheduling hub, zero-edit)
+用户 ←→ 主 Agent（纯调度枢纽，零编辑）
               │
-              ├── [Research: pre-scanner + 11 file-level subagents, 4 batches]
+              ├── [Research: pre-scanner + 11 个文件级子代理，4 批次]
               │     Phase 0: pre-scanner × 1          → file-index.yaml
-              │     Phase 1: Batch 1 (base layer, 3 parallel) → project-overview / service-registry / architecture
-              │              Batch 2 (data layer, 3 parallel) → common-modules / models / config
-              │              Batch 3 (behavior layer, 3 parallel) → apis / utils / conventions
-              │              Batch 4 (cross-cutting layer, 2 parallel) → dependency-graph / decisions
-              ├── analyze-expert     → Requirement analysis
-              ├── design-expert      → Detailed design
-              ├── task-split-expert  → Task split + DAG
-              ├── develop-expert     → Code development (can parallel multiple)
-              ├── test-expert        → Unified test
-              ├── fix-expert         → Bug fixes
-              ├── delivery-expert    → Delivery report
-              └── contract-validator → Contract validation + logic coverage verification (R5)
+              │     Phase 1: Batch 1（基础层，3 并行）→ project-overview / service-registry / architecture
+              │              Batch 2（数据层，3 并行）→ common-modules / models / config
+              │              Batch 3（行为层，3 并行）→ apis / utils / conventions
+              │              Batch 4（横切层，2 并行）→ dependency-graph / decisions
+              ├── analyze-expert      → 需求分析
+              ├── design-expert       → 详细设计
+              ├── task-split-expert   → 任务拆分 + DAG
+              ├── develop-expert      → 代码开发（可并行多个）
+              ├── test-expert         → 统一测试
+              ├── fix-expert          → Bug 修复
+              ├── delivery-expert     → 交付报告
+              └── contract-validator  → 契约校验 + 逻辑覆盖率验证（R5）
 ```
 
-### Cross-Platform Scheduling Strategy
+### 跨平台调度策略
 
-| Platform | Subagent Support | Parallel Capability | Research Scheduling | References |
-|----------|-------------------|---------------------|---------------------|-------------|
-| **Trae** | `/agent-name` slash command | Native parallelism | 12 parallel | ✅ |
-| **Cursor** | Task tool | Multi-Task parallel | 12 parallel | ✅ |
-| **Claude Code** | Sub agent | Native parallelism | 12 parallel | ✅ |
-| **Qoder** | Sequential | Single session sequential | 4 batches | ✅ |
-| **Codex** | `AGENTS.md` agents | Limited parallelism | 2 batch merge | ✅ |
+| 平台 | 子代理支持 | 并行能力 | Research 调度 | References 支持 |
+|------|-----------|---------|--------------|-----------------|
+| **Trae** | `/agent-name` 斜杠命令 | 原生并行 | 12 并行 | ✅ |
+| **Cursor** | Task 工具 | 多 Task 并行 | 12 并行 | ✅ |
+| **Claude Code** | Sub agent | 原生并行 | 12 并行 | ✅ |
+| **Qoder** | 串行 | 单会话串行 | 4 批次 | ✅ |
+| **Codex** | `AGENTS.md` Agent | 有限并行 | 2 批次合并 | ✅ |
 
-## Project Structure
+---
+
+## 项目结构
 
 ```
 dev-flow/
-├── skill-templates/          # Skill file templates
-│   ├── _core/                # Core template source (common base for all platforms)
-│   │   ├── SKILL.md          # Router (~410 lines, always loaded)
-│   │   ├── stages/           # 10 stage instruction files (on-demand loaded)
+├── skill-templates/          # Skill 文件模板
+│   ├── _core/                # 核心模板源（所有平台共用基础）
+│   │   ├── SKILL.md          # Router（~410 行，始终加载）
+│   │   ├── stages/           # 10 个阶段指令文件（按需加载）
 │   │   │   ├── research.md / analyze.md / design.md / task-split.md
-│   │   │   ├── develop.md (main Agent scheduling protocol)
-│   │   │   ├── test.md (unified test: unit+smoke+E2E+integration)
+│   │   │   ├── develop.md（主 Agent 调度协议）
+│   │   │   ├── test.md（统一测试：单元+冒烟+E2E+集成）
 │   │   │   └── fix.md / hotfix.md / delivery.md / code-reference.md
-│   │   ├── agents/           # 20 Agent definitions (including 5 legacy Research agents)
-│   │   │   ├── develop-expert.md (with LANGUAGE-ONLY multi-language specs)
+│   │   ├── agents/           # 20 个 Agent 定义（含 5 个遗留 Research Agent）
+│   │   │   ├── develop-expert.md（含 LANGUAGE-ONLY 多语言规范）
 │   │   │   └── ...
-│   │   └── references/       # 8 on-demand reference documents
-│   │       ├── protocol.md (zero-edit constitution + failure protocol + history compression + gate + deliverable)
+│   │   └── references/       # 8 个按需参考文档
+│   │       ├── protocol.md（零编辑铁律 + 失败协议 + 历史压缩 + 门禁 + 交付物）
 │   │       ├── memory-system.md / learning-system.md
 │   │       ├── error-pattern-db.md / model-context-config.md
 │   │       └── design-contract-typescript.md / design-contract-python.md / design-contract-go.md
-│   ├── _platforms/           # Platform-specific files
-│   └── trae/ cursor/ qoder/ claude/ codex/  # Each platform's build output
+│   ├── _platforms/           # 平台特定文件
+│   └── trae/ cursor/ qoder/ claude/ codex/  # 各平台构建输出
 ├── scripts/
-│   ├── build.cjs             # Build script (path replacement + PLATFORM-ONLY + LANGUAGE-ONLY)
-│   ├── dispatch.cjs          # Platform scheduling engine
-│   ├── prepare-context.cjs   # Subagent context auto-injection (precise matching)
-│   ├── segment-code.cjs      # Structured code segmented generation
-│   ├── validate-result.cjs   # Subagent output auto-validation (multi-language enhanced)
-│   ├── validate-contract.cjs # Design Contract validation
-│   ├── audit.cjs             # File modification audit (zero-edit constitution + checksum)
-│   ├── install.js            # Installation script
-│   ├── version-check.js      # Version consistency check
-│   └── pre-publish.js        # Pre-publish checks
-├── tests/                    # Test suite
+│   ├── build.cjs             # 构建脚本（路径替换 + PLATFORM-ONLY + LANGUAGE-ONLY）
+│   ├── dispatch.cjs          # 平台调度引擎
+│   ├── prepare-context.cjs   # 子代理上下文自动注入（精确匹配）
+│   ├── segment-code.cjs      # 结构化代码分段生成
+│   ├── validate-result.cjs   # 子代理产出自动校验（多语言增强）
+│   ├── validate-contract.cjs # 设计契约校验
+│   ├── audit.cjs             # 文件修改审计（零编辑铁律 + checksum）
+│   ├── install.js            # 安装脚本
+│   ├── version-check.js      # 版本一致性检查
+│   └── pre-publish.js        # 发布前检查
+├── tests/                    # 测试套件
 │   ├── build.test.js / links.test.js / size-warning.test.js / format.test.js
 │   └── run-all.js
-├── USER_GUIDE.md             # User operation manual
+├── USER_GUIDE.md             # 用户操作手册
 ├── CHANGELOG.md
 ├── LICENSE
 └── package.json
 ```
 
-## Build & Development
+---
+
+## 构建与开发
 
 ```bash
-npm run build                 # Build all platforms (include all languages)
-npm run build -- --lang java  # Build and keep Java language content only
-npm run verify                # Build verification
-npm test                      # Run all tests
-npm run test:version          # Version consistency check
+npm run build                 # 构建所有平台（包含全部语言）
+npm run build -- --lang java  # 构建并仅保留 Java 语言内容
+npm run verify                # 构建验证
+npm test                      # 运行全部测试
+npm run test:version          # 版本号一致性检查
 ```
 
-## Supported Tools
+---
 
-| Tool | Trigger Method | Subagent Scheduling | References |
-|------|----------------|---------------------|-------------|
-| Cursor | `/dev-flow` | Multi-Task parallel | ✅ |
-| Trae | `/dev-flow` | Native parallelism | ✅ |
-| Qoder | `/dev-flow` | Sequential simulated parallelism | ✅ |
-| Claude Code | `/dev-flow` | Native parallelism | ✅ |
-| OpenAI Codex | Natural language / `$dev-flow` | Limited parallelism | ✅ |
+## 支持的工具
 
-## License
+| 工具 | 触发方式 | 子代理调度 | References 支持 |
+|------|---------|-----------|-----------------|
+| Cursor | `/dev-flow` | 多 Task 并行 | ✅ |
+| Trae | `/dev-flow` | 原生并行 | ✅ |
+| Qoder | `/dev-flow` | 串行模拟并行 | ✅ |
+| Claude Code | `/dev-flow` | 原生并行 | ✅ |
+| OpenAI Codex | 自然语言 / `$dev-flow` | 有限并行 | ✅ |
+
+---
+
+## 许可证
 
 [MIT](./LICENSE)
