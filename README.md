@@ -124,6 +124,43 @@ AI 会逐步执行，每个阶段完成后暂停等待你的确认。
 
 执行：Research → Analyze → Design → Task Split → Develop → Test → Fix（按需）→ Delivery
 
+### 两种运行模式
+
+dev-flow 提供两种子代理调度模式，适应不同规模的开发需求：
+
+| 维度 | **标准模式**（默认） | **企业级模式**（并行调度） |
+|------|-------------------|------------------------|
+| **触发命令** | `/dev-flow <需求描述>` | `/dev-flow -subagent <需求描述>` |
+| **调度方式** | 串行调度：主 Agent 逐个创建子代理，一个完成后再创建下一个 | 并行调度：Task Split 后按 DAG 依赖图，同批次多个子代理同时执行 |
+| **适用规模** | 中小型需求（< 20 个文件、单模块修改） | 大型需求（≥ 20 个文件、多服务/多模块并行） |
+| **并行能力** | 无并行（但 Task Split 后动态重评估，满足条件可自动升级） | 完全并行（Trae / Cursor / Claude Code 原生并行；Qoder / Codex 模拟并行） |
+| **上下文占用** | 低（一次只加载一个子代理上下文） | 中-高（同时加载多个子代理上下文，视平台并发上限） |
+| **失败处理** | 即时发现、即时修复 | 同级子代理独立失败，不影响其他并行任务 |
+
+**标准模式 vs 企业级模式工作流对比：**
+
+```
+标准模式：
+主 Agent → Research → Analyze → Design → Task Split → [动态重评估]
+  → Develop（串行：Subtask 1 → Subtask 2 → ... → Subtask N）
+  → Test → Fix(按需) → Delivery
+
+企业级模式：
+主 Agent → Research → Analyze → Design → Task Split → [DAG 批次并行]
+  → Develop（并行：Batch 1: Subtask A/B/C 同时执行）
+  → Develop（并行：Batch 2: Subtask D/E 同时执行，依赖 Batch 1）
+  → Develop（串行：Subtask F，依赖 Batch 2，且有写写冲突）
+  → Test → Fix(按需) → Delivery
+```
+
+**选择建议**：
+- 初次使用 dev-flow、体验完整流程 → 先用标准模式 `/dev-flow <需求描述>`
+- 需求明确、文件数 < 20 → 标准模式即可，Task Split 后可能自动升级
+- 大型需求（20+ 文件、3+ 服务）→ 直接使用 `/dev-flow -subagent <需求描述>`
+- 不确定时 → 先使用标准模式，Task Split 后会动态评估是否适合并行，自动通知你
+
+> **注意**：无论哪种模式，主 Agent 始终是纯调度枢纽，绝不直接编辑任何文件。所有文件操作均由专业阶段子代理执行。
+
 ### 单阶段模式
 
 | 命令                         | 说明                      | 适用场景                      |
