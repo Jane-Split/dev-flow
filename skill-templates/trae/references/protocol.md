@@ -32,8 +32,9 @@ description: 公共协议 - 零编辑铁律、阶段交付物协议、门禁检�
 
 | 允许写入的文件 | 路径规则 | 用途 |
 |--------------|---------|------|
-| 阶段确认文件 | `.dev-flow/stage-confirmations/*.confirmed` | 记录用户阶段确认 |
+| 阶段确认文件 | `.dev-flow/stage-confirmations/{需求简称}/*.confirmed` | 记录用户阶段确认 |
 | 会话初始化文件 | `.dev-flow/sessions/{id}/session-init.yaml` | 创建新会话 |
+| 需求索引文件 | `.dev-flow/session-index.yaml` | 需求追溯索引 |
 
 > **禁止写入的文件（非穷举示例）**：
 > - ❌ 任何源代码文件（`.java`, `.ts`, `.py`, `.go`, `.rs` 等）
@@ -41,7 +42,7 @@ description: 公共协议 - 零编辑铁律、阶段交付物协议、门禁检�
 > - ❌ 任何文档文件（`.md` 除白名单外）
 > - ❌ 任何构建/部署脚本（`.sh`, `.cjs`, `.js` 等）
 > - ❌ `.dev-flow/memory/` 目录下的任何文件
-> - ❌ `.dev-flow/docs/` 目录下的任何文件
+> - ❌ `.dev-flow/contracts/` 目录下的任何文件
 > - ❌ `.dev-flow/deliverables/` 目录下的任何文件
 
 **🔴 产出文件溯源（v2.0 新增）**：
@@ -140,10 +141,10 @@ Level 3 — 🔴 人工升级（Escalate to Human）
 > **核心原则**：每个阶段完成后，必须生成独立的交付物文档（存放于 `.dev-flow/deliverables/`），
 > 主 Agent 读取并打开交付物文档供用户审阅，用户确认后写入 `.confirmed` 文件方可进入下一阶段。
 
-**交付物目录结构**：
+**交付物目录结构（按需求隔离）**：
 
 ```
-.dev-flow/deliverables/
+.dev-flow/deliverables/{需求简称}/
 ├── 01-research-report.md         # Research 阶段交付物
 ├── 02-analyze-result.md          # Analyze 阶段交付物
 ├── 03-design-result.md           # Design 阶段交付物
@@ -154,19 +155,32 @@ Level 3 — 🔴 人工升级（Escalate to Human）
 └── 11-delivery-report.md         # Delivery 阶段交付物
 ```
 
+**数据交换目录结构（按需求隔离）**：
+
+```
+.dev-flow/contracts/{需求简称}/
+├── design-contract.yaml          # Design → Develop 标准数据交换
+├── traceability.yaml             # Analyze → Design 需求追溯
+├── acceptance-criteria.yaml      # Analyze → Test 验收标准
+├── task-dag.yaml                 # Task Split 任务依赖图
+├── fix-log.yaml                  # Fix 修复日志
+└── develop-integration.yaml      # Develop 集成验证结果
+```
+
 > **⚠️ 目录自动创建规则**：
-> 每个阶段生成交付物前，subagent 必须先检查 `.dev-flow/deliverables/` 目录是否存在。
-> 如不存在，执行 `Bash "mkdir -p .dev-flow/deliverables/"` 创建目录后再写入文件。
+> 每个阶段生成交付物前，subagent 必须先检查目录是否存在。
+> 如不存在，执行 `Bash "mkdir -p .dev-flow/deliverables/{需求简称}/"` 或 `Bash "mkdir -p .dev-flow/contracts/{需求简称}/"` 创建目录后再写入文件。
+> `{需求简称}` 在 Router Step 0 中提取，全流程一致使用。
 
 **主 Agent 审批流程（每阶段统一执行）**：
 
 ```
-Step A: Subagent 完成 → 交付物已生成到 .dev-flow/deliverables/
+Step A: Subagent 完成 → 交付物已生成到 .dev-flow/deliverables/{需求简称}/
 Step B: 主 Agent 读取交付物文档（Read 工具）
 Step C: 主 Agent 使用 open_result_view 打开交付物文档
 Step D: 主 Agent 输出结构化确认 Checklist
 Step E: 等待用户逐项确认
-Step F: 用户确认后 → 写入 .dev-flow/stage-confirmations/{stage}.confirmed
+Step F: 用户确认后 → 写入 .dev-flow/stage-confirmations/{需求简称}/{stage}.confirmed
 Step G: 进入下一阶段（Router 层门禁检查交付物存在性）
 ```
 
@@ -174,7 +188,7 @@ Step G: 进入下一阶段（Router 层门禁检查交付物存在性）
 > - ❌ 禁止仅在对话栏展示结果而不生成交付物文档
 > - ❌ 禁止在交付物文档未生成时请求用户确认
 > - ❌ 禁止用"已在对话中展示"代替打开交付物文档
-> - ✅ 每个阶段必须生成独立的 `.dev-flow/deliverables/` 下的文档
+> - ✅ 每个阶段必须生成独立的 `.dev-flow/deliverables/{需求简称}/` 下的文档
 > - ✅ 主 Agent 必须主动打开交付物文档供用户查看
 
 ---
@@ -187,12 +201,13 @@ Step G: 进入下一阶段（Router 层门禁检查交付物存在性）
 **确认文件格式（v3.1 增强版）**：
 
 ```yaml
-# .dev-flow/stage-confirmations/{stage}.confirmed
+# .dev-flow/stage-confirmations/{需求简称}/{stage}.confirmed
 stage: {stage}
 confirmed_at: "YYYY-MM-DDTHH:mm:ss"
 confirmed_by: user
-session_id: "session-xxx"
-deliverable: ".dev-flow/deliverables/{deliverable-file}"
+session_id: "{session-id}"
+demand_name: "{需求简称}"
+deliverable: ".dev-flow/deliverables/{需求简称}/{deliverable-file}"
 deliverable_checksum: "abc123..."
 checklist:
   - item: "{确认项}"
@@ -200,7 +215,7 @@ checklist:
 execution_trail:
   executor: "{stage}-expert subagent"
   files_produced:
-    - path: ".dev-flow/deliverables/{deliverable-file}"
+    - path: ".dev-flow/deliverables/{需求简称}/{deliverable-file}"
       checksum: "abc123..."
   zero_edit_violation: false
 notes: ""
@@ -222,7 +237,7 @@ notes: ""
 
   🔵 Gate-A: 前置阶段完整性检查（确认文件 + 交付物 + 内容校验）
     ├── Step A1: 读取确认文件目录
-    │     ├── 执行：Bash "ls .dev-flow/stage-confirmations/" 或 Glob
+    │     ├── 执行：Bash "ls .dev-flow/stage-confirmations/{需求简称}/" 或 Glob
     │     └── 获取已确认的阶段列表
     │
     ├── Step A2: 🔴 交付物存在性检查
@@ -267,13 +282,13 @@ checklist:                      # 必填
 
 ```
 Research ← (无前置)
-Analyze  ← research.confirmed + 01-research-report.md
-Design   ← analyze.confirmed + 02-analyze-result.md
-TaskSplit ← design.confirmed + 03-design-result.md
-Develop  ← task-split.confirmed + 04-task-breakdown.md
-Test     ← develop.confirmed + 05-develop-result.md
+Analyze  ← {需求简称}/research.confirmed + 01-research-report.md
+Design   ← {需求简称}/analyze.confirmed + 02-analyze-result.md
+TaskSplit ← {需求简称}/design.confirmed + 03-design-result.md
+Develop  ← {需求简称}/task-split.confirmed + 04-task-breakdown.md
+Test     ← {需求简称}/develop.confirmed + 05-develop-result.md
 Fix      ← (由 Test 阶段触发，无前置确认要求)
-Delivery ← test.confirmed + 06-test-report.md
+Delivery ← {需求简称}/test.confirmed + 06-test-report.md
 ```
 
 > **⚠️ 关键规则**：即使阶段指令文件中也包含门禁检查描述，
@@ -287,7 +302,7 @@ Delivery ← test.confirmed + 06-test-report.md
 ```markdown
 ## ✅ 阶段确认清单 — {阶段名称}
 
-📄 **交付物文档**：`.dev-flow/deliverables/{序号}-{阶段}-{文档名}.md`
+📄 **交付物文档**：`.dev-flow/deliverables/{需求简称}/{序号}-{阶段}-{文档名}.md`
    → 已自动打开，请切换到文档Tab查看完整内容
 
 | # | 确认项 | 状态 |
@@ -300,7 +315,7 @@ Delivery ← test.confirmed + 06-test-report.md
 | 4 | [后续阶段准备就绪 — 各阶段自定义] | ⬜ 待确认 |
 
 **用户操作**：
-- 📖 请先查看已打开的交付物文档（`.dev-flow/deliverables/` 下的对应文件）
+- 📖 请先查看已打开的交付物文档（`.dev-flow/deliverables/{需求简称}/` 下的对应文件）
 - 确认无误 → 回复 "确认" 或 "继续" 进入下一阶段（系统自动写入确认文件）
 - 需要修改 → 指出具体问题，返回当前阶段修正
 - 需要重新执行 → 回复 "重新执行"
@@ -311,7 +326,7 @@ Delivery ← test.confirmed + 06-test-report.md
 - ❌ 禁止用"看起来没问题"等模糊描述代替逐项确认
 - ❌ 禁止在确认文件不存在的情况下进入下一阶段
 - ✅ 如果用户说"继续"但 Checklist 未全部确认，补充确认遗漏项
-- ✅ 用户确认后，立即将确认文件写入 `.dev-flow/stage-confirmations/`
+- ✅ 用户确认后，立即将确认文件写入 `.dev-flow/stage-confirmations/{需求简称}/`
 
 ---
 
@@ -382,4 +397,40 @@ Step H3: 继续下一阶段门禁检查
 1. 立即停止
 2. 改为创建 {expert} subagent 执行该任务
 3. 将已输出的编辑内容作为 subagent 的初始上下文传递
+```
+
+---
+
+## 🔴 需求简称命名规范（v3.4 — Session 隔离）
+
+> **核心原则**：`{需求简称}` 是全流程文件隔离的唯一标识，从 Router Step 0 提取后不可更改。
+
+**命名规范**：
+
+| 规则 | 说明 |
+|------|------|
+| 长度 | 2-20 字符 |
+| 来源 | 主 Agent 从用户需求描述中提取核心名词短语 |
+| 允许字符 | 中文、英文（a-zA-Z）、数字（0-9）、连字符（-）、下划线（_） |
+| 禁止字符 | 空格、特殊字符（/ \ : * ? " < > \|）、纯数字 |
+| 唯一性 | 读取 session-index.yaml，已有同名则追加 "-2" 递增 |
+| 提取策略 | 取用户需求的核心名词短语（如"实现用户登录注册" → "用户登录注册"） |
+
+**示例**：
+
+| 用户需求 | 提取的需求简称 |
+|----------|--------------|
+| "实现用户登录注册功能" | `用户登录注册` |
+| "重构订单系统的支付模块" | `订单支付模块` |
+| "添加 Redis 缓存层" | `Redis缓存层` |
+| "修复首页加载慢的问题" | `首页加载优化` |
+| "接入微信支付" | `微信支付接入` |
+
+**路径使用规则**：
+
+```
+# 所有产出路径必须包含 {需求简称} 子目录
+.dev-flow/deliverables/{需求简称}/01-research-report.md
+.dev-flow/contracts/{需求简称}/design-contract.yaml
+.dev-flow/stage-confirmations/{需求简称}/research.confirmed
 ```

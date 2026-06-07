@@ -31,7 +31,7 @@ type: stage-instruction
 ### 入口前检查：阶段门禁
 
 > **完整门禁检查流程见 `references/protocol.md` — 阶段门禁检查章节。**
-> **快速检查**：`.dev-flow/stage-confirmations/design.confirmed` 必须存在。
+> **快速检查**：`.dev-flow/stage-confirmations/{需求简称}/design.confirmed` 必须存在。
 
 ### 目的
 将详细设计拆分为精确的开发任务，解决依赖关系，确定并行/串行执行顺序，为后续并行开发做准备。
@@ -101,7 +101,7 @@ Step 0: 选择拆分维度
 > **⚠️ 以下步骤由 task-split-expert subagent 在独立上下文中执行，主 Agent 不直接执行这些步骤。主 Agent 的职责是：创建 subagent → 传递上下文 → 等待结果 → 向用户汇报。**
 
 **Step 1: 读取详细设计文档**
-- 读取 `.dev-flow/docs/{需求简称}-详细设计.md`
+- 读取 `.dev-flow/deliverables/{需求简称}/03-design-result.md`
 - 提取所有需要新增/修改的文件列表
 - 识别每个文件的依赖关系
 
@@ -281,9 +281,6 @@ conflicts:
 
 > **🔴 必须输出正式文档**：将任务拆分结果写入独立文档文件。
 
-**输出文档**：`.dev-flow/docs/{需求简称}-任务拆分.md`
-
-**文档模板**：
 ```markdown
 # 任务拆分：{需求标题}
 
@@ -305,7 +302,6 @@ graph TD
     Task-5 --> Task-8[ServiceImpl]
     Task-7 --> Task-8
     Task-8 --> Task-9[Controller]
-```
 
 ## 3. 执行批次
 
@@ -433,7 +429,7 @@ Task Split 阶段输出（极端模式）：
 
 > **目的**：生成独立的阶段交付物文档，供主 Agent 打开给用户审阅。
 
-**交付物路径**：`.dev-flow/deliverables/04-task-breakdown.md`
+**交付物路径**：`.dev-flow/deliverables/{需求简称}/04-task-breakdown.md`
 
 **交付物内容**：
 ```markdown

@@ -144,7 +144,7 @@ Before finalizing Design, read existing Entity definitions and verify method nam
 
 ### Design Contract Output
 
-After Design, generate `.dev-flow/docs/{requirement-name}-design-contract.yaml` containing: entities, dtos, enums, mappers, services, controllers, feignClients, exceptions.
+After Design, generate `.dev-flow/contracts/{requirement-name}-design-contract.yaml` containing: entities, dtos, enums, mappers, services, controllers, feignClients, exceptions.
 
 Pause for confirmation before Develop.
 
@@ -168,8 +168,8 @@ Before starting development, estimate the number of files involved:
 
 Read the following files before implementation:
 
-1. **Read `.dev-flow/docs/{requirement-name}-task-split.md`** (if exists)
-2. ⭐ **Read `.dev-flow/docs/{requirement-name}-design-contract.yaml`** - Design → Develop standard data exchange format
+1. **Read `.dev-flow/contracts/{requirement-name}-task-split.md`** (if exists)
+2. ⭐ **Read `.dev-flow/contracts/{requirement-name}-design-contract.yaml`** - Design → Develop standard data exchange format
    - Must understand: API interface definitions, DTO field specifications, method naming conventions, input/output types
    - **Forbidden**: Ignore or override any definition in this contract
 3. Read `.dev-flow/memory/conventions.md` - Follow coding standards

@@ -102,13 +102,93 @@ description: AI开发全流程编排技能 - 在AI编程工具对话框中结构
 ```
 
 **工作流程**：
-1. 主 Agent 接收需求，创建会话目录 `.dev-flow/sessions/{session-id}/`
+1. 主 Agent 接收需求，提取 `{需求简称}`（规则见下方），生成 `session-id`，创建/更新 `.dev-flow/session-index.yaml`，创建会话目录 `.dev-flow/sessions/{session-id}/`，创建当前需求的目录 `.dev-flow/deliverables/{需求简称}/`、`.dev-flow/contracts/{需求简称}/`、`.dev-flow/stage-confirmations/{需求简称}/`
 2. 主 Agent 按顺序调度 subagent：Research → Analyze → Design → Task Split → Develop → Test → Fix(按需) → Delivery
 3. **标准模式**：串行调度（一个 subagent 完成后再创建下一个）；Task Split 后根据动态重评估可能升级并行
 4. **企业级模式**：按 DAG 批次并行调度（同批次多个 subagent 同时启动）
 5. 每个 subagent 在独立上下文中执行，只读取必要的文件
 6. 主 Agent 收集各 subagent 结果，整合后向用户汇报
 7. **主 Agent 始终不直接执行任何文件编辑操作**
+
+### 🔴 Session 隔离机制（v3.4 — 多需求并行共存）
+
+> **核心原则**：同一项目中连续执行多个需求时，每个需求的所有产出完全隔离，互不覆盖、互不干扰。
+> 通过 `{需求简称}` 作为目录名实现需求级文件隔离。
+
+**Step 0: 需求简称提取（每次 `/dev-flow` 触发时第一个执行）**
+
+```
+🔴 需求简称提取规则
+
+规则 1 — 提取方式：主 Agent 从用户需求描述中提取核心名词短语（2-20 字符）
+  示例："实现用户登录注册功能" → "用户登录注册"
+  示例："重构订单系统的支付模块" → "订单支付模块"
+  示例："添加 Redis 缓存层" → "Redis缓存层"
+
+规则 2 — 允许字符：中文、英文（a-zA-Z）、数字（0-9）、连字符（-）、下划线（_）
+  禁止：空格、特殊字符（/ \ : * ? " < > |）、纯数字
+
+规则 3 — 唯一性保证：
+  ├── 读取 .dev-flow/session-index.yaml
+  ├── 如无同名 → 直接使用
+  └── 如已有同名 → 追加 "-2" 递增（用户管理 → 用户管理-2）
+
+规则 4 — 生成 session-id：
+  格式：sess-YYYYMMDD-NNN
+  规则：YYYYMMDD = 当天日期，NNN = session-index.yaml 中当天最大序号 +1（从 001 开始）
+
+规则 5 — 创建/更新 .dev-flow/session-index.yaml：
+  ├── 文件不存在 → 创建并写入第一条记录
+  └── 文件存在 → 追加新记录到 sessions 列表末尾
+```
+
+**session-index.yaml 格式**：
+
+```yaml
+sessions:
+  - id: sess-20260607-001
+    name: 用户管理模块
+    name_short: 用户管理模块       # {需求简称}
+    status: in-progress            # in-progress | completed | abandoned
+    started_at: "2026-06-07T09:00:00"
+    completed_at: null
+    stages_completed: []
+  - id: sess-20260607-002
+    name: 订单系统重构
+    name_short: 订单系统重构
+    status: completed
+    started_at: "2026-06-07T14:00:00"
+    completed_at: "2026-06-07T18:30:00"
+    stages_completed: [research, analyze, design, task-split, develop, test, delivery]
+```
+
+**目录隔离结构**：
+
+```
+.dev-flow/
+├── session-index.yaml              # 需求追溯索引（全局唯一）
+├── deliverables/
+│   ├── {需求简称-A}/                # 需求 A 的所有审批文档
+│   │   ├── 01-research-report.md
+│   │   └── ...
+│   └── {需求简称-B}/                # 需求 B 的所有审批文档
+├── contracts/
+│   ├── {需求简称-A}/                # 需求 A 的数据交换文件
+│   │   ├── design-contract.yaml
+│   │   └── ...
+│   └── {需求简称-B}/
+├── stage-confirmations/
+│   ├── {需求简称-A}/                # 需求 A 的阶段确认
+│   │   ├── research.confirmed
+│   │   └── ...
+│   └── {需求简称-B}/
+├── memory/                         # 不变（项目级，跨需求共享）
+├── sessions/                        # 不变（已有机制）
+└── ...
+```
+
+> **⚠️ `{需求简称}` 从 Step 0 提取后，全流程所有阶段必须一致使用，不可中途更改。**
+> **主 Agent 在每个阶段的门禁检查和交付物路径中都必须使用当前 `{需求简称}`。**
 
 **任务拆分与依赖处理**：
 - Analyze 阶段输出的 `task-breakdown.yaml` 定义所有开发任务及其依赖关系
@@ -206,7 +286,7 @@ description: AI开发全流程编排技能 - 在AI编程工具对话框中结构
 🔴 模式动态重评估（标准模式：Task Split 确认后自动执行）
 
 Step R1: 读取任务 DAG 数据
-  ├── 读取 .dev-flow/docs/{需求简称}-task-dag.yaml
+  ├── 读取 .dev-flow/contracts/{需求简称}/task-dag.yaml
   └── 或读取 task-split 产出中的任务清单和依赖关系
 
 Step R2: 计算复杂度指标
@@ -327,29 +407,29 @@ Step R4: 升级时通知用户
 | 场景 | 门禁规则 |
 |------|---------|
 | `/dev-flow -research` | 无前置要求，直接执行 |
-| `/dev-flow -analyze <需求>` | 检查 research.confirmed |
-| `/dev-flow -design <需求>` | 检查 analyze.confirmed |
-| `/dev-flow -split <需求>` | 检查 design.confirmed |
-| `/dev-flow -develop <需求>` | 检查 task-split.confirmed（全流程时）/ 无前置（直接开发时） |
+| `/dev-flow -analyze <需求>` | 检查 `.dev-flow/stage-confirmations/{需求简称}/research.confirmed` |
+| `/dev-flow -design <需求>` | 检查 `.dev-flow/stage-confirmations/{需求简称}/analyze.confirmed` |
+| `/dev-flow -split <需求>` | 检查 `.dev-flow/stage-confirmations/{需求简称}/design.confirmed` |
+| `/dev-flow -develop <需求>` | 检查 `.dev-flow/stage-confirmations/{需求简称}/task-split.confirmed`（全流程时）/ 无前置（直接开发时） |
 | `/dev-flow -fix` | 无前置确认要求（由 Bug 触发） |
 | `/dev-flow --resume` | 读取最后一个 confirmed 文件，从下一阶段继续 |
 | 跳过某阶段（用户明确要求） | 自动跳过该阶段的门禁检查 |
-| 标准模式 | 检查 task-split.confirmed（全流程时）/ 无前置（直接开发时） |
-| 企业级模式 | 检查 task-split.confirmed |
+| 标准模式 | 检查 `.dev-flow/stage-confirmations/{需求简称}/task-split.confirmed`（全流程时）/ 无前置（直接开发时） |
+| 企业级模式 | 检查 `.dev-flow/stage-confirmations/{需求简称}/task-split.confirmed` |
 
 ---
 
 | 阶段 | 指令文件 | 加载时机 | 前置确认文件 |
 |------|---------|---------|------------|
 | Research（项目调研） | `{{STAGES_PATH}}research.md` | 进入阶段一 | 无 |
-| Analyze（需求分析） | `{{STAGES_PATH}}analyze.md` | 进入阶段二 | `research.confirmed` |
-| Design（详细设计） | `{{STAGES_PATH}}design.md` | 进入阶段三 | `analyze.confirmed` |
-| Task Split（任务拆分） | `{{STAGES_PATH}}task-split.md` | 进入阶段四 | `design.confirmed` |
-| **Develop（开发执行）** | **`{{STAGES_PATH}}develop.md`** | **进入阶段五** | `task-split.confirmed` |
-| Test（统一测试） | `{{STAGES_PATH}}test.md` | 进入阶段六 | `develop.confirmed` |
+| Analyze（需求分析） | `{{STAGES_PATH}}analyze.md` | 进入阶段二 | `{需求简称}/research.confirmed` |
+| Design（详细设计） | `{{STAGES_PATH}}design.md` | 进入阶段三 | `{需求简称}/analyze.confirmed` |
+| Task Split（任务拆分） | `{{STAGES_PATH}}task-split.md` | 进入阶段四 | `{需求简称}/design.confirmed` |
+| **Develop（开发执行）** | **`{{STAGES_PATH}}develop.md`** | **进入阶段五** | `{需求简称}/task-split.confirmed` |
+| Test（统一测试） | `{{STAGES_PATH}}test.md` | 进入阶段六 | `{需求简称}/develop.confirmed` |
 | Fix（Bug 修复） | `{{STAGES_PATH}}fix.md` | 进入阶段七 | 无（Bug 触发） |
 | Hotfix（独立模式） | `{{STAGES_PATH}}hotfix.md` | 使用 Hotfix 模式 | 无 |
-| Delivery（交付报告） | `{{STAGES_PATH}}delivery.md` | 进入阶段八 | `test.confirmed` |
+| Delivery（交付报告） | `{{STAGES_PATH}}delivery.md` | 进入阶段八 | `{需求简称}/test.confirmed` |
 
 ### 加载规则
 
@@ -366,7 +446,7 @@ Step R4: 升级时通知用户
 ```
 Step 1: 创建 pre-scanner subagent → Phase 0 Quick Scan → file-index.yaml
 Step 2: 等待完成 → 按批次并行调度 11 个文件子代理（4 批次）
-Step 3: 全部完成 → 自检 → 生成交付物 → 打开 01-research-report.md → 确认 Checklist → 写入 research.confirmed
+Step 3: 全部完成 → 自检 → 生成交付物 → 打开 .dev-flow/deliverables/{需求简称}/01-research-report.md → 确认 Checklist → 写入 .dev-flow/stage-confirmations/{需求简称}/research.confirmed
   ↓ 用户确认
 Step 4: 🔴 门禁检查 → analyze-expert → Analyze 阶段 → 确认 → analyze.confirmed
 Step 5: 🔴 门禁检查 → design-expert → Design 阶段 → 确认 → design.confirmed

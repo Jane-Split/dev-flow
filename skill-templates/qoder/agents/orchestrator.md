@@ -66,7 +66,7 @@ Step 0.1: 检测当前平台
   └── 确认平台检测正确
 
 Step 0.2: 读取任务 DAG（如有）
-  ├── 读取 .dev-flow/docs/{需求简称}-task-dag.yaml
+  ├── 读取 .dev-flow/contracts/{需求简称}/task-dag.yaml
   └── 如不存在 → 等待 Task Split 阶段完成
 
 Step 0.3: 生成调度计划

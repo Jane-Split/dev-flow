@@ -10,14 +10,14 @@ Responsibilities:
 - Check health of database, Redis, Nacos connections
 - Test core business processes quickly
 - Record issues found during testing
-- Output smoke test report to `.dev-flow/docs/{demand-name}-smoke-test-report.md`
+- Output smoke test report to `.dev-flow/contracts/{demand-name}-smoke-test-report.md`
 
 Input files to read:
-- `.dev-flow/docs/{demand-name}-development-report.md` - List of completed files
-- `.dev-flow/docs/{demand-name}-requirements-analysis.md` - Core functionality list
+- `.dev-flow/contracts/{demand-name}-development-report.md` - List of completed files
+- `.dev-flow/contracts/{demand-name}-requirements-analysis.md` - Core functionality list
 
 Output:
-- `.dev-flow/docs/{demand-name}-smoke-test-report.md`
+- `.dev-flow/contracts/{demand-name}-smoke-test-report.md`
 
 Workflow:
 1. Identify core business processes from requirements

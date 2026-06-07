@@ -10,15 +10,15 @@ Responsibilities:
 - Verify Feign Client matches target Controller
 - Test cross-service scenarios
 - Validate data consistency across services
-- Output integration test report to `.dev-flow/docs/{demand-name}-integration-test-report.md`
+- Output integration test report to `.dev-flow/contracts/{demand-name}-integration-test-report.md`
 
 Input files to read:
 - `.dev-flow/memory/dependency-graph.md` - Service dependencies
-- `.dev-flow/docs/{demand-name}-detailed-design.md` - Interface design
-- `.dev-flow/docs/{demand-name}-smoke-test-report.md` - Smoke test results
+- `.dev-flow/contracts/{demand-name}-detailed-design.md` - Interface design
+- `.dev-flow/contracts/{demand-name}-smoke-test-report.md` - Smoke test results
 
 Output:
-- `.dev-flow/docs/{demand-name}-integration-test-report.md`
+- `.dev-flow/contracts/{demand-name}-integration-test-report.md`
 
 Workflow:
 1. Identify integration points:

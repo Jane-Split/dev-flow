@@ -314,7 +314,7 @@ Step 3.5.3: 输出校验报告
 **验收标准格式**：
 
 ```yaml
-# .dev-flow/docs/{需求简称}-acceptance-criteria.yaml
+# .dev-flow/contracts/{需求简称}/acceptance-criteria.yaml
 acceptance_criteria:
   REQ-001:
     title: "用户注册"
@@ -361,7 +361,7 @@ acceptance_criteria:
 **矩阵格式**：
 
 ```yaml
-# .dev-flow/docs/{需求简称}-traceability.yaml
+# .dev-flow/contracts/{需求简称}/traceability.yaml
 requirements:
   - id: "REQ-001"
     title: "用户注册"
@@ -421,62 +421,11 @@ traceability:
   - 公共模块的变更是否会影响其他未识别的服务
   - Feign Client 变更是否与依赖图谱一致
 
-**Step 6: 写入项目记忆并输出文档**
-
-> **🔴 必须输出正式文档**：将需求分析结果写入独立文档文件，方便用户追溯。
-
-**输出文档**：
-- **正式文档**：`.dev-flow/docs/{需求简称}-需求分析.md`
-- **会话记录**：追加到 `.dev-flow/sessions/` 当前会话文件
-
-**文档命名规则**：需求简称取需求标题的前 20 个字符，去掉特殊字符，用 `-` 连接。例如"实现不合格品管理模块" → `实现不合格品管理模块-需求分析.md`
-
-**文档模板**：
-```markdown
-# 需求分析：{需求标题}
-
-<!-- last-updated: YYYY-MM-DD HH:mm -->
-<!-- status: analyzed | approved | deprecated -->
-
-## 1. 基本信息
-| 项目 | 内容 |
-|------|------|
-| 需求标题 | {标题} |
-| 需求类型 | 新功能 / 功能增强 / Bug 修复 / 重构 / 性能优化 |
-| 优先级 | P0(紧急) / P1(高) / P2(中) / P3(低) |
-| 分析时间 | YYYY-MM-DD HH:mm |
-| 涉及服务 | {服务列表} |
-
-## 2. 核心功能点
-| # | 功能点 | 描述 | 优先级 |
-|---|--------|------|--------|
-| 1 | ... | ... | P0 |
-
-## 3. 约束条件
-- 技术约束：...
-- 业务约束：...
-- 兼容性约束：...
-
-## 4. 相关已有代码
-| 文件 | 说明 | 变更类型 |
-|------|------|----------|
-| ... | ... | 新增/修改/删除 |
-
-## 5. 预计影响范围
-- 直接影响：...
-- 间接影响：...
-- 风险点：...
-
-## 6. 用户确认
-- [ ] 用户已确认需求分析
-```
-
 
 **Step 7: 🔴 生成阶段交付物（v3.1 新增）**
-
 > **目的**：生成独立的阶段交付物文档，供主 Agent 打开给用户审阅。
 
-**交付物路径**：`.dev-flow/deliverables/02-analyze-result.md`
+**交付物路径**：`.dev-flow/deliverables/{需求简称}/02-analyze-result.md`
 
 **交付物内容**：
 ```markdown

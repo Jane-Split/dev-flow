@@ -144,8 +144,8 @@ Bug 严重程度判断：
 
 ```
 Step 5.1: 收集之前通过的测试用例列表
-  ├── 读取 .dev-flow/docs/{需求简称}-e2e测试报告.md（E2E 测试通过列表）
-  ├── 读取 .dev-flow/docs/{需求简称}-单元测试报告.md（单元测试通过列表）
+  ├── 读取 .dev-flow/deliverables/{需求简称}/06-test-report.md（E2E 测试通过列表）
+  ├── 读取 .dev-flow/deliverables/{需求简称}/06-test-report.md（单元测试通过列表）
   └── 读取 .dev-flow/runtime/pre-test-result.yaml（前置测试通过列表）
 
 Step 5.2: 重新运行所有之前通过的测试
@@ -162,7 +162,7 @@ Step 5.3: 回归检测结果
   └── 原失败用例仍失败 → 修复未生效，重新分析
 
 Step 5.4: 回归测试报告
-  └── 写入 .dev-flow/docs/{需求简称}-回归测试报告.md
+  └── 写入 .dev-flow/contracts/{需求简称}/回归测试报告.md
 ```
 
 **回归阻断规则**：
@@ -174,7 +174,7 @@ Step 5.4: 回归测试报告
 
 **修复记录格式**：
 ```yaml
-# .dev-flow/docs/{需求简称}-fix-log.yaml
+# .dev-flow/contracts/{需求简称}/fix-log.yaml
 fixes:
   - round: 1
     bugs:
@@ -198,7 +198,7 @@ fixes:
 
 > **目的**：生成独立的阶段交付物文档，供主 Agent 打开给用户审阅。
 
-**交付物路径**：`.dev-flow/deliverables/07-fix-report.md`
+**交付物路径**：`.dev-flow/deliverables/{需求简称}/07-fix-report.md`
 
 **交付物内容**：
 ```markdown

@@ -31,11 +31,11 @@ type: stage-instruction
 ### 🔴 入口前检查：阶段门禁
 
 > **完整门禁检查流程见 `references/protocol.md` — 阶段门禁检查章节。**
-> **快速检查**：`.dev-flow/stage-confirmations/analyze.confirmed` 必须存在。
+> **快速检查**：`.dev-flow/stage-confirmations/{需求简称}/analyze.confirmed` 必须存在。
 
 ### 🔴 入口前检查：加载需求追踪矩阵
 
-> **必须读取** `.dev-flow/docs/{需求简称}-traceability.yaml`，获取所有 REQ-XXX 需求 ID。
+> **必须读取** `.dev-flow/contracts/{需求简称}/traceability.yaml`，获取所有 REQ-XXX 需求 ID。
 > 设计文档中的每个设计章节必须标注对应的 REQ-XXX ID，确保需求 → 设计的追溯关系。
 
 ```markdown
@@ -100,7 +100,7 @@ entity:
 
 #### Design → Develop 数据交换格式
 
-Design 阶段完成后，生成标准交换文件 `.dev-flow/docs/{需求简称}-design-contract.yaml`：
+Design 阶段完成后，生成标准交换文件 `.dev-flow/contracts/{需求简称}/design-contract.yaml`：
 
 ```yaml
 # Design Contract（设计契约）
@@ -549,7 +549,6 @@ interfaces:
 > **🔴 必须输出正式文档**：将设计结果写入独立文档文件，方便用户追溯。
 
 **输出文档**：
-- **正式文档**：`.dev-flow/docs/{需求简称}-详细设计.md`
 - **会话记录**：追加到 `.dev-flow/sessions/` 当前会话文件
 - **更新记忆**：如有新架构决策更新 `decisions.md`，如有新模式更新 `patterns.md`
 
@@ -800,7 +799,7 @@ interface User { ... }
 
 > **目的**：生成独立的阶段交付物文档，供主 Agent 打开给用户审阅。
 
-**交付物路径**：`.dev-flow/deliverables/03-design-result.md`
+**交付物路径**：`.dev-flow/deliverables/{需求简称}/03-design-result.md`
 
 **交付物内容**：
 ```markdown
@@ -831,7 +830,7 @@ interface User { ... }
 - Feign Client 定义（如有）
 
 ## 4. 设计契约
-- Design Contract 文件：`.dev-flow/docs/{需求简称}-design-contract.yaml`
+- Design Contract 文件：`.dev-flow/contracts/{需求简称}/design-contract.yaml`
 - 契约版本：1.0
 - 语言/框架：{技术栈}
 

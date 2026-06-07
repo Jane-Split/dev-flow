@@ -39,7 +39,7 @@ is_background: false
 
 ## 输出
 
-写入 `.dev-flow/docs/{需求简称}-task-split/`：
+写入 `.dev-flow/contracts/{需求简称}/task-split/`：
 - `task-dag.yaml` - 任务依赖 DAG
 - `subtask-{id}-design.yaml` - 每个子任务的设计文档
 - `interface-registry.yaml` - 子任务间接口注册表

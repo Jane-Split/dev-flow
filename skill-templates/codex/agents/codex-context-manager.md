@@ -131,13 +131,13 @@ phase_results:
   Design:
     status: "completed"
     output_files:
-      - ".dev-flow/docs/order-management-design-contract.yaml"
+      - ".dev-flow/contracts/order-management-design-contract.yaml"
     summary: "5个Entity, 8个DTO, 3个Service, 2个Controller"
     
   Task Split:
     status: "completed"
     output_files:
-      - ".dev-flow/docs/order-management-task-split/task-dag.yaml"
+      - ".dev-flow/contracts/order-management-task-split/task-dag.yaml"
     summary: "15个子任务，4个批次"
     
   Develop:
@@ -192,9 +192,9 @@ warnings: []
 - 待完成子任务: task-002, task-003, task-004
 
 ## 关键文件
-- 设计文档: .dev-flow/docs/order-management-design-contract.yaml
-- 任务DAG: .dev-flow/docs/order-management-task-split/task-dag.yaml
-- 接口注册表: .dev-flow/docs/order-management-task-split/interface-registry.yaml
+- 设计文档: .dev-flow/contracts/order-management-design-contract.yaml
+- 任务DAG: .dev-flow/contracts/order-management-task-split/task-dag.yaml
+- 接口注册表: .dev-flow/contracts/order-management-task-split/interface-registry.yaml
 
 ## 已生成代码
 - UserService.java: src/main/java/com/xxx/service/UserService.java

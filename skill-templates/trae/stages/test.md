@@ -211,7 +211,7 @@ Step 4.0.1: 全局编译验证
   └── 编译失败 → 进入 Fix 阶段，修复后再重新执行 E2E
 
 Step 4.0.2: Design Contract 契约一致性校验
-  ├── 读取 .dev-flow/docs/{需求简称}-design-contract.yaml
+  ├── 读取 .dev-flow/contracts/{需求简称}/design-contract.yaml
   ├── 逐项校验：
   │   ├── API 接口路径是否与 Controller 实现一致
   │   ├── DTO 字段名和类型是否与设计一致
@@ -227,7 +227,7 @@ Step 4.0.3: 接口注册表自动校验
   └── 缺失项 → 补充或修复
 
 Step 4.0.4: 输出集成验证报告
-  └── 写入 .dev-flow/docs/{需求简称}-集成验证报告.md
+  └── 写入 .dev-flow/contracts/{需求简称}/集成验证报告.yaml
 ```
 
 **集成验证报告模板**：
@@ -267,7 +267,7 @@ Step 4.0.4: 输出集成验证报告
 
 **Step 4.1: 识别端到端测试场景**
 
-> **🔴 基于需求验收标准生成测试场景**：读取 `.dev-flow/docs/{需求简称}-acceptance-criteria.yaml`，
+> **🔴 基于需求验收标准生成测试场景**：读取 `.dev-flow/contracts/{需求简称}/acceptance-criteria.yaml`，
 > 将每个 `test_level: "e2e"` 的验收标准自动转化为 E2E 测试用例。
 > 同时补充标准测试场景模板，确保覆盖完整。
 
@@ -540,7 +540,7 @@ class XxxIntegrationTest {
 
 > **🔴 必须输出正式文档**：将测试结果写入独立文档文件，方便用户追溯。
 
-**交付物路径**：`.dev-flow/deliverables/06-test-report.md`
+**交付物路径**：`.dev-flow/deliverables/{需求简称}/06-test-report.md`
 
 **交付物内容**：
 ```markdown

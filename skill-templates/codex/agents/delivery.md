@@ -20,23 +20,23 @@ is_background: true
 
 ## 输入
 
-- `.dev-flow/docs/{需求简称}-需求分析.md`
-- `.dev-flow/docs/{需求简称}-详细设计.md`
-- `.dev-flow/docs/{需求简称}-任务拆分.md`
-- `.dev-flow/docs/{需求简称}-开发报告.md`
-- `.dev-flow/docs/{需求简称}-测试报告.md`
-- `.dev-flow/docs/{需求简称}-冒烟测试报告.md`
-- `.dev-flow/docs/{需求简称}-集成测试报告.md`
+- `.dev-flow/contracts/{需求简称}/需求分析.md`
+- `.dev-flow/contracts/{需求简称}/详细设计.md`
+- `.dev-flow/contracts/{需求简称}/任务拆分.md`
+- `.dev-flow/contracts/{需求简称}/开发报告.md`
+- `.dev-flow/contracts/{需求简称}/测试报告.md`
+- `.dev-flow/contracts/{需求简称}/冒烟测试报告.md`
+- `.dev-flow/contracts/{需求简称}/集成测试报告.md`
 
 ## 输出
 
-- `.dev-flow/docs/{需求简称}-交付报告.md` - 交付报告
+- `.dev-flow/contracts/{需求简称}/交付报告.md` - 交付报告
 
 ## 工作流
 
 ### Step 1: 汇总各阶段文档
 
-读取 `.dev-flow/docs/` 下所有文档，提取关键信息：
+读取 `.dev-flow/contracts/` 下所有文档，提取关键信息：
 - 需求概述
 - 设计要点
 - 开发清单

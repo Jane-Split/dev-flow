@@ -21,12 +21,12 @@ is_background: true
 ## 输入
 
 - `.dev-flow/memory/dependency-graph.md` - 服务依赖关系
-- `.dev-flow/docs/{需求简称}-详细设计.md` - 接口设计
-- `.dev-flow/docs/{需求简称}-冒烟测试报告.md` - 冒烟测试结果
+- `.dev-flow/contracts/{需求简称}/详细设计.md` - 接口设计
+- `.dev-flow/contracts/{需求简称}/冒烟测试报告.md` - 冒烟测试结果
 
 ## 输出
 
-- `.dev-flow/docs/{需求简称}-集成测试报告.md` - 测试报告
+- `.dev-flow/contracts/{需求简称}/集成测试报告.md` - 测试报告
 
 ## 工作流
 

@@ -20,12 +20,12 @@ is_background: true
 
 ## 输入
 
-- `.dev-flow/docs/{需求简称}-开发报告.md` - 开发完成的文件清单
-- `.dev-flow/docs/{需求简称}-需求分析.md` - 核心功能点列表
+- `.dev-flow/contracts/{需求简称}/开发报告.md` - 开发完成的文件清单
+- `.dev-flow/contracts/{需求简称}/需求分析.md` - 核心功能点列表
 
 ## 输出
 
-- `.dev-flow/docs/{需求简称}-冒烟测试报告.md` - 测试报告
+- `.dev-flow/contracts/{需求简称}/冒烟测试报告.md` - 测试报告
 
 ## 工作流
 

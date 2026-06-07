@@ -33,7 +33,7 @@ is_background: false
 - `api-spec.yaml` - API 接口规范
 - `db-schema.sql` - 数据库变更脚本（如需要）
 
-⭐ **写入 `.dev-flow/docs/{需求简称}-design-contract.yaml` - Design → Develop 标准数据交换格式（必须生成）**
+⭐ **写入 `.dev-flow/contracts/{需求简称}/design-contract.yaml` - Design → Develop 标准数据交换格式（必须生成）**
 > **🔴 铁律**：此文件是 Develop 阶段读取设计信息的唯一标准来源。必须包含完整的 entities、dtos、enums、mappers、services、controllers、feignClients、exceptions 定义。
 
 ## 工作流
@@ -136,7 +136,7 @@ ReturnType methodName(ParamType param);
 
 > **🔴 铁律**：此步骤不可跳过。design-contract.yaml 是 Design → Develop 的唯一标准数据交换格式。
 
-根据 Step 1-5 的设计结果，生成结构化的 `.dev-flow/docs/{需求简称}-design-contract.yaml`，必须包含以下所有部分：
+根据 Step 1-5 的设计结果，生成结构化的 `.dev-flow/contracts/{需求简称}/design-contract.yaml`，必须包含以下所有部分：
 
 ```yaml
 contract_version: "1.0"

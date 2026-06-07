@@ -34,7 +34,7 @@ type: stage-instruction
 ### 执行步骤
 
 **Step 1: 汇总各阶段文档**
-- 读取 `.dev-flow/docs/` 下所有文档
+- 读取 `.dev-flow/deliverables/` 下所有交付物文档
 - 提取关键信息：需求概述、设计要点、开发清单、测试结果
 
 **Step 2: 生成交付清单**
@@ -48,9 +48,7 @@ type: stage-instruction
 
 **Step 4: 输出交付报告**
 
-**输出文档**：`.dev-flow/docs/{需求简称}-交付报告.md`
 
-**文档模板**：
 ```markdown
 # 交付报告：{需求标题}
 
@@ -120,16 +118,15 @@ type: stage-instruction
 - [ ] 开发人员确认
 - [ ] 测试人员确认
 - [ ] 产品人员确认
-```
 
 
 **Step 5: 🔴 生成阶段交付物（v3.1 新增）**
 
 > **目的**：生成独立的阶段交付物文档，供主 Agent 打开给用户审阅。
 
-**交付物路径**：`.dev-flow/deliverables/11-delivery-report.md`
+**交付物路径**：`.dev-flow/deliverables/{需求简称}/11-delivery-report.md`
 
-**交付物内容**：（与 Step 4 输出的 `.dev-flow/docs/{需求简称}-交付报告.md` 内容一致，增加溯源注释头）
+**交付物内容**：（与 Step 4 交付物内容一致，增加溯源注释头）
 
 ```markdown
 <!-- @generated-by: delivery-expert subagent | session: {session-id} | stage: delivery -->

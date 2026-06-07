@@ -133,13 +133,13 @@ phase_results:
   Design:
     status: "completed"
     output_files:
-      - ".dev-flow/docs/order-management-design-contract.yaml"
+      - ".dev-flow/contracts/order-management-design-contract.yaml"
     summary: "5个Entity, 8个DTO, 3个Service, 2个Controller"
     
   Task Split:
     status: "completed"
     output_files:
-      - ".dev-flow/docs/order-management-task-split/task-dag.yaml"
+      - ".dev-flow/contracts/order-management-task-split/task-dag.yaml"
     summary: "15个子任务，4个批次"
     
   Develop:

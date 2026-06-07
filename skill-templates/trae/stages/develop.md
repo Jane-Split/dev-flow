@@ -96,8 +96,8 @@ type: stage-instruction
 ```
 Step D1: 读取阶段指令 → Read stages/develop.md（本文件）
 Step D2: 读取任务拆分文档和 DAG
-        ├── 读取 .dev-flow/docs/{需求简称}-任务拆分.md
-        └── 读取 .dev-flow/docs/{需求简称}-task-dag.yaml
+        ├── 读取 .dev-flow/deliverables/{需求简称}/04-task-breakdown.md
+        └── 读取 .dev-flow/contracts/{需求简称}/task-dag.yaml
 Step D3: 运行 prepare-context.cjs（如 Subagent 模式）
         ├── node scripts/prepare-context.cjs --task {taskId}
         └── 为每个任务生成 task-brief-{taskId}.md
@@ -122,8 +122,8 @@ Step D9: 向用户汇报开发结果，输出确认清单
 ### 执行步骤
 
 **Step 1: 读取任务拆分文档、设计契约和项目记忆**
-- 读取 `.dev-flow/docs/{需求简称}-任务拆分.md`（如有）
-- ⭐ **读取 `.dev-flow/docs/{需求简称}-design-contract.yaml` - Design → Develop 标准数据交换格式**
+- 读取 `.dev-flow/deliverables/{需求简称}/04-task-breakdown.md`（如有）
+- ⭐ **读取 `.dev-flow/contracts/{需求简称}/design-contract.yaml` - Design → Develop 标准数据交换格式**
   - 必须理解：API 接口定义、DTO 字段规范、方法命名约定、输入输出类型
   - 禁止忽略或覆盖此契约中的任何定义
 - 读取 `.dev-flow/memory/conventions.md` - 遵守编码规范
@@ -268,7 +268,7 @@ Step 4.2.3: 分析结果
 
 ```
 Step 4.3.1: 提取设计契约中的所有逻辑单元
-  ├── 读取 .dev-flow/docs/{需求简称}-design-contract.yaml
+  ├── 读取 .dev-flow/contracts/{需求简称}/design-contract.yaml
   ├── 提取每个 Service 方法的 logic_steps 列表（step 编号 + action 类型）
   ├── 提取每个 logic step 的 conditions（条件分支定义）
   ├── 提取每个 call action 的 target + method + params
@@ -437,7 +437,7 @@ Task-9: Controller + Feign    ░░░░░░░░░░░░░░░░�
 
 **执行时机**：所有 develop-expert subagent 完成、Step 6 集成验证通过后
 
-**交付物路径**：`.dev-flow/deliverables/05-develop-result.md`
+**交付物路径**：`.dev-flow/deliverables/{需求简称}/05-develop-result.md`
 
 **交付物必须包含**：开发概述、文件变更清单、编译验证结果、前置测试结果、设计逻辑覆盖率（步骤/条件/调用均需 100%）、集成验证结果、实现说明。
 **自检**：交付物文件已生成且非空，包含 `@generated-by: develop-expert subagent(s)` 溯源注释。
@@ -461,14 +461,10 @@ Task-9: Controller + Feign    ░░░░░░░░░░░░░░░░�
 | 6.3 | 接口一致性 | 对比 design-contract.yaml 与实际产出：Controller 路径、Service 签名、DTO 字段、Feign Client |
 | 6.4 | 依赖传递 | 遍历 task-result.yaml 的 dependencies_provided，验证前置任务产出已就绪 |
 | 6.4.5 | interface-registry | 读取 interface-registry.yaml，Grep 验证每个声明接口在代码中真实存在 |
-| 6.5 | 输出报告 | 写入 `.dev-flow/docs/{需求简称}-develop集成验证.md` |
+| 6.5 | 输出报告 | 写入 `.dev-flow/contracts/{需求简称}/develop集成验证.yaml` |
 
 **如果验证全部通过**：进入 Test 阶段
 **如果存在失败项**：进入 Fix 阶段修复后重新验证（最多 3 次，超过则暂停报告用户）
-
-> - **正式文档**：`.dev-flow/docs/{需求简称}-开发报告.md`
-> - **会话记录**：追加到 `.dev-flow/sessions/` 当前会话文件
-> - **更新记忆**：更新 `patterns.md`（新模式）、`mistakes.md`（遇到的问题）
 
 ### ✅ 阶段确认清单
 

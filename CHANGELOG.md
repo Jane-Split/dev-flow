@@ -2,11 +2,54 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.4.0] - 2026-06-07
+
+### Session 隔离机制 — 多需求并行共存
+
+**核心变化**：引入 `{需求简称}` 作为产出目录名，实现多需求文件完全隔离。同一项目中连续执行多个需求时，每个需求的所有文档独立存放，互不覆盖、互不干扰。
+
+#### 目录结构改造
+
+- **deliverables/ 按需求隔离**：`.dev-flow/deliverables/01-xxx.md` → `.dev-flow/deliverables/{需求简称}/01-xxx.md`
+- **contracts/ 按需求隔离**：`.dev-flow/contracts/{需求简称}-design-contract.yaml` → `.dev-flow/contracts/{需求简称}/design-contract.yaml`（去掉文件名中的需求简称前缀，目录已标识）
+- **stage-confirmations/ 按需求隔离**：`.dev-flow/stage-confirmations/research.confirmed` → `.dev-flow/stage-confirmations/{需求简称}/research.confirmed`
+
+#### 新增 session-index.yaml
+
+- 新增 `.dev-flow/session-index.yaml` 需求追溯索引文件
+- 记录每个需求的 session-id、需求简称、状态、开始/完成时间、已完成的阶段
+- 支持未来按需求精确追溯所有文档
+
+#### 需求简称命名规范
+
+- 从用户需求描述中提取核心名词短语（2-20 字符）
+- 允许中文、英文、数字、连字符、下划线
+- 唯一性保证：已有同名需求则追加 "-2" 递增
+
+#### 影响范围
+
+- SKILL.md：新增 Session 隔离机制章节（需求简称提取规则、session-id 生成、session-index 维护）
+- protocol.md：更新所有路径规范、确认文件格式、门禁检查、新增需求简称命名规范
+- 8 个阶段文件（含 research）：所有产出路径增加 {需求简称}/ 子目录
+- 4 个 agent 文件：同步路径更新
+- USER_GUIDE.md：目录结构说明更新
+- 5 个平台：构建时自动同步
+
+---
+
 ## [3.3.0] - 2026-06-06
 
-### Router 上下文链优化 + 架构精益化
+### Router 上下文链优化 + 架构精益化 + 产出路径统一
 
-**核心变化**：从 v3.1.0 到 v3.3.0 经历了两轮大规模优化——第一轮（v3.2.0）聚焦架构精益化（协议层提取、阶段合并、模式简化、门禁合并），第二轮（v3.3.0）聚焦 Router 上下文链优化（语言过滤、历史压缩、Markdown 瘦身）。
+**核心变化**：从 v3.1.0 到 v3.3.0 经历了三轮大规模优化——第一轮（v3.2.0）聚焦架构精益化（协议层提取、阶段合并、模式简化、门禁合并），第二轮（v3.3.0）聚焦 Router 上下文链优化（语言过滤、历史压缩、Markdown 瘦身），第三轮（v3.3.0 补丁）聚焦产出路径统一（docs/ → contracts/ 分工）。
+
+#### 产出路径统一：`.dev-flow/docs/` → `.dev-flow/contracts/`（v3.3.0 补丁）
+
+- **目录分工明确化**：
+  - `.dev-flow/contracts/`（原 `.dev-flow/docs/`）：仅存放机器读取的结构化数据交换文件（`.yaml`），如 design-contract.yaml、traceability.yaml、acceptance-criteria.yaml、fix-log.yaml、task-dag.yaml 等
+  - `.dev-flow/deliverables/`：仅存放人读取的阶段审批交付物文档（`.md`）
+- **消除双路径重复输出**：删除各阶段中 `.dev-flow/docs/` 下的 `.md` 正式文档输出（需求分析.md、详细设计.md、任务拆分.md、开发报告.md、集成验证报告.md、回归测试报告.md、交付报告.md），这些内容已由 deliverables/ 统一覆盖
+- **影响范围**：7 个阶段文件 + 4 个 agent 文件 + protocol.md + SKILL.md + USER_GUIDE.md + 5 个平台全部同步更新
 
 #### LANGUAGE-ONLY 按语言过滤（v3.3.0 新增）
 

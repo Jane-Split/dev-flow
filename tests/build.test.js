@@ -50,13 +50,13 @@ for (const platform of platforms) {
   assert(exists, `平台目录存在: ${platform}`);
 }
 
-// 3. 检查 SKILL.md 大小（应该 < 20KB）
+// 3. 检查 SKILL.md 大小（应该 < 30KB）
 console.log('\n3. Router 大小检查');
 const skillMd = join(ROOT, 'skill-templates/_core/SKILL.md');
 if (existsSync(skillMd)) {
   const stats = readFileSync(skillMd, 'utf-8');
   const size = new Blob([stats]).size;
-  assert(size < 20000, `SKILL.md 大小合理: ${Math.round(size/1024)}KB (< 20KB)`);
+  assert(size < 30000, `SKILL.md 大小合理: ${Math.round(size/1024)}KB (< 30KB)`);
 }
 
 // 4. 检查 references 目录

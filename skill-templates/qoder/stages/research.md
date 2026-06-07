@@ -628,12 +628,12 @@ Batch 4 (横切层): 并行启动 2 个子代理 → 等待全部完成
 > **目的**：生成独立的结构化审批文档，供用户审查后确认，而非仅在对话栏输出汇总表格。
 > **此步骤不可跳过**。未生成交付物前不得展示确认清单。
 
-**交付物路径**：`.dev-flow/deliverables/01-research-report.md`
+**交付物路径**：`.dev-flow/deliverables/{需求简称}/01-research-report.md`
 
 **执行步骤**：
 1. 按模板生成完整审批报告（含多子代理执行摘要、每批次状态、完整性评估、风险提醒）
 2. 检查所有 memory 文件的 completeness_level 并写入报告
-3. 写入 `.dev-flow/deliverables/01-research-report.md`
+3. 写入 `.dev-flow/deliverables/{需求简称}/01-research-report.md`
 4. 在对话中使用 `open_result_view` 工具打开交付物供用户审查
 5. 等待用户确认后，再进入阶段确认清单
 
