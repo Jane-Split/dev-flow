@@ -76,12 +76,12 @@ npx dev-flow install
 
 安装后，项目中会自动生成以下文件：
 
-| 工具 | 生成文件 | 触发方式 |
-|------|---------|---------|
-| Trae | `.trae/skills/dev-flow/SKILL.md` + `stages/*.md` + `agents/*.md` + `references/*.md` | 输入框输入 `/dev-flow` |
-| Cursor | `.cursor/commands/dev-flow.md` + `stages/*.md` + `agents/*.md` + `references/*.md` | 输入框输入 `/dev-flow` |
-| Qoder | `.qoder/commands/dev-flow.md` + `stages/*.md` + `agents/*.md` + `references/*.md` | 输入框输入 `/dev-flow` |
-| Claude Code | `.claude/commands/dev-flow.md` + `stages/*.md` + `agents/*.md` + `references/*.md` | 输入框输入 `/dev-flow` |
+| 工具           | 生成文件                                                                                                 | 触发方式                              |
+| ------------ | ---------------------------------------------------------------------------------------------------- | --------------------------------- |
+| Trae         | `.trae/skills/dev-flow/SKILL.md` + `stages/*.md` + `agents/*.md` + `references/*.md`                 | 输入框输入 `/dev-flow`                 |
+| Cursor       | `.cursor/commands/dev-flow.md` + `stages/*.md` + `agents/*.md` + `references/*.md`                   | 输入框输入 `/dev-flow`                 |
+| Qoder        | `.qoder/commands/dev-flow.md` + `stages/*.md` + `agents/*.md` + `references/*.md`                    | 输入框输入 `/dev-flow`                 |
+| Claude Code  | `.claude/commands/dev-flow.md` + `stages/*.md` + `agents/*.md` + `references/*.md`                   | 输入框输入 `/dev-flow`                 |
 | OpenAI Codex | `AGENTS.md` + `.agents/skills/dev-flow/SKILL.md` + `.codex/agents/*.toml` + `.codex/references/*.md` | 终端输入 `codex` 后使用自然语言或 `$dev-flow` |
 
 也可以只为特定工具安装：
@@ -103,7 +103,7 @@ npx dev-flow codex     # 仅安装到 OpenAI Codex
 cd your-project
 
 # 2. 安装 dev-flow
-npm install dev-flow --save-dev
+npm install dev-flow#release_3.4.0 --save-dev
 npx dev-flow install
 
 # 3. 在 Cursor / Trae / Qoder / Claude Code 中输入：
@@ -126,17 +126,17 @@ AI 会逐步执行，每个阶段完成后暂停等待你的确认。
 
 ### 单阶段模式
 
-| 命令 | 说明 | 适用场景 |
-|------|------|---------|
-| `/dev-flow -research` | 仅执行 Research 阶段 | 第一次使用 dev-flow，或项目结构有重大变化 |
-| `/dev-flow -analyze <需求>` | 仅执行 Analyze 阶段 | 需要先理解需求范围 |
-| `/dev-flow -design <需求>` | 仅执行 Design 阶段 | 需要在开发前评审设计 |
-| `/dev-flow -split <需求>` | 仅执行 Task Split 阶段（方案 C） | 需要将设计拆分为可并行子任务 |
-| `/dev-flow -develop <需求>` | 直接开发（跳过设计和拆分） | 小型需求，无需详细设计 |
-| `/dev-flow -test` | 统一测试（单元+冒烟+E2E+集成） | 已有代码，需要完整测试验证 |
-| `/dev-flow -fix` | 分析并修复 Bug | 测试失败，需要修复 |
-| `/dev-flow -hotfix <错误信息>` | 生产环境错误紧急热修复 | 生产报错，需要快速修复 |
-| `/dev-flow -subagent <需求>` | 企业级并行子代理模式 | 复杂任务，涉及多服务/多模块 |
+| 命令                         | 说明                      | 适用场景                      |
+| -------------------------- | ----------------------- | ------------------------- |
+| `/dev-flow -research`      | 仅执行 Research 阶段         | 第一次使用 dev-flow，或项目结构有重大变化 |
+| `/dev-flow -analyze <需求>`  | 仅执行 Analyze 阶段          | 需要先理解需求范围                 |
+| `/dev-flow -design <需求>`   | 仅执行 Design 阶段           | 需要在开发前评审设计                |
+| `/dev-flow -split <需求>`    | 仅执行 Task Split 阶段（方案 C） | 需要将设计拆分为可并行子任务            |
+| `/dev-flow -develop <需求>`  | 直接开发（跳过设计和拆分）           | 小型需求，无需详细设计               |
+| `/dev-flow -test`          | 统一测试（单元+冒烟+E2E+集成）      | 已有代码，需要完整测试验证             |
+| `/dev-flow -fix`           | 分析并修复 Bug               | 测试失败，需要修复                 |
+| `/dev-flow -hotfix <错误信息>` | 生产环境错误紧急热修复             | 生产报错，需要快速修复               |
+| `/dev-flow -subagent <需求>` | 企业级并行子代理模式              | 复杂任务，涉及多服务/多模块            |
 
 ### Session 隔离（v3.4.0）
 
@@ -149,15 +149,15 @@ AI 会逐步执行，每个阶段完成后暂停等待你的确认。
 
 ### 记忆管理
 
-| 命令 | 说明 |
-|------|------|
-| `/dev-flow -cleanup` | 清理会话记忆（`session/` 目录），保留长期记忆 |
-| `/dev-flow -cleanup --all` | 重置所有记忆文件（谨慎使用） |
+| 命令                         | 说明                           |
+| -------------------------- | ---------------------------- |
+| `/dev-flow -cleanup`       | 清理会话记忆（`session/` 目录），保留长期记忆 |
+| `/dev-flow -cleanup --all` | 重置所有记忆文件（谨慎使用）               |
 
 ### 断点续传
 
-| 命令 | 说明 |
-|------|------|
+| 命令                   | 说明       |
+| -------------------- | -------- |
 | `/dev-flow --resume` | 从上次中断处继续 |
 
 ---
@@ -170,16 +170,16 @@ Research → Analyze → Design → Task Split → Develop → Test → Fix（�
 Hotfix（独立模式，随时可用）
 ```
 
-| 阶段 | AI 做什么 | 产出 |
-|------|----------|------|
-| **Research** | pre-scanner 全局索引 + 11 个文件级子代理分 4 批次，Smart Sampling 服务级独立，关键类强制全量读取，完整性 A/B/C/D 评级 | `.dev-flow/memory/` 13 个文件 + `memory/_index/file-index.yaml` + 阶段交付物 |
-| **Analyze** | 解析需求，关联已有代码，识别歧义，一致性校验 | 需求分析文档 + 阶段交付物 |
-| **Design** | 数据模型、API 接口、组件树、业务流程、结构化决策表 | `design-result.md` + `design-contract.yaml`（含多语言接口契约） |
-| **Task Split** | 拆分为子任务，冲突检测，DAG 构建，双维度选择，子任务级设计 | `task-breakdown.yaml` + `subtask-{id}-design.yaml` + `interface-registry.yaml` |
-| **Develop** | develop-expert 子代理按子任务开发，上下文自动注入，分段生成，业务代码优先，强制编译，逻辑回溯验证 | 代码文件 + 阶段交付物 |
-| **Test** | 统一测试：单元测试 → 冒烟测试 → E2E 测试 → 集成测试 | 统一测试报告 |
-| **Fix** | 分析失败原因，修复代码，回归测试（最多 3 轮循环） | `fix-report.md` + 修复后的代码（按需触发） |
-| **Delivery** | 总结全流程结果，生成交付检查清单 | 交付报告 |
+| 阶段             | AI 做什么                                                                            | 产出                                                                             |
+| -------------- | --------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| **Research**   | pre-scanner 全局索引 + 11 个文件级子代理分 4 批次，Smart Sampling 服务级独立，关键类强制全量读取，完整性 A/B/C/D 评级 | `.dev-flow/memory/` 13 个文件 + `memory/_index/file-index.yaml` + 阶段交付物           |
+| **Analyze**    | 解析需求，关联已有代码，识别歧义，一致性校验                                                            | 需求分析文档 + 阶段交付物                                                                 |
+| **Design**     | 数据模型、API 接口、组件树、业务流程、结构化决策表                                                       | `design-result.md` + `design-contract.yaml`（含多语言接口契约）                          |
+| **Task Split** | 拆分为子任务，冲突检测，DAG 构建，双维度选择，子任务级设计                                                   | `task-breakdown.yaml` + `subtask-{id}-design.yaml` + `interface-registry.yaml` |
+| **Develop**    | develop-expert 子代理按子任务开发，上下文自动注入，分段生成，业务代码优先，强制编译，逻辑回溯验证                          | 代码文件 + 阶段交付物                                                                   |
+| **Test**       | 统一测试：单元测试 → 冒烟测试 → E2E 测试 → 集成测试                                                  | 统一测试报告                                                                         |
+| **Fix**        | 分析失败原因，修复代码，回归测试（最多 3 轮循环）                                                        | `fix-report.md` + 修复后的代码（按需触发）                                                 |
+| **Delivery**   | 总结全流程结果，生成交付检查清单                                                                  | 交付报告                                                                           |
 
 ---
 
@@ -235,13 +235,13 @@ Layer 4: Agent 文件（创建子代理时加载，20 个文件）
 
 ### 跨平台调度策略
 
-| 平台 | 子代理支持 | 并行能力 | Research 调度 | References 支持 |
-|------|-----------|---------|--------------|-----------------|
-| **Trae** | `/agent-name` 斜杠命令 | 原生并行 | 12 并行 | ✅ |
-| **Cursor** | Task 工具 | 多 Task 并行 | 12 并行 | ✅ |
-| **Claude Code** | Sub agent | 原生并行 | 12 并行 | ✅ |
-| **Qoder** | 串行 | 单会话串行 | 4 批次 | ✅ |
-| **Codex** | `AGENTS.md` Agent | 有限并行 | 2 批次合并 | ✅ |
+| 平台              | 子代理支持              | 并行能力      | Research 调度 | References 支持 |
+| --------------- | ------------------ | --------- | ----------- | ------------- |
+| **Trae**        | `/agent-name` 斜杠命令 | 原生并行      | 12 并行       | ✅             |
+| **Cursor**      | Task 工具            | 多 Task 并行 | 12 并行       | ✅             |
+| **Claude Code** | Sub agent          | 原生并行      | 12 并行       | ✅             |
+| **Qoder**       | 串行                 | 单会话串行     | 4 批次        | ✅             |
+| **Codex**       | `AGENTS.md` Agent  | 有限并行      | 2 批次合并      | ✅             |
 
 ---
 
@@ -303,13 +303,13 @@ npm run test:version          # 版本号一致性检查
 
 ## 支持的工具
 
-| 工具 | 触发方式 | 子代理调度 | References 支持 |
-|------|---------|-----------|-----------------|
-| Cursor | `/dev-flow` | 多 Task 并行 | ✅ |
-| Trae | `/dev-flow` | 原生并行 | ✅ |
-| Qoder | `/dev-flow` | 串行模拟并行 | ✅ |
-| Claude Code | `/dev-flow` | 原生并行 | ✅ |
-| OpenAI Codex | 自然语言 / `$dev-flow` | 有限并行 | ✅ |
+| 工具           | 触发方式               | 子代理调度     | References 支持 |
+| ------------ | ------------------ | --------- | ------------- |
+| Cursor       | `/dev-flow`        | 多 Task 并行 | ✅             |
+| Trae         | `/dev-flow`        | 原生并行      | ✅             |
+| Qoder        | `/dev-flow`        | 串行模拟并行    | ✅             |
+| Claude Code  | `/dev-flow`        | 原生并行      | ✅             |
+| OpenAI Codex | 自然语言 / `$dev-flow` | 有限并行      | ✅             |
 
 ---
 
