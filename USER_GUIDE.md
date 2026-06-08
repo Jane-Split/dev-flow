@@ -2,42 +2,43 @@
 
 ## 目录
 
-1. [概述](#1-概述)
-2. [安装](#2-安装)
-3. [快速上手](#3-快速上手)
-4. [命令参考](#4-命令参考)
-5. [阶段详解](#5-阶段详解)
-   - [5.1 Research（项目调研）](#51-research项目调研)
-   - [5.2 Analyze（需求分析）](#52-analyze需求分析)
-   - [5.3 Design（详细设计）](#53-design详细设计)
-   - [5.4 Task Split（智能任务拆分）](#54-task-split智能任务拆分)
-   - [5.5 Develop（开发执行）](#55-develop开发执行)
-   - [5.6 Test（统一测试）](#56-test统一测试)
-   - [5.7 Fix（Bug 修复）](#57-fixbug-修复)
-6. [Subagent 模式](#6-subagent模式)
-   - [6.1 两种运行模式](#61-两种运行模式)
-   - [6.2 命令](#62-命令)
-   - [6.3 架构](#63-架构)
-   - [6.4 工作流程](#64-工作流程)
-   - [6.5 跨平台调度策略](#65-跨平台调度策略)
-   - [6.6 任务拆分与依赖处理](#66-任务拆分与依赖处理)
-   - [6.7 方案C：子任务级设计与接口契约](#67-方案c子任务级设计与接口契约)
-   - [6.8 精准按需加载](#68-精准按需加载)
-7. [Hotfix 模式](#7-hotfix-模式)
-8. [断点续传](#8-断点续传)
-9. [记忆系统](#9-记忆系统)
-10. [学习能力](#10-学习能力)
-11. [常见问题（FAQ）](#11-常见问题faq)
+1. [概述](#1-%E6%A6%82%E8%BF%B0)
+2. [安装](#2-%E5%AE%89%E8%A3%85)
+3. [快速上手](#3-%E5%BF%AB%E9%80%9F%E4%B8%8A%E6%89%8B)
+4. [命令参考](#4-%E5%91%BD%E4%BB%A4%E5%8F%82%E8%80%83)
+5. [阶段详解](#5-%E9%98%B6%E6%AE%B5%E8%AF%A6%E8%A7%A3)
+   - [5.1 Research（项目调研）](#51-research%E9%A1%B9%E7%9B%AE%E8%B0%83%E7%A0%94)
+   - [5.2 Analyze（需求分析）](#52-analyze%E9%9C%80%E6%B1%82%E5%88%86%E6%9E%90)
+   - [5.3 Design（详细设计）](#53-design%E8%AF%A6%E7%BB%86%E8%AE%BE%E8%AE%A1)
+   - [5.4 Task Split（智能任务拆分）](#54-task-split%E6%99%BA%E8%83%BD%E4%BB%BB%E5%8A%A1%E6%8B%86%E5%88%86)
+   - [5.5 Develop（开发执行）](#55-develop%E5%BC%80%E5%8F%91%E6%89%A7%E8%A1%8C)
+   - [5.6 Test（统一测试）](#56-test%E7%BB%9F%E4%B8%80%E6%B5%8B%E8%AF%95)
+   - [5.7 Fix（Bug 修复）](#57-fixbug-%E4%BF%AE%E5%A4%8D)
+6. [Subagent 模式](#6-subagent%E6%A8%A1%E5%BC%8F)
+   - [6.1 两种运行模式](#61-%E4%B8%A4%E7%A7%8D%E8%BF%90%E8%A1%8C%E6%A8%A1%E5%BC%8F)
+   - [6.2 命令](#62-%E5%91%BD%E4%BB%A4)
+   - [6.3 架构](#63-%E6%9E%B6%E6%9E%84)
+   - [6.4 工作流程](#64-%E5%B7%A5%E4%BD%9C%E6%B5%81%E7%A8%8B)
+   - [6.5 跨平台调度策略](#65-%E8%B7%A8%E5%B9%B3%E5%8F%B0%E8%B0%83%E5%BA%A6%E7%AD%96%E7%95%A5)
+   - [6.6 任务拆分与依赖处理](#66-%E4%BB%BB%E5%8A%A1%E6%8B%86%E5%88%86%E4%B8%8E%E4%BE%9D%E8%B5%96%E5%A4%84%E7%90%86)
+   - [6.7 方案C：子任务级设计与接口契约](#67-%E6%96%B9%E6%A1%88c%E5%AD%90%E4%BB%BB%E5%8A%A1%E7%BA%A7%E8%AE%BE%E8%AE%A1%E4%B8%8E%E6%8E%A5%E5%8F%A3%E5%A5%91%E7%BA%A6)
+   - [6.8 精准按需加载](#68-%E7%B2%BE%E5%87%86%E6%8C%89%E9%9C%80%E5%8A%A0%E8%BD%BD)
+7. [Hotfix 模式](#7-hotfix-%E6%A8%A1%E5%BC%8F)
+8. [断点续传](#8-%E6%96%AD%E7%82%B9%E7%BB%AD%E4%BC%A0)
+9. [记忆系统](#9-%E8%AE%B0%E5%BF%86%E7%B3%BB%E7%BB%9F)
+10. [学习能力](#10-%E5%AD%A6%E4%B9%A0%E8%83%BD%E5%8A%9B)
+11. [常见问题（FAQ）](#11-%E5%B8%B8%E8%A7%81%E9%97%AE%E9%A2%98faq)
 
 ---
 
-## 1. 概述
+## 1\. 概述
 
 dev-flow 是一款为 Cursor、Trae、Qoder、Claude Code、OpenAI Codex 等 AI 编程工具打造的开发流程编排 Skill。
 
 它遵循结构化的 **8 阶段工作流**（Research → Analyze → Design → Task Split → Develop → Test → Fix（按需）→ Delivery），引导 AI 编程工具逐步执行开发任务，避免跳过步骤、代码生成不一致、遗漏边界情况等问题。
 
 **核心特性**：
+
 - 每个阶段完成后，输出**结构化确认检查清单**——下一阶段需逐项确认后才继续
 - 自动记忆项目结构和编码规范，后续开发自动遵守
 - 具备学习能力——越用越懂你的偏好
@@ -56,7 +57,7 @@ dev-flow 是一款为 Cursor、Trae、Qoder、Claude Code、OpenAI Codex 等 AI 
 
 ---
 
-## 2. 安装
+## 2\. 安装
 
 ### 2.1 前提条件
 
@@ -70,7 +71,7 @@ dev-flow 是一款为 Cursor、Trae、Qoder、Claude Code、OpenAI Codex 等 AI 
 cd your-project
 
 # 2. 安装 dev-flow
-npm install dev-flow --save-dev
+npm install Jane-Split/dev-flow#release_3.4.0 --save-dev
 
 # 3. 执行安装
 npx dev-flow install
@@ -80,7 +81,7 @@ npx dev-flow install
 
 安装完成后，项目中会新增以下文件：
 
-```
+```text
 your-project/
 ├── .trae/skills/dev-flow/
 │   ├── SKILL.md                           # Router（~10KB 骨架）
@@ -177,7 +178,7 @@ npx dev-flow install
 
 ---
 
-## 3. 快速上手
+## 3\. 快速上手
 
 ### 3.1 前端项目示例（React + TypeScript）
 
@@ -187,7 +188,7 @@ npx dev-flow install
 
 ```bash
 cd my-react-app
-npm install dev-flow --save-dev
+npm install Jane-Split/dev-flow#release_3.4.0 --save-dev
 npx dev-flow install
 ```
 
@@ -195,7 +196,7 @@ npx dev-flow install
 
 打开 Cursor / Trae / Qoder / Claude Code，在输入框中输入：
 
-```
+```text
 /dev-flow 实现用户登录功能，包含邮箱/密码登录、表单验证、记住密码
 ```
 
@@ -219,7 +220,7 @@ AI 会执行以下工作流，每个阶段完成后暂停等待你的确认：
 
 ```bash
 cd my-java-service
-npm install dev-flow --save-dev
+npm install Jane-Split/dev-flow#release_3.4.0 --save-dev
 npx dev-flow install
 ```
 
@@ -227,7 +228,7 @@ npx dev-flow install
 
 打开 Cursor / Trae / Qoder / Claude Code，在输入框中输入：
 
-```
+```text
 /dev-flow 实现订单管理功能，包含订单创建、查询、取消，使用 MyBatis-Plus 进行数据库操作
 ```
 
@@ -245,11 +246,11 @@ AI 会执行适配 Java 项目特点的工作流：
 
 ---
 
-## 4. 命令参考
+## 4\. 命令参考
 
 ### 4.1 完整流程模式
 
-```
+```text
 /dev-flow <需求描述>
 ```
 
@@ -258,7 +259,7 @@ AI 会执行适配 Java 项目特点的工作流：
 ### 4.2 单阶段模式
 
 | 命令 | 说明 | 适用场景 |
-|------|------|---------|
+| --- | --- | --- |
 | `/dev-flow -research` | 仅执行 Research 阶段 | 第一次使用 dev-flow，或项目结构有重大变化 |
 | `/dev-flow -analyze <需求>` | 仅执行 Analyze 阶段 | 需要先理解需求范围 |
 | `/dev-flow -design <需求>` | 仅执行 Design 阶段 | 需要在开发前评审设计 |
@@ -271,7 +272,7 @@ AI 会执行适配 Java 项目特点的工作流：
 
 ### 4.3 Session 隔离（v3.4.0）
 
-```
+```text
 /dev-flow <需求描述>   # 第一个需求
 /dev-flow <另一个需求>   # 第二个需求 —— 文件自动隔离
 ```
@@ -279,30 +280,32 @@ AI 会执行适配 Java 项目特点的工作流：
 每个需求的交付物和契约分别存放在独立的 `{需求简称}` 目录下，防止文件覆盖，支持完整追溯。
 
 **需求简称命名规则**：
+
 - 从用户需求描述中提取核心名词短语（2-20 个字符）
 - 允许中文、英文、数字、连字符、下划线
 - 唯一性保证：已有同名需求则追加 `-2` 递增（如 `用户管理-2`）
 
 **session-index.yaml** 追溯索引：
+
 - 记录每个需求的 session-id、需求简称、状态、开始/完成时间、已完成的阶段
 - 支持未来按需求精确追溯所有文档
 
 ### 4.4 记忆管理
 
 | 命令 | 说明 |
-|------|------|
+| --- | --- |
 | `/dev-flow -cleanup` | 清理会话记忆（`session/` 目录），保留长期记忆 |
 | `/dev-flow -cleanup --all` | 重置所有记忆文件（谨慎使用） |
 
 ### 4.5 断点续传
 
 | 命令 | 说明 |
-|------|------|
+| --- | --- |
 | `/dev-flow --resume` | 从上次中断处继续 |
 
 ---
 
-## 5. 阶段详解
+## 5\. 阶段详解
 
 ### 5.1 Research（项目调研）
 
@@ -313,24 +316,22 @@ AI 会执行适配 Java 项目特点的工作流：
 1. **Phase 0：pre-scanner（全局快速扫描）**
    - 扫描项目目录结构
    - 识别技术栈（package.json / pom.xml / build.gradle）
-   - 生成 `file-index.yaml`（~15KB，无源码读取）
-
+   - 生成 `file-index.yaml`（\~15KB，无源码读取）
 2. **Phase 1：11 个文件级子代理分 4 批次并行**
    - Batch 1（基础层，3 并行）：project-overview / service-registry / architecture
    - Batch 2（数据层，3 并行）：common-modules / models / config
    - Batch 3（行为层，3 并行）：apis / utils / conventions
    - Batch 4（横切层，2 并行）：dependency-graph / decisions
-
 3. **Smart Sampling 服务级独立采样**
    - 每个服务/模块独立执行采样
    - 关键类强制全量读取（Base/Abstract/Core/Common 类 + @Configuration/@Primary 注解类）
    - 公共模块强制全量扫描
-
 4. **记忆完整性评级**
    - A/B/C/D 四级
    - 低于 B 级不允许进入 Analyze
 
 **产出**：
+
 - `.dev-flow/memory/` 13 个文件
 - `memory/_index/file-index.yaml`
 - `.dev-flow/deliverables/{需求简称}/01-research-report.md`（阶段交付物）
@@ -351,6 +352,7 @@ AI 会执行适配 Java 项目特点的工作流：
 6. 生成阶段交付物
 
 **产出**：
+
 - 需求分析文档（包含功能点列表、影响范围、依赖分析、风险识别）
 - `.dev-flow/deliverables/{需求简称}/02-analyze-result.md`（阶段交付物）
 
@@ -371,6 +373,7 @@ AI 会执行适配 Java 项目特点的工作流：
 7. 生成阶段交付物
 
 **产出**：
+
 - `design-result.md`（详细设计文档）
 - `design-contract.yaml`（设计契约，含多语言接口契约）
 - `.dev-flow/deliverables/{需求简称}/03-design-result.md`（阶段交付物）
@@ -392,6 +395,7 @@ AI 会执行适配 Java 项目特点的工作流：
 7. 生成阶段交付物
 
 **产出**：
+
 - `task-breakdown.yaml`（任务拆分）
 - `subtask-{id}-design.yaml`（子任务级设计）
 - `interface-registry.yaml`（接口注册表）
@@ -436,6 +440,7 @@ AI 会执行适配 Java 项目特点的工作流：
 8. **生成阶段交付物**
 
 **产出**：
+
 - 代码文件
 - `logic-coverage-matrix.yaml`（逻辑覆盖率矩阵）
 - `validation-report-{taskId}.yaml`（产出校验报告）
@@ -457,6 +462,7 @@ AI 会执行适配 Java 项目特点的工作流：
 6. 生成统一测试报告
 
 **产出**：
+
 - 测试代码
 - 统一测试报告
 - `.dev-flow/deliverables/{需求简称}/06-test-report.md`（阶段交付物）
@@ -476,13 +482,14 @@ AI 会执行适配 Java 项目特点的工作流：
 5. 重复 3-4，最多 3 轮
 
 **产出**：
+
 - 修复后的代码
 - `fix-report.md`（修复报告）
 - `.dev-flow/deliverables/{需求简称}/07-fix-report.md`（阶段交付物）
 
 ---
 
-## 6. Subagent 模式
+## 6\. Subagent 模式
 
 ### 6.1 两种运行模式
 
@@ -491,7 +498,7 @@ dev-flow 提供两种子代理调度模式，适应不同规模的开发需求�
 #### 6.1.1 模式对比
 
 | 维度 | **标准模式**（默认） | **企业级模式**（并行调度） |
-|------|-------------------|------------------------|
+| --- | --- | --- |
 | **触发命令** | `/dev-flow <需求描述>` | `/dev-flow -subagent <需求描述>` |
 | **调度方式** | 串行：主 Agent 逐个创建子代理，一个完成后再启动下一个 | 并行：Task Split 后按 DAG 依赖图，同批次多个子代理同时执行 |
 | **适用规模** | 中小型需求（< 20 个文件、单模块修改） | 大型需求（≥ 20 个文件、多服务/多模块并行） |
@@ -503,7 +510,7 @@ dev-flow 提供两种子代理调度模式，适应不同规模的开发需求�
 
 #### 6.1.2 工作流对比
 
-```
+```text
 标准模式（/dev-flow <需求描述>）：
 主 Agent → Research → Analyze → Design → Task Split → [动态重评估]
   → Develop（串行：Subtask 1 → Subtask 2 → ... → Subtask N）
@@ -520,7 +527,7 @@ dev-flow 提供两种子代理调度模式，适应不同规模的开发需求�
 #### 6.1.3 选择建议
 
 | 场景 | 推荐模式 | 原因 |
-|------|---------|------|
+| --- | --- | --- |
 | 初次使用 dev-flow | **标准模式** | 逐步体验完整流程，每阶段确认 |
 | 中小需求（< 20 文件） | **标准模式** | Task Split 后可能自动升级，无需手动选择 |
 | 大型需求（≥ 20 文件） | **企业级模式** | 并行大幅缩短总耗时 |
@@ -531,13 +538,13 @@ dev-flow 提供两种子代理调度模式，适应不同规模的开发需求�
 ### 6.2 命令
 
 | 命令 | 说明 |
-|------|------|
+| --- | --- |
 | `/dev-flow -subagent <需求>` | 企业级并行子代理模式 |
 | `/dev-flow -split <需求>` | 方案 C：子任务级设计与接口契约 |
 
 ### 6.3 架构
 
-```
+```text
 用户 ←→ 主 Agent（纯调度枢纽，零编辑）
               │
               ├── [Research: pre-scanner + 11 个文件级子代理，4 批次]
@@ -579,7 +586,7 @@ dev-flow 提供两种子代理调度模式，适应不同规模的开发需求�
 ### 6.5 跨平台调度策略
 
 | 平台 | 子代理支持 | 并行能力 | Research 调度 | References 支持 |
-|------|-----------|---------|--------------|-----------------|
+| --- | --- | --- | --- | --- |
 | **Trae** | `/agent-name` 斜杠命令 | 原生并行 | 12 并行 | ✅ |
 | **Cursor** | Task 工具 | 多 Task 并行 | 12 并行 | ✅ |
 | **Claude Code** | Sub agent | 原生并行 | 12 并行 | ✅ |
@@ -589,11 +596,13 @@ dev-flow 提供两种子代理调度模式，适应不同规模的开发需求�
 ### 6.6 任务拆分与依赖处理
 
 **DAG 依赖图**：
+
 - 每个子任务定义 `dependencies:` 列表
 - 使用 Kahn 算法进行拓扑排序
 - 循环依赖检测：发现循环时立即报错退出
 
 **文件冲突检测**：
+
 - 3 种冲突类型：
   - write-write：两个任务写同一个文件 → 添加依赖
   - write-read：一个任务写，另一个读 → 添加依赖
@@ -601,6 +610,7 @@ dev-flow 提供两种子代理调度模式，适应不同规模的开发需求�
 - 自动修复：write-read / read-write 冲突自动添加依赖并重新拓扑排序
 
 **并行分组**：
+
 - 无依赖关系的任务分为一组，并行执行
 - 有依赖关系的任务按 DAG 顺序分批次执行
 
@@ -609,11 +619,13 @@ dev-flow 提供两种子代理调度模式，适应不同规模的开发需求�
 **核心思想**：Design 输出全局契约（design-contract.yaml），Task Split 生成子任务级设计 + DAG 依赖图，确保每个子任务的接口定义清晰、无冲突。
 
 **接口契约机制**：
+
 - 跨子任务接口定义（serviceContracts / eventContracts / dataContracts）
 - 契约冻结（stability: frozen），冻结后不允许任意修改
 - 契约一致性校验：contract-validator R1-R5 规则
 
 **子任务级设计**：
+
 - 每个子任务有独立的 `subtask-{id}-design.yaml`
 - 包含：任务描述、目标文件、依赖任务、接口定义、逻辑步骤
 
@@ -622,6 +634,7 @@ dev-flow 提供两种子代理调度模式，适应不同规模的开发需求�
 **目标**：每个子代理仅加载所需的上下文，控制上下文消耗。
 
 **实现**：
+
 - **prepare-context.cjs**：子代理派发前自动收集上下文并生成 `task-brief-{taskId}.md`
   - 自动收集内容：任务信息（DAG）、子任务设计文档、Design Contract 相关定义、开发核心规则、编码规范、历史错误模式、父任务产出、依赖类定义
   - 最大 brief 大小：120KB（为子代理模型上下文预留充足空间）
@@ -631,12 +644,13 @@ dev-flow 提供两种子代理调度模式，适应不同规模的开发需求�
 
 ---
 
-## 7. Hotfix 模式
+## 7\. Hotfix 模式
 
 **目标**：生产环境报错时，快速定位问题并修复。
 
 **命令**：
-```
+
+```text
 /dev-flow -hotfix <错误信息>
 ```
 
@@ -651,53 +665,58 @@ dev-flow 提供两种子代理调度模式，适应不同规模的开发需求�
 7. 生成热修复报告
 
 **产出**：
+
 - 修复后的代码
 - `hotfix-report.md`（热修复报告）
 - `.dev-flow/deliverables/{需求简称}/hotfix-report.md`（阶段交付物）
 
 ---
 
-## 8. 断点续传
+## 8\. 断点续传
 
 **目标**：从上次中断处继续，无需重复执行已完成的阶段。
 
 **命令**：
-```
+
+```text
 /dev-flow --resume
 ```
 
 **工作原理**：
+
 - 读取 `.dev-flow/sessions/` 中的最近会话记录
 - 定位到最后完成的阶段
 - 从该阶段的下一个阶段继续执行
 
 **注意事项**：
+
 - 仅恢复阶段执行状态，不恢复上下文
 - 如果项目结构有重大变化，建议重新执行 Research 阶段
 
 ---
 
-## 9. 记忆系统
+## 9\. 记忆系统
 
 dev-flow 具备**项目记忆**能力，自动记录项目结构、技术栈、编码规范等信息，后续开发自动遵守。
 
 ### 9.1 记忆分类
 
 | 类型 | 文件 | 生命周期 | 说明 |
-|------|------|---------|------|
+| --- | --- | --- | --- |
 | **长期记忆** | `patterns.md` / `mistakes.md` / `preferences.md` / `decisions.md` / `project-overview.md` / `conventions.md` | 跨会话累积 | 每次 Research 更新，不会删除 |
 | **会话记忆** | `modules.md` / `apis.md` / `models.md` / `utils.md` / `config.md` / `architecture.md` | 每次 Research 重建 | 每次 Research 清空后重新生成 |
 
 ### 9.2 记忆管理命令
 
 | 命令 | 说明 |
-|------|------|
+| --- | --- |
 | `/dev-flow -cleanup` | 清理会话记忆（`session/` 目录），保留长期记忆 |
 | `/dev-flow -cleanup --all` | 重置所有记忆文件（谨慎使用） |
 
 ### 9.3 记忆文件详解
 
 **长期记忆**（跨会话累积）：
+
 - `project-overview.md`：项目概述（技术栈、架构、模块说明）
 - `conventions.md`：编码规范（命名约定、注释规范、格式要求）
 - `patterns.md`：代码模式（常见写法、最佳实践）
@@ -706,6 +725,7 @@ dev-flow 具备**项目记忆**能力，自动记录项目结构、技术栈、�
 - `decisions.md`：架构决策（重要决策记录）
 
 **会话记忆**（每次 Research 重建）：
+
 - `modules.md`（Java 项目）或 `components.md`（前端项目）：模块/组件列表
 - `apis.md`：API 接口列表
 - `models.md`：数据模型列表
@@ -715,14 +735,14 @@ dev-flow 具备**项目记忆**能力，自动记录项目结构、技术栈、�
 
 ---
 
-## 10. 学习能力
+## 10\. 学习能力
 
 dev-flow 具备**学习能力**，自动从用户反馈、代码修改、测试 Bug 中学习，越用越懂你的项目和企业。
 
 ### 10.1 学习来源
 
 | 来源 | 学习内容 | 更新文件 |
-|------|---------|---------|
+| --- | --- | --- |
 | **用户反馈** | 用户明确指出的错误或偏好 | `preferences.md` / `decisions.md` |
 | **代码修改** | 用户手动修改的代码（vs AI 生成的代码） | `patterns.md` |
 | **测试 Bug** | 测试失败暴露的问题 | `mistakes.md` / `error-pattern-db.md` |
@@ -744,7 +764,7 @@ dev-flow 具备**学习能力**，自动从用户反馈、代码修改、测试 
 
 ---
 
-## 11. 常见问题（FAQ）
+## 11\. 常见问题（FAQ）
 
 ### Q1：dev-flow 支持哪些 AI 编程工具？
 
@@ -782,6 +802,7 @@ npx dev-flow install
 LANGUAGE-ONLY 是 build.cjs 支持的语言过滤功能。构建时可以通过 `--lang` 参数指定项目语言，过滤掉其他语言的规范，减少子代理上下文负担。
 
 示例：
+
 ```bash
 npm run build -- --lang java   # 仅保留 Java 语言内容
 npm run build -- --lang typescript,python   # 保留 TypeScript 和 Python 内容
