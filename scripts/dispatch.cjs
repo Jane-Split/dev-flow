@@ -1,5 +1,5 @@
 /**
- * dev-flow 平台调度引擎 (v3.0)
+ * dev-flow 平台调度引擎 (v3.2)
  *
  * 从 task-dag.yaml 读取任务依赖图，根据当前平台选择最优调度策略，
  * 自动派发 subagent 并收集结果。
@@ -24,6 +24,15 @@ const path = require('path');
 const ROOT = path.resolve(__dirname, '..');
 const RUNTIME_DIR = path.join(ROOT, '.dev-flow', 'runtime');
 const DOCS_DIR = path.join(ROOT, '.dev-flow', 'docs');
+
+// 平台并发上限（防止大批次同时启动过多 subagent 导致系统卡顿）
+const MAX_CONCURRENT = {
+  cursor: 3,
+  trae: 5,
+  claude: 4,
+  codex: 3,
+  qoder: 2,
+};
 
 // ============================================================
 // 平台检测
@@ -234,6 +243,26 @@ function topologicalSort(tasks) {
   return { batches, taskMap };
 }
 
+/**
+ * 将大批次按 max_concurrent 拆分为多个子批次（Chunks）
+ * 子批次之间采用滑动窗口调度：前一批完成 N 个任务后启动下一批的 N 个任务
+ * 这样任何时刻活跃 subagent 总数 <= max_concurrent
+ */
+function splitLargeBatch(batchTaskIds, maxConcurrent) {
+  if (batchTaskIds.length <= maxConcurrent) {
+    return [{ taskIds: batchTaskIds, chunkIndex: 0 }];
+  }
+  const chunks = [];
+  let chunkIndex = 0;
+  for (let i = 0; i < batchTaskIds.length; i += maxConcurrent) {
+    chunks.push({
+      taskIds: batchTaskIds.slice(i, i + maxConcurrent),
+      chunkIndex: chunkIndex++,
+    });
+  }
+  return chunks;
+}
+
 // ============================================================
 // 冲突检测（v2.1 增强：文件级冲突检测 + DAG 重排）
 // ============================================================
@@ -373,33 +402,48 @@ function fixDagFromConflicts(tasks, conflicts) {
 // 平台调度策略
 // ============================================================
 
-function generateDispatchPlan(platform, batches, taskMap, demandName) {
+function generateDispatchPlan(platform, batches, taskMap, demandName, maxConcurrent) {
   const plan = {
     platform,
     total_tasks: taskMap.size,
     total_batches: batches.length,
+    max_concurrent: maxConcurrent,
+    chunks_enabled: batches.some(b => b.length > maxConcurrent),
     batches: [],
   };
 
   for (let i = 0; i < batches.length; i++) {
-    const batch = batches[i].map(id => taskMap.get(id)).filter(Boolean);
+    const batchIds = batches[i];
+    const batch = batchIds.map(id => taskMap.get(id)).filter(Boolean);
+    const chunks = splitLargeBatch(batchIds, maxConcurrent);
+
     const batchPlan = {
       batch_index: i,
       tasks: batch.map(t => ({ id: t.id, agent: t.agent, type: t.type, name: t.name || '' })),
+      chunks: chunks.map(c => ({
+        chunk_index: c.chunkIndex,
+        task_ids: c.taskIds,
+        tasks: c.taskIds.map(id => taskMap.get(id)).filter(Boolean).map(t => ({ id: t.id, agent: t.agent, type: t.type, name: t.name || '' })),
+      })),
       dispatch_commands: [],
     };
 
+    // 使用第一个 chunk 生成初始调度命令（Orchestrator 按滑动窗口逐 chunk 派发）
+    const firstChunk = chunks[0].taskIds.map(id => taskMap.get(id)).filter(Boolean);
+
     switch (platform) {
       case 'trae':
-        batchPlan.dispatch_commands = batch.map(t =>
+        batchPlan.dispatch_commands = firstChunk.map(t =>
           `/develop-expert [task: ${t.id}, demand: ${demandName}]`
         );
+        if (chunks.length > 1) {
+          batchPlan.dispatch_commands.push(`[滑动窗口: 共 ${chunks.length} 个子批次, max_concurrent=${maxConcurrent}]`);
+        }
         break;
 
       case 'cursor':
-        // Cursor: 一条消息发送多个 Task 工具调用
-        batchPlan.dispatch_commands = [`[并行派发 ${batch.length} 个 Task]`];
-        batchPlan.task_calls = batch.map((t, idx) => ({
+        batchPlan.dispatch_commands = [`[子批次 1/${chunks.length}: 派发 ${firstChunk.length} 个 Task]`];
+        batchPlan.task_calls = firstChunk.map((t, idx) => ({
           call: `Task: /develop-expert`,
           task_id: t.id,
           agent: t.agent || 'develop-expert',
@@ -409,22 +453,19 @@ function generateDispatchPlan(platform, batches, taskMap, demandName) {
         break;
 
       case 'claude':
-        // Claude Code: Dynamic Workflows JS 编排
-        batchPlan.dispatch_commands = [`dispatchBatch([${batch.map(t => `"${t.id}"`).join(', ')}], concurrency=${Math.min(batch.length, 16)})`];
-        batchPlan.workflow_snippet = generateClaudeWorkflow(batch, i);
+        batchPlan.dispatch_commands = [`dispatchBatch([${firstChunk.map(t => `"${t.id}"`).join(', ')}], concurrency=${maxConcurrent})`];
+        batchPlan.workflow_snippet = generateClaudeWorkflow(firstChunk, i, maxConcurrent);
         break;
 
       case 'qoder':
-        // Qoder: Quest Mode 主从架构
-        batchPlan.dispatch_commands = batch.map(t =>
+        batchPlan.dispatch_commands = firstChunk.map(t =>
           `Quest: /develop-expert [task: ${t.id}, direction: ${classifyDirection(t)}]`
         );
         break;
 
       case 'codex':
-        // Codex: CSV 批量 + 6 线程限制
-        batchPlan.dispatch_commands = [`run agent: develop-expert (batch ${i + 1}, ${batch.length} tasks, max 6 threads)`];
-        batchPlan.csv_tasks = batch.map(t => ({
+        batchPlan.dispatch_commands = [`run agent: develop-expert (batch ${i + 1}, ${firstChunk.length} tasks, max ${maxConcurrent} threads)`];
+        batchPlan.csv_tasks = firstChunk.map(t => ({
           task_id: t.id,
           agent: t.agent || 'develop-expert',
         }));
@@ -437,13 +478,13 @@ function generateDispatchPlan(platform, batches, taskMap, demandName) {
   return plan;
 }
 
-function generateClaudeWorkflow(batch, batchIndex) {
+function generateClaudeWorkflow(batch, batchIndex, maxConcurrent = 4) {
   const taskIds = batch.map(t => t.id);
   return `
 // Claude Code Dynamic Workflow - Batch ${batchIndex + 1}
 async function batch${batchIndex + 1}() {
   const tasks = [${taskIds.map(id => `'${id}'`).join(', ')}];
-  const concurrency = Math.min(${batch.length}, 16);
+  const concurrency = Math.min(${batch.length}, ${maxConcurrent || 4});
 
   const results = await Promise.allSettled(
     tasks.map(id => spawnSubagent({ taskId: id, stage: 'develop' }))
@@ -509,11 +550,12 @@ function main() {
 dev-flow 平台调度引擎
 
 用法：
-  node scripts/dispatch.cjs [--platform <platform>] [--dry-run] [--help]
+  node scripts/dispatch.cjs [--platform <platform>] [--dry-run] [--max-concurrent <N>] [--help]
 
 选项：
   --platform <platform>  指定平台 (cursor/claude/qoder/codex/trae)
   --dry-run             仅输出调度计划，不实际执行
+  --max-concurrent <N>  覆盖平台默认并发上限 (正整数)
   --help                显示帮助
 
 示例：
@@ -525,6 +567,15 @@ dev-flow 平台调度引擎
 
   const projectRoot = process.cwd();
   const isDryRun = args.includes('--dry-run');
+  const maxConcurrentArg = args.findIndex(a => a === '--max-concurrent');
+  let customMaxConcurrent = null;
+  if (maxConcurrentArg !== -1 && args[maxConcurrentArg + 1]) {
+    customMaxConcurrent = parseInt(args[maxConcurrentArg + 1], 10);
+    if (isNaN(customMaxConcurrent) || customMaxConcurrent < 1) {
+      console.error('[ERROR] --max-concurrent 必须是正整数');
+      process.exit(1);
+    }
+  }
   const platformArg = args.find(a => !a.startsWith('--') && a !== 'node' && a !== 'dispatch.cjs');
   const platform = platformArg || detectPlatform(projectRoot);
 
@@ -572,6 +623,9 @@ dev-flow 平台调度引擎
   // 拓扑排序
   const { batches, taskMap } = topologicalSort(tasks);
 
+  // 计算有效并发上限
+  const effectiveMaxConcurrent = customMaxConcurrent || MAX_CONCURRENT[platform] || 3;
+
   // 冲突检测
   let conflicts = detectConflicts(tasks);
 
@@ -590,21 +644,21 @@ dev-flow 平台调度引擎
         // 重新检测冲突（应该只剩 parallel_group 级别的警告）
         conflicts = detectConflicts(tasks);
         // 使用新的 batches
-        return generateAndOutputPlan(platform, newResult.batches, newResult.taskMap, dagFile, conflicts, isDryRun);
+        return generateAndOutputPlan(platform, newResult.batches, newResult.taskMap, dagFile, conflicts, isDryRun, effectiveMaxConcurrent, !!customMaxConcurrent);
       }
     }
   }
 
-  generateAndOutputPlan(platform, batches, taskMap, dagFile, conflicts, isDryRun);
+  generateAndOutputPlan(platform, batches, taskMap, dagFile, conflicts, isDryRun, effectiveMaxConcurrent, !!customMaxConcurrent);
 }
 
-function generateAndOutputPlan(platform, batches, taskMap, dagFile, conflicts, isDryRun) {
+function generateAndOutputPlan(platform, batches, taskMap, dagFile, conflicts, isDryRun, maxConcurrent, isCustomMaxConcurrent = false) {
   // 提取需求名称（从 DAG 文件名推断）
   const dagFileName = path.basename(dagFile);
   const demandName = dagFileName.replace('-task-dag.yaml', '').replace('task-dag.yaml', 'current');
 
   // 生成调度计划
-  const plan = generateDispatchPlan(platform, batches, taskMap, demandName);
+  const plan = generateDispatchPlan(platform, batches, taskMap, demandName, maxConcurrent);
 
   // 统计冲突严重程度
   const criticalConflicts = conflicts.filter(c => c.conflict_type !== 'potential_write-write');
@@ -640,8 +694,18 @@ function generateAndOutputPlan(platform, batches, taskMap, dagFile, conflicts, i
 
   console.log('');
   console.log('--- 调度计划 ---');
+  console.log(`【并发控制】max_concurrent: ${maxConcurrent}${isCustomMaxConcurrent ? ' (用户自定义)' : ' (平台默认)'}`);
+  if (plan.chunks_enabled) {
+    console.log(`【子批次分割】已启用：${plan.batches.filter(b => b.chunks && b.chunks.length > 1).length} 个批次被拆分为子批次`);
+  }
   for (const batch of plan.batches) {
     console.log(`\n📌 批次 ${batch.batch_index + 1}（${batch.tasks.length} 个任务）：`);
+    if (batch.chunks && batch.chunks.length > 1) {
+      for (const chunk of batch.chunks) {
+        console.log(`   ├─ 子批次 ${chunk.chunkIndex + 1}: [${chunk.task_ids.join(', ')}]`);
+      }
+      console.log(`   └─ 滑动窗口调度: 前一子批次完成 ${maxConcurrent} 个任务后启动下一子批次`);
+    }
     for (const task of batch.tasks) {
       const nameInfo = task.name ? ` (${task.name})` : '';
       console.log(`   ├─ ${task.id}${nameInfo} → ${task.agent || 'develop-expert'}`);
@@ -681,6 +745,8 @@ function generateAndOutputPlan(platform, batches, taskMap, dagFile, conflicts, i
     `total_batches: ${plan.total_batches}`,
     `conflicts_detected: ${conflicts.length}`,
     `conflicts_auto_fixed: ${conflicts.filter(c => c.auto_fix).length}`,
+    `max_concurrent: ${maxConcurrent}`,
+    `chunks_enabled: ${plan.chunks_enabled}`,
     `batches:`,
     ...plan.batches.map(b => [
       `  - batch: ${b.batch_index + 1}`,

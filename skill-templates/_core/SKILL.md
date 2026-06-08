@@ -58,13 +58,13 @@ description: AI开发全流程编排技能 - 在AI编程工具对话框中结构
 
 > **不同 AI 编程平台的 Subagent 能力差异很大，系统必须根据当前平台选择合适的调度策略。**
 
-| 平台 | Subagent 支持 | 并行能力 | 调度策略 |
-|------|--------------|---------|---------|
-| **Trae** | `/agent-name` 斜杠命令 | 原生并行 | 完整并行模式 |
-| **Cursor** | `.cursor/agents/*.md` YAML frontmatter | 多 Task 调用并行 + 后台模式 + 嵌套 | Cursor 并行模式 |
-| **Claude Code** | Dynamic Workflows JS 编排 + `.claude/agents/*.md` | 16 并发 + 1000 总量 + 对抗验证 | Claude 并行模式 |
-| **Qoder** | Quest Mode 主从 Agent 架构 | 前端/后端/测试/部署方向并行 | Qoder 主从并行模式 |
-| **Codex** | `.codex/agents/*.toml` + `AGENTS.md` | 6 线程 + CSV 批量 | Codex 有限并行模式 |
+| 平台 | Subagent 支持 | 并行能力 | 推荐并发上限 | 调度策略 |
+|------|--------------|---------|------------|---------|
+| **Trae** | `/agent-name` 斜杠命令 | 原生并行 | 5 | 完整并行模式 |
+| **Cursor** | `.cursor/agents/*.md` YAML frontmatter | 多 Task 调用并行 + 后台模式 + 嵌套 | 3 | Cursor 并行模式 |
+| **Claude Code** | Dynamic Workflows JS 编排 + `.claude/agents/*.md` | 16 并发 + 1000 总量 + 对抗验证 | 4 | Claude 并行模式 |
+| **Qoder** | Quest Mode 主从 Agent 架构 | 前端/后端/测试/部署方向并行 | 2 | Qoder 主从并行模式 |
+| **Codex** | `.codex/agents/*.toml` + `AGENTS.md` | 6 线程 + CSV 批量 | 3 | Codex 有限并行模式 |
 
 > **所有五大平台均支持 Subagent 并行执行**，Orchestrator 根据当前平台自动选择最优调度策略。
 
@@ -74,6 +74,13 @@ description: AI开发全流程编排技能 - 在AI编程工具对话框中结构
 - **Claude Code**：Dynamic Workflows JS 编排脚本派发 subagent，利用 16 并发上限，对抗验证自动检查产出质量
 - **Qoder**：主 Agent 规划调度，子 Agent 按方向（前端/后端/测试/部署）并行处理，Quest Mode Checkpoints 确保质量
 - **Codex**：通过 `run agent: develop-expert` 启动 subagent，6 线程并行，通过 `task-result.yaml` 传递产出
+
+**批次内并发控制（v3.2）**：
+- 当 DAG 拓扑排序的某个批次任务数超过平台推荐并发上限时，调度引擎自动将大批次拆分为多个**子批次（Chunks）**
+- 子批次之间采用**滑动窗口调度**：前一个子批次完成 N 个任务后，立即启动下一子批次的 N 个任务
+- 保证任何时刻活跃 subagent 总数 ≤ max_concurrent，防止系统资源过载
+- 子批次是逻辑概念，不改变 task-dag.yaml 的 DAG 结构和批次间依赖关系
+- 用户可通过 `--max-concurrent N` CLI 参数覆盖平台默认并发数
 
 ### Subagent 架构（唯一执行模型）
 
@@ -205,7 +212,7 @@ sessions:
 
 **子代理创建策略**：
 - 标准模式（默认）：主 Agent 串行创建单个 subagent，一个完成后再创建下一个；Task Split 后通过动态重评估决定是否升级并行
-- 企业级模式（-subagent）：主 Agent 按 DAG 批次并行创建多个 subagent
+- 企业级模式（-subagent）：主 Agent 按 DAG 批次并行创建多个 subagent（大批次自动拆分为子批次，滑动窗口调度，max_concurrent 受限）
 - 无论何种模式，主 Agent **永远不直接编辑文件**
 
 ---

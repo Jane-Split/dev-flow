@@ -112,6 +112,47 @@ Step 0.4: 准备 subagent 上下文注入（🔴 必须执行）
 
 ---
 
+**Step 0.6: 批次内并发控制与子批次分割（v3.2）**
+
+> **目的**：防止大批次同时启动过多 subagent 导致系统资源过载。
+> 调度引擎自动将任务数超过 max_concurrent 的批次拆分为多个子批次（Chunks）。
+
+```
+Step 0.6.1: 读取调度计划中的并发配置
+  ├── dispatch-plan.yaml 中的 max_concurrent 值
+  ├── 默认值由平台决定（cursor:3, trae:5, claude:4, codex:3, qoder:2）
+  └── 用户可通过 --max-concurrent N 覆盖
+
+Step 0.6.2: 识别需要分割的大批次
+  ├── 遍历调度计划的每个批次
+  ├── chunks_enabled = true 时存在需要分割的批次
+  └── 批次中的 chunks 数组包含各子批次信息
+
+Step 0.6.3: 按子批次逐步派发（滑动窗口调度）
+  │
+  ├── 首先派发 Chunk 0 的所有任务
+  │     ├── 正常按平台策略派发（Task 调用/斜杠命令/JS 编排等）
+  │     └── Chunk 0 的任务数 = max_concurrent
+  │
+  ├── 等待 Chunk 0 中任意任务完成
+  │     └── 每完成 1 个任务 → 立即从 Chunk 1 启动 1 个任务填补空位
+  │
+  ├── 以此类推，直到所有子批次的任务全部完成
+  │     └── 任何时刻活跃 subagent 总数 ≤ max_concurrent
+  │
+  └── 当前 DAG 批次的所有子批次全部完成
+        └── 进入下一 DAG 批次（批次间仍为严格的串行依赖）
+```
+
+**关键特性**：
+1. DAG 依赖关系不变 — 批次间串行语义完全保留
+2. 子批次是逻辑概念 — 不改变 task-dag.yaml 结构
+3. 滑动窗口保证总并发 ≤ max_concurrent — 任何时刻最多 N 个 subagent
+4. 冲突检测不受影响 — 写写/写读冲突的串行化优先级高于子批次拆分
+5. 小批次（任务数 ≤ max_concurrent）无需拆分，行为与之前完全一致
+
+---
+
 ### Step 1: 需求理解
 - 与用户确认需求细节
 - 识别涉及的服务和模块
@@ -342,13 +383,13 @@ next_tasks_hint: [建议的后续任务]
 
 ### 平台能力矩阵
 
-| 平台 | Subagent 定义格式 | 并行能力 | 调度策略 |
-|------|------------------|---------|---------|
-| **Trae** | `/agent-name` 斜杠命令 | 原生并行 | 完整并行模式 |
-| **Cursor** | `.cursor/agents/*.md` YAML frontmatter | 原生并行（Task 工具多调用 + 后台模式 + 嵌套） | Cursor 并行模式 |
-| **Claude Code** | Dynamic Workflows JS 编排 + `.claude/agents/*.md` | 强并行（16 并发 + 1000 总量上限 + 对抗验证） | Claude 并行模式 |
-| **Qoder** | Quest Mode 主从 Agent 架构 | 主从并行（前端/后端/测试/部署方向） | Qoder 主从并行模式 |
-| **Codex** | `.codex/agents/*.toml` + `AGENTS.md` | 有限并行（6 线程 + max_depth:1 + CSV 批量） | Codex 有限并行模式 |
+| 平台 | Subagent 定义格式 | 并行能力 | 推荐并发上限 | 调度策略 |
+|------|------------------|---------|------------|---------|
+| **Trae** | `/agent-name` 斜杠命令 | 原生并行 | 5 | 完整并行模式 |
+| **Cursor** | `.cursor/agents/*.md` YAML frontmatter | 原生并行（Task 工具多调用 + 后台模式 + 嵌套） | 3 | Cursor 并行模式 |
+| **Claude Code** | Dynamic Workflows JS 编排 + `.claude/agents/*.md` | 强并行（16 并发 + 1000 总量上限 + 对抗验证） | 4 | Claude 并行模式 |
+| **Qoder** | Quest Mode 主从 Agent 架构 | 主从并行（前端/后端/测试/部署方向） | 2 | Qoder 主从并行模式 |
+| **Codex** | `.codex/agents/*.toml` + `AGENTS.md` | 有限并行（6 线程 + max_depth:1 + CSV 批量） | 3 | Codex 有限并行模式 |
 
 > **所有五大平台均支持 Subagent 并行执行**，只是接口格式和并行上限不同。
 > Orchestrator 必须根据当前平台选择最优调度策略，充分利用平台原生能力。
@@ -391,6 +432,12 @@ next_tasks_hint: [建议的后续任务]
 **执行方式**：
 1. 构建完整 DAG 依赖图 + 拓扑排序 + 划分批次
 2. **同一批次的任务在一条消息中发送多个 Task 调用**，实现真正并行
+2.5. **大批次自动分割（Cursor 特化）**：
+     - 当批次任务数 > max_concurrent(3) 时，自动拆分为子批次
+     - 每条消息最多发送 3 个 Task 调用（第 1 个前台，第 2-3 个后台）
+     - 前台 subagent 完成后 → 立即发送下一子批次的 Task 调用（前台）
+     - 后台 subagent 完成后 → 立即发送下一子批次的 Task 调用（后台）
+     - 滑动窗口效果：始终保持 3 个活跃 subagent
 3. 后台 subagent 的输出写入 `~/.cursor/subagents/` 目录
 4. 主 agent 读取 subagent 输出，汇总批次结果
 5. 通过 `Resume agent <agent-id>` 恢复已完成的后台 subagent
@@ -406,6 +453,20 @@ Task: /develop-expert [Task-3 上下文, model: composer-2]
 # 批次 2:
 Task: /develop-expert [Task-4 上下文]
 Task: /develop-expert [Task-5 上下文]
+```
+
+**子批次执行示例（10 个任务的批次，max_concurrent=3）**：
+```
+# Chunk 1: 先派发 3 个
+Task: /develop-expert [Task-4 上下文]           # 前台
+Task: /develop-expert [Task-5 上下文, is_background: true]
+Task: /develop-expert [Task-6 上下文, is_background: true]
+
+# 等待 Task-4 完成 → 补位
+Task: /develop-expert [Task-7 上下文]           # 新的前台
+# 等待 Task-5 完成 → 补位
+Task: /develop-expert [Task-8 上下文, is_background: true]
+# ... 以此类推，始终保持 ≤3 个活跃 subagent
 ```
 
 **产出传递**：
