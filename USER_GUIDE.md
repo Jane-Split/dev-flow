@@ -71,7 +71,7 @@ dev-flow 是一款为 Cursor、Trae、Qoder、Claude Code、OpenAI Codex 等 AI 
 cd your-project
 
 # 2. 安装 dev-flow
-npm install Jane-Split/dev-flow#release_3.4.0 --save-dev
+npm install Jane-Split/dev-flow#release_3.5.0 --save-dev
 
 # 3. 执行安装
 npx dev-flow install
@@ -188,7 +188,7 @@ npx dev-flow install
 
 ```bash
 cd my-react-app
-npm install Jane-Split/dev-flow#release_3.4.0 --save-dev
+npm install Jane-Split/dev-flow#release_3.5.0 --save-dev
 npx dev-flow install
 ```
 

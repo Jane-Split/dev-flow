@@ -72,7 +72,7 @@ dev-flow 通过**结构化流程编排 + 项目记忆 + 长期记忆 + 学习能
 # npm install Jane-Split/dev-flow#release_3.4.0
 
 # 1. 安装到项目(项目级安装)
-npm install Jane-Split/dev-flow#release_3.4.0 --save-dev
+npm install Jane-Split/dev-flow#release_3.5.0 --save-dev
 
 # 2. 执行安装（生成 Skill 文件和记忆目录）
 npx dev-flow install
@@ -107,7 +107,7 @@ npx dev-flow codex     # 仅安装到 OpenAI Codex
 cd your-project
 
 # 2. 安装 dev-flow
-npm install Jane-Split/dev-flow#release_3.4.0 --save-dev
+npm install Jane-Split/dev-flow#release_3.5.0 --save-dev
 # 对指定工具安装，这里再cursor安装
 npx dev-flow cursor
 
