@@ -28,9 +28,11 @@ is_background: false
 
 ## 输出
 
-写入 `.dev-flow/sessions/{session-id}/`：
-- `analyze-result.md` - 需求分析文档
-- `task-breakdown.yaml` - 任务拆分清单
+写入 `.dev-flow/contracts/{需求简称}/`：
+- `prd-contract.yaml` - PRD 契约（机器可执行，单一真相源，包含需求定义+验收标准+业务规则+数据模型+API预估+状态机+跨服务调用+追溯矩阵+自检）
+
+写入 `.dev-flow/deliverables/{需求简称}/`：
+- `PRD-{需求简称}.md` - PRD 文档（人类可读，从 prd-contract.yaml 渲染）
 
 ## 工作流
 
@@ -144,14 +146,33 @@ tasks:
     estimated_effort: 低
 ```
 
-### Step 6: 生成分析文档
+### Step 6: 生成 PRD 契约与 PRD 文档
+
+> **核心产出**：prd-contract.yaml 是全流程的单一真相源，后续 Design/Test/Fix 阶段均从此文件读取。
 
 包含：
-- 需求摘要
-- 影响范围（服务/模块/文件）
-- 依赖关系图
-- 风险清单及缓解措施
-- 任务拆分清单
+- **prd-contract.yaml**：结构化契约，包含 meta/overview/requirements(含acceptance/rules/exceptions/data_model/api)/enums/workflows/cross_service_calls/non_functional/runtime/traceability/self_check
+- **PRD-{需求简称}.md**：从 prd-contract.yaml 渲染的人类可读 PRD 文档
+
+**prd-contract.yaml 核心章节说明**：
+
+| 章节 | 内容 | 后续阶段消费者 |
+|------|------|--------------|
+| meta | PRD 编号、类型、优先级 | 全流程 |
+| overview | 背景、目标、影响范围 | Design、Develop |
+| requirements | 功能点+验收标准+业务规则+异常+数据模型+API | Design、Develop、Test |
+| enums | 枚举定义 | Design、Develop |
+| workflows | 状态机+转换规则 | Design、Develop |
+| cross_service_calls | 跨服务调用定义 | Design、Develop |
+| non_functional | 性能/安全要求 | Develop、Test |
+| runtime | 启动命令/健康检查/DB配置 | Test（Step 2/3 预留） |
+| traceability | 需求→设计→代码→测试追溯 | Design、Develop、Test、Fix |
+| self_check | 自检结果 | 主 Agent 审阅 |
+
+**两层验证精度原则**：
+- Analyze 阶段的 assertions 为**高层断言**（如 "HTTP 200 + recordCode 格式匹配"）
+- Design 阶段的 design-contract.yaml 补充精确的 API 路径/DB 表名
+- Test 阶段自动合并两层信息生成精确测试脚本
 
 ## 精准加载策略
 
@@ -176,9 +197,10 @@ tasks:
 - Read 已有代码时只 Read 接口定义（前 50 行），不 Read 实现细节
 
 ### 上下文控制
-- 分析结论写入 `analyze-result.md`，不在上下文中保留原始代码
-- 任务拆分写入 `task-breakdown.yaml`，只保留任务 ID 和状态在上下文中
+- PRD 契约写入 `prd-contract.yaml`，不在上下文中保留原始代码
+- PRD 文档写入 `PRD-{需求简称}.md`，只保留 REQ-XXX ID 列表在上下文中
 
 ## 输出格式
 
-分析文档使用 Markdown，任务拆分使用 YAML，便于 Orchestrator 解析执行。
+PRD 契约使用 YAML（prd-contract.yaml），PRD 文档使用 Markdown（PRD-{需求简称}.md）。
+两个文件共享同一个 requirements[] ID 空间，便于 Orchestrator 和后续阶段解析执行。

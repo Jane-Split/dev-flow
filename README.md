@@ -244,6 +244,7 @@ Layer 2: References（8 个按需加载的参考文档）
   ├── protocol.md（零编辑铁律 + 失败协议 + 交付物 + 门禁 + 历史压缩）
   ├── memory-system.md / learning-system.md / error-pattern-db.md / model-context-config.md
   └── design-contract-typescript.md / design-contract-python.md / design-contract-go.md
+  └── runtime-protocol.md（运行时验证协议：服务编排、DB 核对、UI 验证、追溯矩阵）
 
 Layer 3: 阶段指令文件（进入阶段时加载，10 个文件）
   ├── research.md / analyze.md / design.md / task-split.md
@@ -255,7 +256,7 @@ Layer 4: Agent 文件（创建子代理时加载，20 个文件）
   ├── develop-expert.md（支持 LANGUAGE-ONLY 多语言规范过滤）
   ├── analyze-expert / design-expert / task-split-expert
   ├── contract-validator / verify-expert / step-enforcer
-  └── ...共 20 个（含 5 个遗留 Research Agent）
+  └── ...共 23 个（含 5 个遗留 Research Agent + 3 个新增验证 Agent）
 ```
 
 ### 子代理执行架构（统一模型）

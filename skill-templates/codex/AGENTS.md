@@ -61,7 +61,7 @@ Analyze 阶段：
 - 不读取：无关服务代码
 
 Design 阶段：
-- 读取：analyze-result.md, 1-2个参考实现
+- 读取：prd-contract.yaml, 1-2个参考实现
 - 不读取：所有源码
 
 Develop 阶段：
@@ -127,7 +127,7 @@ phase_results:
   Analyze:
     status: "completed"
     output_files:
-      - ".dev-flow/sessions/session-20260529-001/analyze-result.md"
+      - ".dev-flow/sessions/session-20260529-001/prd-contract.yaml"
     summary: "涉及3个服务，预计新增15个文件"
     
   Design:

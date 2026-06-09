@@ -58,13 +58,13 @@ tasks:
     type: analyze
     agent: analyze-expert
     input: 需求描述 + memory/
-    output: analyze-result.md
+    output: prd-contract.yaml
     dependencies: [T1]
   
   - id: T3
     type: design
     agent: design-expert
-    input: analyze-result.md
+    input: prd-contract.yaml
     output: design-result.md
     dependencies: [T2]
   

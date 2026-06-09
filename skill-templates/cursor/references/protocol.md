@@ -136,7 +136,7 @@ Level 3 — 🔴 人工升级（Escalate to Human）
 
 ---
 
-## 🔴 阶段交付物协议（v3.1 — 硬性约束）
+## 🔴 阶段交付物协议（v3.5 — 硬性约束）
 
 > **核心原则**：每个阶段完成后，必须生成独立的交付物文档（存放于 `.dev-flow/deliverables/`），
 > 主 Agent 读取并打开交付物文档供用户审阅，用户确认后写入 `.confirmed` 文件方可进入下一阶段。
@@ -146,13 +146,16 @@ Level 3 — 🔴 人工升级（Escalate to Human）
 ```
 .dev-flow/deliverables/{需求简称}/
 ├── 01-research-report.md         # Research 阶段交付物
-├── 02-analyze-result.md          # Analyze 阶段交付物
+├── PRD-{需求简称}.md               # Analyze 阶段交付物（人类可读 PRD 文档）
 ├── 03-design-result.md           # Design 阶段交付物
 ├── 04-task-breakdown.md          # Task Split 阶段交付物
 ├── 05-develop-result.md          # Develop 阶段交付物
 ├── 06-test-report.md             # Test 阶段交付物（统一测试报告）
 ├── 07-fix-report.md              # Fix 阶段交付物
 └── 11-delivery-report.md         # Delivery 阶段交付物
+├── 07-db-assertions-report.md    # DB 断言报告（新增）
+├── 08-ui-test-report.md          # UI 测试报告（新增）
+└── 09-verification-trace.md      # 验证追溯报告（新增）
 ```
 
 **数据交换目录结构（按需求隔离）**：
@@ -160,11 +163,25 @@ Level 3 — 🔴 人工升级（Escalate to Human）
 ```
 .dev-flow/contracts/{需求简称}/
 ├── design-contract.yaml          # Design → Develop 标准数据交换
-├── traceability.yaml             # Analyze → Design 需求追溯
-├── acceptance-criteria.yaml      # Analyze → Test 验收标准
+├── prd-contract.yaml             # Analyze 输出（PRD 契约 — 单一真相源，包含验收标准+追溯矩阵+业务规则+数据模型）
 ├── task-dag.yaml                 # Task Split 任务依赖图
 ├── fix-log.yaml                  # Fix 修复日志
 └── develop-integration.yaml      # Develop 集成验证结果
+├── test-case-contract.yaml       # 测试用例契约（新增，从 PRD 自动派生）
+├── runtime-contract.yaml         # 运行时环境契约（新增，服务编排配置）
+└── demand-draft.yaml             # 需求草稿（新增，产品输入解析中间产物）
+```
+
+**验证证据目录结构（新增）**：
+
+```
+.dev-flow/evidence/{需求简称}/
+├── ui-test-report.yaml              # UI 测试报告
+├── db-assertions-report.yaml        # DB 断言报告
+├── verification-trace-report.yaml   # 验证追溯报告
+└── screenshots/                     # UI 测试截图
+    ├── {case_id}-step{N}-{action}.png
+    └── ...
 ```
 
 > **⚠️ 目录自动创建规则**：
@@ -283,7 +300,7 @@ checklist:                      # 必填
 ```
 Research ← (无前置)
 Analyze  ← {需求简称}/research.confirmed + 01-research-report.md
-Design   ← {需求简称}/analyze.confirmed + 02-analyze-result.md
+Design   ← {需求简称}/analyze.confirmed + PRD-{需求简称}.md
 TaskSplit ← {需求简称}/design.confirmed + 03-design-result.md
 Develop  ← {需求简称}/task-split.confirmed + 04-task-breakdown.md
 Test     ← {需求简称}/develop.confirmed + 05-develop-result.md

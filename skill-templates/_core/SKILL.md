@@ -50,6 +50,10 @@ description: AI开发全流程编排技能 - 在AI编程工具对话框中结构
 | `/dev-flow -delivery` | 生成交付报告 |
 | `/dev-flow -fix` | 分析并修复 Bug |
 | `/dev-flow -hotfix <错误信息>` | 紧急修复线上错误 |
+| `/dev-flow -e2e` | 仅执行 E2E 验证（API + UI + DB），跳过单元测试和冒烟测试 |
+| `/dev-flow -e2e-ui` | 仅执行 UI 层验证（agent-browser） |
+| `/dev-flow -e2e-api` | 仅执行 API 层验证 + DB 数据核对 |
+| `/dev-flow -verify` | 执行完整验证闭环（服务启动 → 全量测试 → 追溯矩阵回写） |
 | `/dev-flow --resume` | 从上次中断处继续 |
 | `/dev-flow -cleanup` | 清理会话记忆，保留长期记忆 |
 | `/dev-flow -cleanup --all` | 清理全部记忆（重置） |
@@ -106,6 +110,9 @@ description: AI开发全流程编排技能 - 在AI编程工具对话框中结构
               ├── test-expert        → 统一测试（单元+冒烟+E2E+集成），输出测试报告
               ├── fix-expert         → Bug 修复，输出修复代码
               └── delivery-expert    → 生成交付报告
+              ├── service-orchestrator  → 服务编排启动（新增）
+              ├── db-verifier           → 数据库验证（新增）
+              └── e2e-ui-tester         → UI 层验证（新增）
 ```
 
 **工作流程**：
@@ -437,6 +444,10 @@ Step R4: 升级时通知用户
 | Fix（Bug 修复） | `{{STAGES_PATH}}fix.md` | 进入阶段七 | 无（Bug 触发） |
 | Hotfix（独立模式） | `{{STAGES_PATH}}hotfix.md` | 使用 Hotfix 模式 | 无 |
 | Delivery（交付报告） | `{{STAGES_PATH}}delivery.md` | 进入阶段八 | `{需求简称}/test.confirmed` |
+| E2E 验证（独立） | `{{STAGES_PATH}}test.md` | 使用 -e2e 命令 | `{需求简称}/develop.confirmed` |
+| UI 验证（独立） | `{{STAGES_PATH}}test.md` | 使用 -e2e-ui 命令 | `{需求简称}/develop.confirmed` |
+| API+DB 验证（独立） | `{{STAGES_PATH}}test.md` | 使用 -e2e-api 命令 | `{需求简称}/develop.confirmed` |
+| 完整验证闭环 | `{{STAGES_PATH}}test.md` | 使用 -verify 命令 | `{需求简称}/develop.confirmed` |
 
 ### 加载规则
 

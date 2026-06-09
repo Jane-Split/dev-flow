@@ -39,6 +39,10 @@ type: stage-instruction
 - 读取 `.dev-flow/memory/conventions.md` - 了解项目测试风格和规范
 - 读取 `.dev-flow/memory/modules.md` - 了解模块接口以便编写测试（Java: Service/Mapper/Controller）
 - 读取 `.dev-flow/memory/mistakes.md` - 参考历史常见错误，重点测试
+- 读取 `.dev-flow/contracts/{需求简称}/test-case-contract.yaml` — 测试用例契约（新增）
+- 读取 `.dev-flow/contracts/{需求简称}/runtime-contract.yaml` — 运行时环境契约（新增）
+- 读取 `.dev-flow/contracts/{需求简称}/prd-contract.yaml` — PRD 契约（追溯用，新增）
+- 读取 `.dev-flow/contracts/{需求简称}/design-contract.yaml` — 设计契约（UI 选择器，新增）
 
 ---
 
@@ -267,8 +271,8 @@ Step 4.0.4: 输出集成验证报告
 
 **Step 4.1: 识别端到端测试场景**
 
-> **🔴 基于需求验收标准生成测试场景**：读取 `.dev-flow/contracts/{需求简称}/acceptance-criteria.yaml`，
-> 将每个 `test_level: "e2e"` 的验收标准自动转化为 E2E 测试用例。
+> **🔴 基于需求验收标准生成测试场景**：读取 `.dev-flow/contracts/{需求简称}/prd-contract.yaml`，
+> 将 `requirements` 章节中每个 `test_level: "e2e"` 的验收标准（acceptance 项）自动转化为 E2E 测试用例。
 > 同时补充标准测试场景模板，确保覆盖完整。
 
 - 从需求分析文档中提取核心业务场景
@@ -490,6 +494,70 @@ test.describe('用户管理 E2E 测试', () => {
 | 前端 | `npx playwright test e2e/xxx.spec.ts` |
 | Node.js | `npx jest tests/e2e/xxx.test.ts` |
 
+**Step 4.4.1: 服务编排启动（新增）**
+
+> **目的**：按 runtime-contract.yaml 自动启动所有服务，为 E2E 测试提供运行时环境。
+> **详细协议见 `references/runtime-protocol.md`。**
+
+**执行流程**：
+
+```
+1. 创建 service-orchestrator subagent
+2. 读取 runtime-contract.yaml
+3. 按 startup_sequence 启动所有服务：
+   ├── Phase 1: 基础设施检查（MySQL/Redis/Nacos）
+   ├── Phase 2: 后端服务启动（按依赖顺序）
+   └── Phase 3: 前端服务启动
+4. 等待所有服务健康检查通过
+5. 输出 startup-report.yaml
+```
+
+> **⚠️ 降级兼容**：如果 runtime-contract.yaml 不存在，跳过本步骤，假设服务已手动启动。
+
+**Step 4.4.2: DB 数据核对（新增）**
+
+> **目的**：在 API 调用后，直接核对数据库数据与预期是否一致，验证数据持久化正确性。
+> **详细协议见 `references/runtime-protocol.md` — DB 断言章节。**
+
+**核对方式**：
+
+```
+对 test-case-contract.yaml 中每个包含 db_assert 的测试步骤：
+1. API 请求执行完成后
+2. 创建 db-verifier subagent（或内联执行）
+3. 连接数据库，执行 SQL 查询
+4. 比对实际行数与 expected_rows
+5. 比对字段值与 expected_values
+6. 记录断言结果到 db-assertions-report.yaml
+```
+
+**Java E2E 测试中的 DB 核对示例**：
+
+```java
+// 在 E2E 测试方法中增加 DB 核对
+@Autowired
+private UserMapper userMapper;
+
+@Test
+void testCreateUser() throws Exception {
+    // 1. API 调用
+    MvcResult result = mockMvc.perform(post("/api/users")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("{\"name\":\"张三\"}"))
+        .andExpect(status().isOk())
+        .andReturn();
+
+    Long id = JsonPath.read(result.getResponse().getContentAsString(), "$.data.id");
+
+    // 2. DB 数据核对（新增）
+    User dbUser = userMapper.selectById(id);
+    assertNotNull(dbUser, "数据库中应存在该用户");
+    assertEquals("张三", dbUser.getName(), "数据库中用户名应正确");
+}
+```
+
+> **⚠️ 降级兼容**：如果 test-case-contract.yaml 不存在或无 db_assert 定义，跳过 DB 核对，行为与 v3.4.0 一致。
+
 ---
 
 ### Step 5: 集成测试（Integration Test）
@@ -533,6 +601,85 @@ class XxxIntegrationTest {
 **数据一致性测试**：
 - 验证跨服务事务（如有）
 - 验证数据同步（如有）
+
+---
+
+### Step 5.5: E2E 测试 — UI 层验证（新增）
+
+> **目的**：通过浏览器自动化验证 UI 交互和数据展示正确性，实现前端页面的真实用户操作验证。
+> **详细协议见 `references/runtime-protocol.md`。**
+
+**触发条件**：
+- 项目包含前端代码（Vue/React/Angular）
+- test-case-contract.yaml 中存在 type: "ui" 的测试用例
+- 前端服务已启动（startup-report.yaml 中状态为 healthy）
+
+**执行流程**：
+
+```
+Step 5.5.1: 创建 e2e-ui-tester subagent
+  ├── 传递 test-case-contract.yaml 的 ui_steps
+  ├── 传递 design-contract.yaml 的 ui_selectors
+  └── 传递 runtime-contract.yaml 的 frontend 配置
+
+Step 5.5.2: e2e-ui-tester 执行浏览器自动化测试
+  ├── 调用 agent-browser skill
+  ├── 按 ui_steps 逐步执行
+  ├── 每步截图存证
+  ├── 断言页面元素文本/可见性/状态
+  └── 核对 UI 展示数据与 DB 数据一致性
+
+Step 5.5.3: 收集 UI 测试结果
+  ├── 读取 ui-test-report.yaml
+  └── 截图保存到 evidence 目录
+```
+
+**降级处理**（如果 agent-browser 不可用）：
+- 仅生成 Playwright 测试脚本（现有行为）
+- 在测试报告中标注"UI 验证未执行，已生成 Playwright 脚本"
+- 提示用户手动执行 `npx playwright test`
+
+> **⚠️ 降级兼容**：如果项目无前端代码或 test-case-contract.yaml 不存在，跳过本步骤，行为与 v3.4.0 一致。
+
+---
+
+### Step 5.6: 验证结果回写与追溯矩阵更新（新增）
+
+> **目的**：将所有测试结果自动回写到 prd-contract.yaml 的追溯矩阵，实现 PRD 状态自动流转，完成闭环。
+> **详细协议见 `references/runtime-protocol.md` — 追溯矩阵回写协议章节。**
+
+**执行流程**：
+
+```
+Step 5.6.1: 汇总所有测试结果
+  ├── 单元测试结果（Step 2）
+  ├── 冒烟测试结果（Step 3）
+  ├── API + DB E2E 测试结果（Step 4）
+  ├── UI E2E 测试结果（Step 5.5）
+  └── 集成测试结果（Step 5）
+
+Step 5.6.2: 更新 prd-contract.yaml 的 traceability 章节
+  ├── 对每个 REQ-XXX：
+  │     ├── 收集关联的所有 TC 结果
+  │     ├── 计算覆盖率
+  │     └── 更新 status：
+  │           ├── 所有 TC PASS → status: "verified"
+  │           ├── 部分 TC FAIL → status: "tested_with_failures"
+  │           └── TC 未执行 → status: "tested"
+  └── 写入 verification 详情
+
+Step 5.6.3: 生成验证追溯报告
+  └── 写入 .dev-flow/evidence/{需求简称}/verification-trace-report.yaml
+```
+
+**PRD 状态流转**：
+
+```
+analyzed → designed → developed → tested → verified
+                                           ↘ tested_with_failures
+```
+
+> **⚠️ 降级兼容**：如果 prd-contract.yaml 不存在或无 traceability 章节，跳过回写，行为与 v3.4.0 一致。
 
 ---
 
@@ -581,6 +728,18 @@ class XxxIntegrationTest {
 |---|--------|--------|----------|----------|
 | 1 | Feign Client | 服务A | 服务B | ✅/❌ |
 
+## 5.5 DB 数据核对结果（新增）
+| # | 测试用例 | 表 | 条件 | 期望行数 | 实际行数 | 字段比对 | 状态 |
+|---|---------|-----|------|---------|---------|---------|------|
+
+## 5.6 UI 层验证结果（新增）
+| # | 测试用例 | 步骤数 | 通过 | 失败 | 截图数 | 状态 |
+|---|---------|--------|------|------|--------|------|
+
+## 5.7 验证追溯矩阵（新增）
+| REQ-ID | 功能点 | 验收标准覆盖 | API 测试 | UI 测试 | DB 断言 | 综合状态 |
+|--------|--------|------------|---------|---------|---------|---------|
+
 ## 6. 全流程测试汇总
 | 测试类型 | 用例数 | 通过 | 失败 | 通过率 |
 |---------|--------|------|------|--------|
@@ -623,6 +782,10 @@ class XxxIntegrationTest {
 | 4 | **E2E 测试**：所有核心业务场景已覆盖，测试脚本可执行（非 curl 命令列表），正向流程 + 异常路径 + 边界场景均通过 | ⬜ 待确认 |
 | 5 | **集成测试**：所有跨服务接口契约已验证，跨服务数据一致性测试通过 | ⬜ 待确认 |
 | 6 | **测试报告**：统一测试报告已输出，全流程测试结果汇总完整 | ⬜ 待确认 |
+| 7 | **DB 数据核对**：所有 E2E 测试步骤的 db_assert 已执行，数据库数据与预期一致 | ⬜ 待确认 |
+| 8 | **UI 层验证**：所有 UI 测试用例已执行（或已生成 Playwright 脚本），页面交互和数据展示正确 | ⬜ 待确认 |
+| 9 | **追溯矩阵**：prd-contract.yaml 的 traceability 已更新，每个 REQ 的验证状态已回写 | ⬜ 待确认 |
+| 10 | **验证证据**：截图、DB 断言报告、UI 测试报告已保存到 evidence 目录 | ⬜ 待确认 |
 
 > **阶段确认机制和交付物协议详见 `references/protocol.md`。**
 

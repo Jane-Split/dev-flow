@@ -23,7 +23,7 @@ is_background: false
 
 从 Orchestrator 接收：
 - `task-context.yaml` - 任务上下文
-- `analyze-result.md` - 需求分析结果
+- `prd-contract.yaml` - PRD 契约（需求分析结果 + 验收标准 + 追溯矩阵的统一格式）
 - `task-breakdown.yaml` - 任务拆分清单
 
 ## 输出
@@ -168,7 +168,7 @@ exceptions:   # 异常类定义（类名、错误码、使用场景）
 ### 必读文件
 | 文件 | 读取方式 | 用途 |
 |------|----------|------|
-| `.dev-flow/sessions/{session-id}/analyze-result.md` | Read 全文 | 需求分析结论 |
+| `.dev-flow/contracts/{需求简称}/prd-contract.yaml` | Read 全文 | PRD 契约（需求分析、验收标准、追溯矩阵） |
 | `.dev-flow/sessions/{session-id}/task-breakdown.yaml` | Read 全文 | 任务拆分清单 |
 | `.dev-flow/memory/conventions.md` | Read 全文 | 编码规范 |
 | `.dev-flow/memory/service-registry.md` | Read 全文 | 服务信息（多服务模式） |

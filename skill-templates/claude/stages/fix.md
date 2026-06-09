@@ -170,7 +170,7 @@ Step 5.4: 回归测试报告
 - 回归修复不计入 Fix 阶段的 3 轮修复限制（回归修复有额外 2 轮）
 - 如果 2 轮回归修复后仍有回归 → 暂停并报告用户，建议人工代码审查
 
-- 更新 traceability.yaml 中对应 REQ 的测试状态
+- 更新 prd-contract.yaml 的 traceability 章节中对应 REQ 的测试状态
 
 **修复记录格式**：
 ```yaml

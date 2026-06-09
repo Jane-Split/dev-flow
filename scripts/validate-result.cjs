@@ -22,6 +22,14 @@ const ROOT = path.resolve(__dirname, '..');
 const DOCS_DIR = path.join(ROOT, '.dev-flow', 'docs');
 const RUNTIME_DIR = path.join(ROOT, '.dev-flow', 'runtime');
 
+// 有效的 contract 文件名列表
+const CONTRACT_FILES = [
+  'design-contract.yaml',
+  'test-case-contract.yaml',
+  'runtime-contract.yaml',
+  'demand-draft.yaml',
+];
+
 // ============================================================
 // 校验器
 // ============================================================
@@ -170,6 +178,46 @@ function validateResult(taskId, demandName) {
     const contractIssues = checkContractConsistency(contractFile, completedFiles, projectRoot);
     errors.push(...contractIssues.errors);
     warnings.push(...contractIssues.warnings);
+  }
+
+  // 6.5 新增 contract 文件校验（test-case-contract / runtime-contract / demand-draft）
+  const contractsDir = path.join(ROOT, '.dev-flow', 'contracts', demandName || '');
+  const newContractFiles = ['test-case-contract.yaml', 'runtime-contract.yaml', 'demand-draft.yaml'];
+  for (const cf of newContractFiles) {
+    let cfPath = null;
+    // 优先在 contracts/{demandName}/ 目录下查找
+    if (fs.existsSync(contractsDir)) {
+      const fullPath = path.join(contractsDir, cf);
+      if (fs.existsSync(fullPath)) cfPath = fullPath;
+    }
+    // 兜底：在 docs 目录下查找
+    if (!cfPath) {
+      cfPath = findDemandFile(demandName ? `${demandName}-${cf.replace('.yaml', '')}` : cf.replace('.yaml', ''));
+    }
+    if (cfPath && fs.existsSync(cfPath)) {
+      const cfContent = fs.readFileSync(cfPath, 'utf-8');
+      if (cfContent.trim() === '') {
+        warnings.push(`${cf} 文件为空`);
+      }
+      // test-case-contract.yaml 基本校验
+      if (cf === 'test-case-contract.yaml') {
+        if (!cfContent.includes('test_suites:') && !cfContent.includes('test_suites')) {
+          warnings.push('test-case-contract.yaml 缺少 test_suites 章节');
+        }
+      }
+      // runtime-contract.yaml 基本校验
+      if (cf === 'runtime-contract.yaml') {
+        if (!cfContent.includes('services:') && !cfContent.includes('startup_sequence:')) {
+          warnings.push('runtime-contract.yaml 缺少 services 或 startup_sequence 章节');
+        }
+      }
+      // demand-draft.yaml 基本校验
+      if (cf === 'demand-draft.yaml') {
+        if (!cfContent.includes('source:') && !cfContent.includes('requirements_draft:')) {
+          warnings.push('demand-draft.yaml 缺少 source 或 requirements_draft 章节');
+        }
+      }
+    }
   }
 
   return { taskId, status, errors, warnings, completedFiles };

@@ -2,6 +2,23 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+### PRD-Contract 单一真相源架构（Step 1）
+
+**重大变更**：Analyze 阶段输出从 `analyze-result.md + acceptance-criteria.yaml + traceability.yaml` 改为 `PRD-{需求简称}.md + prd-contract.yaml`，实现单一真相源架构。
+
+- **新增**：`prd-contract.yaml` 作为全流程单一真相源，包含需求定义、验收标准、业务规则、数据模型、API预估、状态机、跨服务调用、追溯矩阵、自检结果
+- **新增**：PRD 文档（`PRD-{需求简称}.md`）作为人类可读视图，从 prd-contract.yaml 渲染
+- **废弃**：`02-analyze-result.md`（被 PRD-{需求简称}.md 替代）
+- **废弃**：`acceptance-criteria.yaml`（被 prd-contract.yaml 的 requirements[].acceptance 替代）
+- **废弃**：`traceability.yaml`（被 prd-contract.yaml 的 traceability 章节替代）
+- **更新**：Design/Test/Fix/Orchestrator 阶段输入引用全部改为读取 prd-contract.yaml
+- **更新**：协议文件 protocol.md 升级至 v3.5，交付物和数据交换目录结构适配
+- **设计**：两层验证精度 — Analyze 输出高层断言，Design 补充精确 API/DB 路径，Test 自动合并生成测试
+- **设计**：runtime 章节预留，为后续 Step 2（自动启动服务）和 Step 3（浏览器验证）奠定基础
+- **影响范围**：所有平台变体（_core/claude/cursor/qoder/trae/codex）同步更新
+
 ## [3.4.0] - 2026-06-07
 
 ### Session 隔离机制 — 多需求并行共存

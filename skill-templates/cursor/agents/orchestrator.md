@@ -190,13 +190,13 @@ tasks:
     type: analyze
     agent: analyze-expert
     input: 需求描述 + memory/
-    output: analyze-result.md
+    output: prd-contract.yaml
     dependencies: [T1]
   
   - id: T3
     type: design
     agent: design-expert
-    input: analyze-result.md
+    input: prd-contract.yaml
     output: design-result.md
     dependencies: [T2]
   
@@ -402,6 +402,7 @@ next_tasks_hint: [建议的后续任务]
 1. 构建完整 DAG 依赖图
 2. 执行拓扑排序，划分批次
 3. **同一批次的任务同时启动多个 develop-expert**：`/develop-expert`
+3.5. **大批次自动分割**：当批次任务数 > max_concurrent(5) 时，自动拆分为子批次，按滑动窗口逐批派发
 4. 各 subagent 通过 `task-result.yaml` 汇报结果
 5. 主 agent 汇总批次结果后，启动下一批次
 
@@ -432,12 +433,7 @@ next_tasks_hint: [建议的后续任务]
 **执行方式**：
 1. 构建完整 DAG 依赖图 + 拓扑排序 + 划分批次
 2. **同一批次的任务在一条消息中发送多个 Task 调用**，实现真正并行
-2.5. **大批次自动分割（Cursor 特化）**：
-     - 当批次任务数 > max_concurrent(3) 时，自动拆分为子批次
-     - 每条消息最多发送 3 个 Task 调用（第 1 个前台，第 2-3 个后台）
-     - 前台 subagent 完成后 → 立即发送下一子批次的 Task 调用（前台）
-     - 后台 subagent 完成后 → 立即发送下一子批次的 Task 调用（后台）
-     - 滑动窗口效果：始终保持 3 个活跃 subagent
+2.5. **大批次自动分割**：当批次任务数 > max_concurrent(3) 时，拆分为子批次，每条消息发送不超过 3 个 Task 调用
 3. 后台 subagent 的输出写入 `~/.cursor/subagents/` 目录
 4. 主 agent 读取 subagent 输出，汇总批次结果
 5. 通过 `Resume agent <agent-id>` 恢复已完成的后台 subagent
@@ -453,20 +449,6 @@ Task: /develop-expert [Task-3 上下文, model: composer-2]
 # 批次 2:
 Task: /develop-expert [Task-4 上下文]
 Task: /develop-expert [Task-5 上下文]
-```
-
-**子批次执行示例（10 个任务的批次，max_concurrent=3）**：
-```
-# Chunk 1: 先派发 3 个
-Task: /develop-expert [Task-4 上下文]           # 前台
-Task: /develop-expert [Task-5 上下文, is_background: true]
-Task: /develop-expert [Task-6 上下文, is_background: true]
-
-# 等待 Task-4 完成 → 补位
-Task: /develop-expert [Task-7 上下文]           # 新的前台
-# 等待 Task-5 完成 → 补位
-Task: /develop-expert [Task-8 上下文, is_background: true]
-# ... 以此类推，始终保持 ≤3 个活跃 subagent
 ```
 
 **产出传递**：
@@ -497,7 +479,7 @@ Task: /develop-expert [Task-8 上下文, is_background: true]
 // .dev-flow/workflows/batch-dispatch.js
 const { spawn } = require('child_process');
 
-async function dispatchBatch(tasks, concurrency = 16) {
+async function dispatchBatch(tasks, concurrency = 4) { // v3.2: 使用 max_concurrent(4) 替代平台硬限(16)，防止资源过载
   const running = [];
   const results = [];
 
@@ -538,7 +520,7 @@ async function dispatchBatch(tasks, concurrency = 16) {
 **执行方式**：
 1. 利用 `.codex/agents/*.toml` 中定义的 subagent
 2. 通过 `run agent: develop-expert` 启动 subagent
-3. **6 线程并行执行**（Codex 的并行上限）
+3. **3 线程并行执行（max_concurrent=3，防止资源过载）**
 4. 支持 CSV 批量处理，可一次性提交多个任务
 5. `max_depth: 1`（subagent 不能再启动子 subagent）
 6. 按 DAG 拓扑排序执行，产出通过 `task-result.yaml` 传递

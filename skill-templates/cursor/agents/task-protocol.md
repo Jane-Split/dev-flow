@@ -60,6 +60,9 @@ task:
 | develop-service | Service 开发 | develop-expert |
 | develop-controller | Controller 开发 | develop-expert |
 | verify | 代码验证 | verify-expert |
+| service-orchestrate | 服务编排启动 | service-orchestrator |
+| e2e-ui-test | UI 层验证 | e2e-ui-tester |
+| db-verify | 数据库验证 | db-verifier |
 
 ### 1.3 任务状态
 
@@ -67,6 +70,8 @@ task:
 pending → running → success
                    ↘ failed → retrying → success/failed
                             ↘ blocked
+                   ↘ verified（新增：全部验证通道通过）
+                   ↘ tested_with_failures（新增：部分验证通道失败）
 ```
 
 | 状态 | 说明 |
@@ -78,6 +83,8 @@ pending → running → success
 | retrying | 重试中 |
 | blocked | 被依赖任务阻塞 |
 | skipped | 被跳过 |
+| verified | 全部验证通道通过（API + UI + DB） |
+| tested_with_failures | 部分验证通道失败 |
 
 ### 1.4 代码分层
 
@@ -393,7 +400,8 @@ validation_protocol:
         ├── execution-log.yaml # 执行日志
         ├── task-context.yaml  # 当前任务上下文
         ├── task-result.yaml   # 当前任务结果
-        ├── analyze-result.md  # 分析结果
+        ├── PRD-XXX.md           # PRD 文档（人类可读）
+        ├── prd-contract.yaml    # PRD 契约（机器可执行）
         ├── design-result.md   # 设计结果
         ├── develop-result.yaml # 开发结果
         ├── verify-report.md   # 验证报告
@@ -419,13 +427,13 @@ tasks:
     agent: analyze-expert
     dependencies: [research]
     input_files: [".dev-flow/memory/"]
-    output_files: ["analyze-result.md", "task-breakdown.yaml"]
+    output_files: ["PRD-XXX.md", "prd-contract.yaml"]
   
   - id: design
     type: design
     agent: design-expert
     dependencies: [analyze]
-    input_files: ["analyze-result.md"]
+    input_files: ["prd-contract.yaml"]
     output_files: ["design-result.md"]
   
   - id: develop-entity

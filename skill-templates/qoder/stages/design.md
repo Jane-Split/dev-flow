@@ -35,7 +35,7 @@ type: stage-instruction
 
 ### 🔴 入口前检查：加载需求追踪矩阵
 
-> **必须读取** `.dev-flow/contracts/{需求简称}/traceability.yaml`，获取所有 REQ-XXX 需求 ID。
+> **必须读取** `.dev-flow/contracts/{需求简称}/prd-contract.yaml`，获取其 `traceability` 章节中所有 REQ-XXX 需求 ID。
 > 设计文档中的每个设计章节必须标注对应的 REQ-XXX ID，确保需求 → 设计的追溯关系。
 
 ```markdown
@@ -45,7 +45,7 @@ type: stage-instruction
 ...
 ```
 
-设计完成后，更新 traceability.yaml 中每个 REQ 的 design 字段：
+设计完成后，更新 prd-contract.yaml 中 traceability 章节每个 REQ 的 design 字段：
 ```yaml
 traceability:
   REQ-001:
@@ -404,6 +404,71 @@ interfaces:
 - 定义错误码和错误响应格式
 - 设计认证和权限要求（`@PreAuthorize`、`@RolesAllowed`）
 - 设计接口版本控制策略
+
+**Step 2.5: 前端 UI 选择器设计（新增，仅前端项目或全栈项目执行）**
+
+> **目的**：为 UI 层验证（agent-browser）提供精确的元素选择器，避免运行时猜测选择器导致测试不稳定。
+> **详细格式见 `.qoder/references/runtime-protocol.md` — UI 选择器契约章节。**
+
+**触发条件**：项目包含前端代码（Vue/React/Angular）
+
+**执行流程**：
+
+```
+Step 2.5.1: 读取前端组件代码
+  ├── 识别关键交互元素（按钮、表单、表格、弹窗）
+  ├── 提取现有 data-testid 属性（如有）
+  └── 记录组件路径和元素类型
+
+Step 2.5.2: 设计 UI 选择器映射
+  ├── 如果组件已有 data-testid → 直接使用
+  ├── 如果组件无 data-testid → 建议添加，并记录组件路径 + 建议的 testid
+  └── 按页面组织选择器
+
+Step 2.5.3: 输出 ui_selectors 到 design-contract.yaml
+  └── 写入 design-contract.yaml 的 ui_selectors 章节
+```
+
+**ui_selectors 格式**：
+
+```yaml
+# design-contract.yaml 新增章节
+ui_selectors:
+  pages:
+    - name: "{PageName}"
+      route: "/{route}"
+      selectors:
+        table: "{selector}"
+        table_row: "{selector}"
+        create_button: "{selector}"
+        search_input: "{selector}"
+        search_button: "{selector}"
+
+    - name: "{ModalName}"
+      selectors:
+        modal: "{selector}"
+        submit_button: "{selector}"
+        cancel_button: "{selector}"
+        {field}_input: "{selector}"
+
+    - name: "CommonElements"
+      selectors:
+        success_message: ".ant-message-success"
+        error_message: ".ant-message-error"
+        confirm_dialog: ".ant-modal-confirm"
+        loading_spinner: ".ant-spin"
+```
+
+**选择器优先级**：
+
+| 优先级 | 选择器类型 | 示例 | 说明 |
+|--------|-----------|------|------|
+| 1 | data-testid | `button[data-testid='create-user']` | 最稳定，推荐 |
+| 2 | name 属性 | `input[name='username']` | 表单元素常用 |
+| 3 | role + text | `button:has-text('提交')` | 语义化选择 |
+| 4 | CSS 类名 | `.ant-btn-primary` | 最不稳定，最后选择 |
+
+> **⚠️ 降级兼容**：如果项目无前端代码，跳过本步骤。如果 design-contract.yaml 无 ui_selectors 章节，UI 验证将降级为使用文本匹配定位元素。
 
 **Step 3: 分层架构设计（按项目类型）**
 

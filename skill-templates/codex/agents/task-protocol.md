@@ -299,7 +299,7 @@ next_tasks_hint: [string]   # 建议的后续任务
         ├── execution-log.yaml # 执行日志
         ├── task-context.yaml  # 当前任务上下文
         ├── task-result.yaml   # 当前任务结果
-        ├── analyze-result.md  # 分析结果
+        ├── prd-contract.yaml    # PRD 契约（机器可执行）
         ├── design-result.md   # 设计结果
         ├── develop-result.yaml # 开发结果
         ├── verify-report.md   # 验证报告
@@ -325,13 +325,13 @@ tasks:
     agent: analyze-expert
     dependencies: [research]
     input_files: [".dev-flow/memory/"]
-    output_files: ["analyze-result.md", "task-breakdown.yaml"]
+    output_files: ["PRD-XXX.md", "prd-contract.yaml"]
   
   - id: design
     type: design
     agent: design-expert
     dependencies: [analyze]
-    input_files: ["analyze-result.md"]
+    input_files: ["prd-contract.yaml"]
     output_files: ["design-result.md"]
   
   - id: develop-entity

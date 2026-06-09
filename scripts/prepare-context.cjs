@@ -29,6 +29,19 @@ const STAGES_DIR = path.join(ROOT, 'skill-templates', '_core', 'stages');
 const MAX_BRIEF_SIZE = 120 * 1024; // 120KB - 给 subagent 留足够空间
 const MAX_FILE_READ = 30 * 1024;   // 单个依赖文件最大 30KB
 
+// 支持的 agent 类型
+const AGENT_TYPES = [
+  'analyze-expert', 'design-expert', 'task-split-expert', 'develop-expert',
+  'service-orchestrator', 'db-verifier', 'e2e-ui-tester',
+];
+
+// Agent 类型 → 所需上下文文件映射
+const AGENT_CONTEXT_MAP = {
+  'service-orchestrator': ['runtime-contract.yaml', 'startup-report.yaml'],
+  'db-verifier': ['test-case-contract.yaml', 'runtime-contract.yaml'],
+  'e2e-ui-tester': ['test-case-contract.yaml', 'design-contract.yaml', 'runtime-contract.yaml'],
+};
+
 // ============================================================
 // 参数解析
 // ============================================================
@@ -279,6 +292,35 @@ function collectTaskContext(taskId, demandName) {
       // 提取与本任务相关的部分
       const taskSpecific = extractRelevantContract(content, taskId);
       addSection('Design Contract (Relevant)', taskSpecific || content);
+    }
+  }
+
+  // 3.5 Agent 专属上下文文件（基于 AGENT_CONTEXT_MAP）
+  const taskAgent = extractTaskFromDag(dagContent || (dagFile ? safeRead(dagFile) : ''), taskId);
+  if (taskAgent && taskAgent.agent && AGENT_CONTEXT_MAP[taskAgent.agent]) {
+    const requiredFiles = AGENT_CONTEXT_MAP[taskAgent.agent];
+    const agentSections = [];
+    for (const fileName of requiredFiles) {
+      // 在 contracts/{demandName}/ 目录下查找
+      const contractsDir = path.join(ROOT, '.dev-flow', 'contracts', demandName || '');
+      let filePath = null;
+      if (fs.existsSync(contractsDir)) {
+        const fullPath = path.join(contractsDir, fileName);
+        if (fs.existsSync(fullPath)) filePath = fullPath;
+      }
+      // 兜底：在 docs 目录下查找
+      if (!filePath) {
+        filePath = findDemandFile(demandName ? `${demandName}-${fileName.replace('.yaml', '')}` : fileName.replace('.yaml', ''));
+      }
+      if (filePath) {
+        const content = safeRead(filePath, MAX_BRIEF_SIZE / 4);
+        if (content) {
+          agentSections.push(`### ${fileName}\n${content}`);
+        }
+      }
+    }
+    if (agentSections.length > 0) {
+      addSection(`Agent-Specific Context (${taskAgent.agent})`, agentSections.join('\n\n'));
     }
   }
 

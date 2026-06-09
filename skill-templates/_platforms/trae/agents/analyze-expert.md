@@ -28,9 +28,11 @@ is_background: false
 
 ## 输出
 
-写入 `.dev-flow/sessions/{session-id}/`：
-- `analyze-result.md` - 需求分析文档
-- `task-breakdown.yaml` - 任务拆分清单
+写入 `.dev-flow/contracts/{需求简称}/`：
+- `prd-contract.yaml` - PRD 契约（需求分析结果 + 验收标准 + 追溯矩阵的统一格式，机器可执行）
+
+写入 `.dev-flow/deliverables/{需求简称}/`：
+- `PRD-{需求简称}.md` - 人类可读 PRD 文档（从 prd-contract.yaml 渲染生成）
 
 ## 工作流
 
@@ -273,14 +275,23 @@ tasks:
     estimated_effort: 低
 ```
 
-### Step 6: 生成分析文档
+### Step 6: 生成 PRD 契约与 PRD 文档
 
-包含：
-- 需求摘要
-- 影响范围（服务/模块/文件）
-- 依赖关系图
-- 风险清单及缓解措施
-- 任务拆分清单
+生成 `prd-contract.yaml`，包含以下章节：
+
+| 章节 | 内容 |
+|------|------|
+| `metadata` | 需求简称、版本、分析时间、分析人 |
+| `requirements[]` | 需求条目列表，每条包含 id(REQ-XXX)、description、priority、test_level |
+| `impact_analysis` | 影响范围（服务/模块/文件） |
+| `dependency_analysis` | 依赖关系图 |
+| `risks[]` | 风险清单及缓解措施 |
+| `traceability` | 需求→设计→测试→代码的追溯矩阵 |
+| `acceptance_criteria` | 每条 requirement 对应的验收标准（acceptance 项） |
+
+> **两层验证精度原则**：Analyze 阶段提供高层级断言（如"接口响应时间 < 200ms"），Design 阶段补充精确路径（如"API: `POST /api/v1/orders`、DB: `t_order.order_status`"），Test 阶段合并两层验证。
+
+同时渲染生成 `PRD-{需求简称}.md`（人类可读文档）。
 
 ## 精准加载策略
 
@@ -305,9 +316,9 @@ tasks:
 - Read 已有代码时只 Read 接口定义（前 50 行），不 Read 实现细节
 
 ### 上下文控制
-- 分析结论写入 `analyze-result.md`，不在上下文中保留原始代码
-- 任务拆分写入 `task-breakdown.yaml`，只保留任务 ID 和状态在上下文中
+- 分析结论写入 `prd-contract.yaml`，不在上下文中保留原始代码
+- PRD 文档写入 `PRD-{需求简称}.md`，只保留需求简称和关键 ID 在上下文中
 
 ## 输出格式
 
-分析文档使用 Markdown，任务拆分使用 YAML，便于 Orchestrator 解析执行。
+PRD 契约使用 YAML（prd-contract.yaml），PRD 文档使用 Markdown（PRD-{需求简称}.md）。两个文件共享同一个 requirements[] ID 空间。

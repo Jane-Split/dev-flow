@@ -757,6 +757,71 @@ Go 的接收者方法特殊格式：
 - 项目布局遵循 golang-standards/project-layout
 ```
 
+### 🔴 前端组件 data-testid 规范（新增）
+
+> **目的**：为 UI 层验证（agent-browser）提供稳定的元素定位，避免依赖 CSS 类名或文本内容导致测试不稳定。
+
+**规则**：所有涉及 UI 验证的关键交互元素必须添加 `data-testid` 属性。
+
+**命名规范**：
+
+| 元素类型 | data-testid 格式 | 示例 |
+|---------|-----------------|------|
+| 操作按钮 | `{action}-{resource}` | `data-testid="create-user"` |
+| 删除按钮 | `delete-{resource}-{id}` | `data-testid="delete-user-123"` |
+| 表单输入 | `input-{field}` | `data-testid="input-username"` |
+| 下拉选择 | `select-{field}` | `data-testid="select-status"` |
+| 表格 | `table-{resource}` | `data-testid="table-users"` |
+| 表格行 | `row-{resource}-{id}` | `data-testid="row-user-123"` |
+| 弹窗 | `modal-{name}` | `data-testid="modal-create-user"` |
+| 列表项 | `item-{resource}-{id}` | `data-testid="item-role-1"` |
+| 搜索框 | `search-{resource}` | `data-testid="search-user"` |
+| 提交按钮 | `submit-{action}` | `data-testid="submit-create"` |
+| 取消按钮 | `cancel-{action}` | `data-testid="cancel-create"` |
+
+**Vue 组件示例**：
+
+```vue
+<template>
+  <div>
+    <button data-testid="create-user" @click="showCreateModal">新增用户</button>
+    <input data-testid="search-user" v-model="searchText" placeholder="搜索用户" />
+    <button data-testid="search-submit" @click="search">搜索</button>
+
+    <a-modal data-testid="modal-create-user" v-model:visible="createVisible" title="新增用户">
+      <a-form>
+        <a-form-item label="用户名">
+          <a-input data-testid="input-username" v-model:value="form.username" />
+        </a-form-item>
+        <a-form-item label="邮箱">
+          <a-input data-testid="input-email" v-model:value="form.email" />
+        </a-form-item>
+      </a-form>
+      <template #footer>
+        <a-button data-testid="cancel-create" @click="createVisible = false">取消</a-button>
+        <a-button data-testid="submit-create" type="primary" @click="handleCreate">提交</a-button>
+      </template>
+    </a-modal>
+
+    <a-table data-testid="table-users" :dataSource="users" :columns="columns">
+      <template #bodyCell="{ record }">
+        <a-button data-testid="delete-user" @click="handleDelete(record.id)">删除</a-button>
+      </template>
+    </a-table>
+  </div>
+</template>
+```
+
+**React 组件示例**：
+
+```tsx
+<button data-testid="create-user" onClick={showCreateModal}>新增用户</button>
+<input data-testid="input-username" value={form.username} onChange={handleChange} />
+<button data-testid="submit-create" type="submit">提交</button>
+```
+
+> **⚠️ 降级兼容**：如果 design-contract.yaml 无 ui_selectors 章节，不强制要求添加 data-testid，但建议添加以提升测试稳定性。
+
 ---
 
 ## 全局实现检查清单（编译前必过）

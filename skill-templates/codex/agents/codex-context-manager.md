@@ -125,7 +125,7 @@ phase_results:
   Analyze:
     status: "completed"
     output_files:
-      - ".dev-flow/sessions/session-20260529-001/analyze-result.md"
+      - ".dev-flow/sessions/session-20260529-001/prd-contract.yaml"
     summary: "涉及3个服务，预计新增15个文件"
     
   Design:
@@ -286,7 +286,7 @@ warnings: []
 |------|----------|------|
 | Research | pom.xml, application.yml | 项目配置 |
 | Analyze | memory/*.md | 项目记忆 |
-| Design | analyze-result.md | 需求分析 |
+| Design | prd-contract.yaml | PRD 契约 |
 | Task Split | design-contract.yaml | 设计契约 |
 | Develop | subtask-design.yaml | 子任务设计 |
 | Test | 代码文件 | 测试目标 |

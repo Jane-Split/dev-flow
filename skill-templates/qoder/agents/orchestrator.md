@@ -112,6 +112,47 @@ Step 0.4: 准备 subagent 上下文注入（🔴 必须执行）
 
 ---
 
+**Step 0.6: 批次内并发控制与子批次分割（v3.2）**
+
+> **目的**：防止大批次同时启动过多 subagent 导致系统资源过载。
+> 调度引擎自动将任务数超过 max_concurrent 的批次拆分为多个子批次（Chunks）。
+
+```
+Step 0.6.1: 读取调度计划中的并发配置
+  ├── dispatch-plan.yaml 中的 max_concurrent 值
+  ├── 默认值由平台决定（cursor:3, trae:5, claude:4, codex:3, qoder:2）
+  └── 用户可通过 --max-concurrent N 覆盖
+
+Step 0.6.2: 识别需要分割的大批次
+  ├── 遍历调度计划的每个批次
+  ├── chunks_enabled = true 时存在需要分割的批次
+  └── 批次中的 chunks 数组包含各子批次信息
+
+Step 0.6.3: 按子批次逐步派发（滑动窗口调度）
+  │
+  ├── 首先派发 Chunk 0 的所有任务
+  │     ├── 正常按平台策略派发（Task 调用/斜杠命令/JS 编排等）
+  │     └── Chunk 0 的任务数 = max_concurrent
+  │
+  ├── 等待 Chunk 0 中任意任务完成
+  │     └── 每完成 1 个任务 → 立即从 Chunk 1 启动 1 个任务填补空位
+  │
+  ├── 以此类推，直到所有子批次的任务全部完成
+  │     └── 任何时刻活跃 subagent 总数 ≤ max_concurrent
+  │
+  └── 当前 DAG 批次的所有子批次全部完成
+        └── 进入下一 DAG 批次（批次间仍为严格的串行依赖）
+```
+
+**关键特性**：
+1. DAG 依赖关系不变 — 批次间串行语义完全保留
+2. 子批次是逻辑概念 — 不改变 task-dag.yaml 结构
+3. 滑动窗口保证总并发 ≤ max_concurrent — 任何时刻最多 N 个 subagent
+4. 冲突检测不受影响 — 写写/写读冲突的串行化优先级高于子批次拆分
+5. 小批次（任务数 ≤ max_concurrent）无需拆分，行为与之前完全一致
+
+---
+
 ### Step 1: 需求理解
 - 与用户确认需求细节
 - 识别涉及的服务和模块
@@ -149,13 +190,13 @@ tasks:
     type: analyze
     agent: analyze-expert
     input: 需求描述 + memory/
-    output: analyze-result.md
+    output: prd-contract.yaml
     dependencies: [T1]
   
   - id: T3
     type: design
     agent: design-expert
-    input: analyze-result.md
+    input: prd-contract.yaml
     output: design-result.md
     dependencies: [T2]
   
@@ -342,13 +383,13 @@ next_tasks_hint: [建议的后续任务]
 
 ### 平台能力矩阵
 
-| 平台 | Subagent 定义格式 | 并行能力 | 调度策略 |
-|------|------------------|---------|---------|
-| **Trae** | `/agent-name` 斜杠命令 | 原生并行 | 完整并行模式 |
-| **Cursor** | `.cursor/agents/*.md` YAML frontmatter | 原生并行（Task 工具多调用 + 后台模式 + 嵌套） | Cursor 并行模式 |
-| **Claude Code** | Dynamic Workflows JS 编排 + `.claude/agents/*.md` | 强并行（16 并发 + 1000 总量上限 + 对抗验证） | Claude 并行模式 |
-| **Qoder** | Quest Mode 主从 Agent 架构 | 主从并行（前端/后端/测试/部署方向） | Qoder 主从并行模式 |
-| **Codex** | `.codex/agents/*.toml` + `AGENTS.md` | 有限并行（6 线程 + max_depth:1 + CSV 批量） | Codex 有限并行模式 |
+| 平台 | Subagent 定义格式 | 并行能力 | 推荐并发上限 | 调度策略 |
+|------|------------------|---------|------------|---------|
+| **Trae** | `/agent-name` 斜杠命令 | 原生并行 | 5 | 完整并行模式 |
+| **Cursor** | `.cursor/agents/*.md` YAML frontmatter | 原生并行（Task 工具多调用 + 后台模式 + 嵌套） | 3 | Cursor 并行模式 |
+| **Claude Code** | Dynamic Workflows JS 编排 + `.claude/agents/*.md` | 强并行（16 并发 + 1000 总量上限 + 对抗验证） | 4 | Claude 并行模式 |
+| **Qoder** | Quest Mode 主从 Agent 架构 | 主从并行（前端/后端/测试/部署方向） | 2 | Qoder 主从并行模式 |
+| **Codex** | `.codex/agents/*.toml` + `AGENTS.md` | 有限并行（6 线程 + max_depth:1 + CSV 批量） | 3 | Codex 有限并行模式 |
 
 > **所有五大平台均支持 Subagent 并行执行**，只是接口格式和并行上限不同。
 > Orchestrator 必须根据当前平台选择最优调度策略，充分利用平台原生能力。
@@ -361,6 +402,7 @@ next_tasks_hint: [建议的后续任务]
 1. 构建完整 DAG 依赖图
 2. 执行拓扑排序，划分批次
 3. **同一批次的任务同时启动多个 develop-expert**：`/develop-expert`
+3.5. **大批次自动分割**：当批次任务数 > max_concurrent(5) 时，自动拆分为子批次，按滑动窗口逐批派发
 4. 各 subagent 通过 `task-result.yaml` 汇报结果
 5. 主 agent 汇总批次结果后，启动下一批次
 
@@ -391,6 +433,7 @@ next_tasks_hint: [建议的后续任务]
 **执行方式**：
 1. 构建完整 DAG 依赖图 + 拓扑排序 + 划分批次
 2. **同一批次的任务在一条消息中发送多个 Task 调用**，实现真正并行
+2.5. **大批次自动分割**：当批次任务数 > max_concurrent(3) 时，拆分为子批次，每条消息发送不超过 3 个 Task 调用
 3. 后台 subagent 的输出写入 `~/.cursor/subagents/` 目录
 4. 主 agent 读取 subagent 输出，汇总批次结果
 5. 通过 `Resume agent <agent-id>` 恢复已完成的后台 subagent
@@ -436,7 +479,7 @@ Task: /develop-expert [Task-5 上下文]
 // .dev-flow/workflows/batch-dispatch.js
 const { spawn } = require('child_process');
 
-async function dispatchBatch(tasks, concurrency = 16) {
+async function dispatchBatch(tasks, concurrency = 4) { // v3.2: 使用 max_concurrent(4) 替代平台硬限(16)，防止资源过载
   const running = [];
   const results = [];
 
@@ -477,7 +520,7 @@ async function dispatchBatch(tasks, concurrency = 16) {
 **执行方式**：
 1. 利用 `.codex/agents/*.toml` 中定义的 subagent
 2. 通过 `run agent: develop-expert` 启动 subagent
-3. **6 线程并行执行**（Codex 的并行上限）
+3. **3 线程并行执行（max_concurrent=3，防止资源过载）**
 4. 支持 CSV 批量处理，可一次性提交多个任务
 5. `max_depth: 1`（subagent 不能再启动子 subagent）
 6. 按 DAG 拓扑排序执行，产出通过 `task-result.yaml` 传递
