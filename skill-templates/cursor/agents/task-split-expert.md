@@ -69,6 +69,25 @@ is_background: false
 | ServiceTask | 业务逻辑层 | UserService、OrderService |
 | ControllerTask | 接口层 | UserController、OrderController |
 
+**🔴 任务域标签（domain）**：
+
+每个子任务必须标记 `domain` 字段：
+
+| 子任务类型 | domain | 说明 |
+|-----------|--------|------|
+| EntityTask | backend | 数据模型定义 |
+| DTOTask | backend | 数据传输对象 |
+| MapperTask | backend | 数据访问层 |
+| ServiceTask | backend | 业务逻辑层 |
+| ControllerTask | backend | 接口层 |
+| TypeTask | frontend | TypeScript 类型定义 |
+| ApiTask | frontend | API 请求函数 |
+| HookTask | frontend | Hooks/Composables |
+| ComponentTask | frontend | UI 组件 |
+| PageTask | frontend | 页面组件 |
+| RouterTask | frontend | 路由配置 |
+| StoreTask | frontend | 状态管理 |
+
 ### Step 3: 构建依赖 DAG
 
 **依赖类型**：
@@ -83,27 +102,32 @@ dag:
     - id: "task-001"
       name: "UserEntity"
       type: "EntityTask"
-      
+      domain: "backend"
+
     - id: "task-002"
       name: "UserMapper"
       type: "MapperTask"
-      dependencies: ["task-001"]  # 依赖 UserEntity
-      
+      domain: "backend"
+      dependencies: ["task-001"]
+
     - id: "task-003"
       name: "UserService"
       type: "ServiceTask"
-      dependencies: ["task-002"]  # 依赖 UserMapper
-      
+      domain: "backend"
+      dependencies: ["task-002"]
+
     - id: "task-004"
       name: "OrderService"
       type: "ServiceTask"
-      dependencies: 
-        - "task-003"  # 依赖 UserService 接口
-        - "task-005"  # 依赖 OrderEntity
-        
+      domain: "backend"
+      dependencies:
+        - "task-003"
+        - "task-005"
+
     - id: "task-005"
       name: "OrderEntity"
       type: "EntityTask"
+      domain: "backend"
       
   batches:
     - batch: 1
@@ -123,6 +147,7 @@ dag:
 subtaskId: "task-003"
 name: "UserService"
 type: "ServiceTask"
+domain: "backend"
 version: "1.0"
 
 # 该子任务自己负责的设计部分

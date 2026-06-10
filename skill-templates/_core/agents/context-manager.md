@@ -91,7 +91,7 @@ task_driven_context_budget:
       action: "计算最小必需上下文"
       formula: |
         minimum_context = 
-          system_prompt_size +          # develop-expert.md 指令（约 10KB）
+          system_prompt_size +          # backend-develop-expert.md / frontend-develop-expert.md 指令（约 10KB）
           design_doc_size +             # 子任务设计文档（实际大小）
           actual_dependencies_size +     # Step 2.5 实际需要读取的依赖类（动态）
           min_code_space                # 最小代码生成空间（5KB）
@@ -460,7 +460,7 @@ phase_5_develop:
     - "context-manager 监控每个 subagent 的上下文使用"
     
   serial_mode:
-    - "按依赖链顺序执行 develop-expert"
+    - "按依赖链顺序执行 backend-develop-expert / frontend-develop-expert"
     - "每个任务在干净上下文中启动"
     - "完成后清理上下文，再执行下一个"
     
@@ -470,7 +470,7 @@ phase_5_develop:
     - "context-manager 动态调整"
 ```
 
-### 与 develop-expert 的集成
+### 与 backend-develop-expert / frontend-develop-expert 的集成
 
 ```yaml
 develop_expert_integration:

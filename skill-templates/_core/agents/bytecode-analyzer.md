@@ -309,10 +309,10 @@ patterns:
 </plugin>
 ```
 
-### 在 develop-expert 中调用
+### 在 backend-develop-expert 中调用
 
 ```yaml
-# develop-expert.md Step 5.8
+# backend-develop-expert.md Step 5.8
 step_5_8_bytecode_analysis:
   name: "字节码分析"
   description: "编译后分析字节码，检测日志占位"
@@ -361,8 +361,8 @@ thresholds:
 | Agent | 验证维度 | 执行时机 | 执行者 |
 |-------|---------|---------|--------|
 | bytecode-analyzer | 编译后字节码/源码深度分析 | 编译完成后（可选） | verify-expert |
-| design-contract-validator | 设计文档 call action 完整性 | 开发过程中（可选） | develop-expert |
-| step-enforcer | 文件存在性、禁止事项、早期覆盖率 | 开发过程中（强制） | develop-expert |
+| design-contract-validator | 设计文档 call action 完整性 | 开发过程中（可选） | backend-develop-expert / frontend-develop-expert |
+| step-enforcer | 文件存在性、禁止事项、早期覆盖率 | 开发过程中（强制） | backend-develop-expert / frontend-develop-expert |
 | contract-validator | 结构一致性 + 逻辑覆盖率最终验证 | 开发完成后（强制） | orchestrator |
 | verify-expert | 代码质量、编译验证、需求满足度 | 最终验证阶段（强制） | orchestrator |
 

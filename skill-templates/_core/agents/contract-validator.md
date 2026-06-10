@@ -421,14 +421,14 @@ validation:
 2. 分类失败类型
    | 失败类型 | 处理策略 |
    |----------|----------|
-   | 方法名不匹配 | 返回给develop-expert修复 |
-   | 参数类型不匹配 | 返回给develop-expert修复 |
-   | 缺少方法实现 | 返回给develop-expert补充 |
-   | 存在TODO | 返回给develop-expert完成 |
+   | 方法名不匹配 | 返回给 backend-develop-expert / frontend-develop-expert 修复 |
+   | 参数类型不匹配 | 返回给 backend-develop-expert / frontend-develop-expert 修复 |
+   | 缺少方法实现 | 返回给 backend-develop-expert / frontend-develop-expert 补充 |
+   | 存在TODO | 返回给 backend-develop-expert / frontend-develop-expert 完成 |
 
 3. 生成修复任务
    - 创建修复子任务
-   - 分配给develop-expert
+   - 分配给 backend-develop-expert / frontend-develop-expert
    - 重新验证
 
 4. 最多重试3次

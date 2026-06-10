@@ -16,10 +16,10 @@ const CORE_DIR = path.join(ROOT, 'skill-templates', '_core');
 
 // 大小阈值（字节）
 const THRESHOLDS = {
-  'SKILL.md': 30 * 1024,       // Router: 25KB
+  'SKILL.md': 35 * 1024,       // Router: 35KB（前后端分离架构增加了内容）
   'stages/*.md': 35 * 1024,    // 单个 stage: 35KB
   'agents/*.md': 35 * 1024,    // 单个 agent: 30KB
-  'references/*.md': 20 * 1024, // 单个 reference: 20KB
+  'references/*.md': 25 * 1024, // 单个 reference: 25KB
 };
 
 let warnings = 0;

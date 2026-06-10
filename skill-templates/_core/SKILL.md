@@ -25,7 +25,7 @@ description: AI开发全流程编排技能 - 在AI编程工具对话框中结构
 | Analyze | `analyze-expert` | 调度 + 读取交付物 + 展示审批 |
 | Design | `design-expert` | 调度 + 读取交付物 + 展示审批 |
 | Task Split | `task-split-expert` | 调度 + 读取交付物 + 展示审批 |
-| Develop | `develop-expert`（可并行多个） | 调度 + 进度监控 + 汇总 |
+| Develop | `backend-develop-expert` + `frontend-develop-expert`（可并行多个） | 域路由调度 + 进度监控 + 汇总 |
 | Test（统一测试） | `test-expert`（单元+冒烟+E2E+集成） | 调度 + 读取交付物 + 展示审批 |
 | Fix | `fix-expert` | 调度 + 读取交付物 + 展示审批 |
 | Delivery | `delivery-expert` | 调度 + 读取交付物 + 展示审批 |
@@ -76,11 +76,11 @@ description: AI开发全流程编排技能 - 在AI编程工具对话框中结构
 > **所有五大平台均支持 Subagent 并行执行**，Orchestrator 根据当前平台自动选择最优调度策略。
 
 **并行开发适配规则**：
-- **Trae**：同批次任务同时启动多个 `/develop-expert`，通过 `task-result.yaml` 传递产出
+- **Trae**：同批次任务同时启动多个 `/backend-develop-expert` 或 `/frontend-develop-expert`，通过 `task-result.yaml` 传递产出
 - **Cursor**：一条消息中发送多个 Task 工具调用实现真正并行，支持 `is_background: true` 后台模式，通过 `~/.cursor/subagents/` 或直接返回获取结果
 - **Claude Code**：Dynamic Workflows JS 编排脚本派发 subagent，利用 16 并发上限，对抗验证自动检查产出质量
 - **Qoder**：主 Agent 规划调度，子 Agent 按方向（前端/后端/测试/部署）并行处理，Quest Mode Checkpoints 确保质量
-- **Codex**：通过 `run agent: develop-expert` 启动 subagent，6 线程并行，通过 `task-result.yaml` 传递产出
+- **Codex**：通过 `run agent: backend-develop-expert` 或 `run agent: frontend-develop-expert` 启动 subagent，6 线程并行，通过 `task-result.yaml` 传递产出
 
 **批次内并发控制（v3.2）**：
 - 当 DAG 拓扑排序的某个批次任务数超过平台推荐并发上限时，调度引擎自动将大批次拆分为多个**子批次（Chunks）**
@@ -97,19 +97,27 @@ description: AI开发全流程编排技能 - 在AI编程工具对话框中结构
 ```
 用户 ←→ 主 Agent（纯调度枢纽，零编辑）
               │
-  ├── research（多子代理分批架构）
-  │     ├── pre-scanner           → 全局 Quick Scan + 模板文件初始化 → file-index.yaml
-  │     ├── batch-1 (基础层 ×3)   → project-overview / service-registry / architecture
-  │     ├── batch-2 (数据层 ×3)   → common-modules / models / config
-  │     ├── batch-3 (行为层 ×3)   → apis / utils / conventions
-  │     └── batch-4 (横切层 ×2)   → dependency-graph / decisions
+  ├── research（多子代理分批架构，前后端分离）
+  │     ├── pre-scanner           → 全局 Quick Scan + 前后端检测 + 分域索引 + 模板初始化
+  │     ├── 后端扫描组 (11 子代理, 4 批次)
+  │     │     ├── Batch 1 (基础层 ×3): project-overview, service-registry, architecture
+  │     │     ├── Batch 2 (数据层 ×3): common-modules, models, config
+  │     │     ├── Batch 3 (行为层 ×3): apis, utils, conventions
+  │     │     └── Batch 4 (横切层 ×2): dependency-graph, decisions
+  │     └── 前端扫描组 (9 子代理, 3 批次)
+  │           ├── Batch 1 (基础层 ×3): frontend-overview, frontend-structure, frontend-architecture
+  │           ├── Batch 2 (组件层 ×3): components, routes-and-state, frontend-config
+  │           └── Batch 3 (行为层 ×3): frontend-apis, frontend-utils, frontend-conventions
               ├── clarify-expert      → 需求澄清，迭代问答消除歧义
               ├── analyze-expert     → 分析需求，输出需求分析文档
               ├── design-expert      → 详细设计，输出设计文档
               ├── task-split-expert  → 任务拆分，输出任务清单（DAG）
-              ├── develop-expert     → 代码开发（可并行多个）
+              ├── backend-develop-expert  → 后端代码开发（可并行多个）
               │     ├── 开发中汇报机制 → 向主 Agent 汇报进度
               │     ├── @on-demand-loader → 按需加载未扫描的类
+              │     └── @runtime-state-manager → 状态持久化、断点续传
+              ├── frontend-develop-expert → 前端代码开发（可并行多个）
+              │     ├── 开发中汇报机制 → 向主 Agent 汇报进度
               │     └── @runtime-state-manager → 状态持久化、断点续传
               ├── test-expert        → 统一测试（单元+冒烟+E2E+集成），输出测试报告
               ├── fix-expert         → Bug 修复，输出修复代码
@@ -480,7 +488,7 @@ Step 6: 🔴 门禁检查 → task-split-expert → Task Split → 确认 → ta
   ┌──────────────────────────────────────────────────────────────┐
   │ 🔴 模式动态重评估网关（Task Split 确认后自动执行）             │
   └──────────────────────────────────────────────────────────────┘
-Step 7: 重评估通过 → develop-expert（串行或并行）→ 确认 → develop.confirmed
+Step 7: 重评估通过 → backend-develop-expert 和/或 frontend-develop-expert（串行或并行）→ 确认 → develop.confirmed
 Step 8: 🔴 门禁检查 → test-expert → 统一 Test（单元+冒烟+E2E+集成）→ 确认 → test.confirmed
 Step 9: 🔴 门禁检查 → fix-expert → Fix(按需，仅当测试未通过) → 确认 → fix.confirmed
 Step 10: 🔴 门禁检查 → delivery-expert → Delivery → 确认 → delivery.confirmed

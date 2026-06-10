@@ -1,0 +1,7 @@
+[agent]
+name = "frontend-develop-expert"
+description = "dev-flow 前端开发专家，负责前端代码实现。Use when implementing frontend code based on design documents."
+tools = ["Read", "Write", "Edit", "Bash", "Grep", "Glob"]
+model = "inherit"
+readonly = false
+is_background = true

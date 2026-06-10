@@ -15,7 +15,7 @@ is_background: false
 
 > **Orchestrator 与主 Agent 一样，绝不直接编辑任何代码文件。**
 > **Orchestrator 的工具权限不包含 Edit/Write。**
-> **所有代码编辑由 develop-expert 等 subagent 执行。**
+> **所有代码编辑由 backend-develop-expert / frontend-develop-expert 等 subagent 执行。**
 
 ## 触发条件
 
@@ -47,7 +47,7 @@ is_background: false
 | Analyze | analyze-expert | `stages/analyze.md` |
 | Design | design-expert | `stages/design.md` |
 | Task Split | task-split-expert | `stages/task-split.md` |
-| Develop | develop-expert | `stages/develop.md` |
+| Develop | backend-develop-expert / frontend-develop-expert | `stages/develop.md` |
 | Contract Validation | contract-validator | `agents/contract-validator.md` |
 | Verify | verify-expert | `stages/test.md` |
 
@@ -94,7 +94,7 @@ Step 0.4: 准备 subagent 上下文注入（🔴 必须执行）
 
 **Step 0.5: 代码生成分段规划（v3.0）**
 
-> **目的**：在派发 develop-expert 前，为需要生成大量代码的任务（预估 > 20KB）预先规划分段策略。
+> **目的**：在派发 backend-develop-expert / frontend-develop-expert 前，为需要生成大量代码的任务（预估 > 20KB）预先规划分段策略。
 
 ```
 对于每个 develop 任务：
@@ -107,8 +107,8 @@ Step 0.4: 准备 subagent 上下文注入（🔴 必须执行）
 ```
 
 **分段模式的 dispatch 调整**：
-- 骨架阶段（seg-skeleton）：正常派发 develop-expert，但在 task-context.yaml 中标记 `segmentation: skeleton`
-- 填充阶段（seg-method_fill）：每次派发 develop-expert 只负责一个方法，在 task-context.yaml 中标记 `segmentation: method_fill` + `target_segment: {segId}`
+- 骨架阶段（seg-skeleton）：正常派发 backend-develop-expert / frontend-develop-expert，但在 task-context.yaml 中标记 `segmentation: skeleton`
+- 填充阶段（seg-method_fill）：每次派发 backend-develop-expert / frontend-develop-expert 只负责一个方法，在 task-context.yaml 中标记 `segmentation: method_fill` + `target_segment: {segId}`
 - 验证阶段：orchestrator 自行执行，不需要派发 subagent
 
 ---
@@ -168,7 +168,7 @@ Step 0.6.3: 按子批次逐步派发（滑动窗口调度）
 | clarify | clarify-expert | 需求澄清、迭代问答 |
 | analyze | analyze-expert | 需求分析、影响评估 |
 | design | design-expert | 详细设计 |
-| develop | develop-expert | 代码开发（可并行） |
+| develop | backend-develop-expert / frontend-develop-expert | 代码开发（可并行） |
 | verify | verify-expert | 代码验证 |
 
 **拆分原则**：
@@ -204,7 +204,7 @@ tasks:
   
   - id: T4
     type: develop
-    agent: develop-expert
+    agent: backend-develop-expert
     input: design-result.md
     output: 代码文件
     dependencies: [T3]
@@ -212,7 +212,7 @@ tasks:
   
   - id: T5
     type: develop
-    agent: develop-expert
+    agent: backend-develop-expert
     input: design-result.md
     output: 代码文件
     dependencies: [T3]
@@ -230,13 +230,13 @@ tasks:
 ```
 
 **🔴 上下文注入规则（每批次派发前必须执行）**：
-> 在派发任何 develop-expert 之前，必须先运行 `prepare-context.cjs` 为每个任务准备上下文。
+> 在派发任何 backend-develop-expert / frontend-develop-expert 之前，必须先运行 `prepare-context.cjs` 为每个任务准备上下文。
 > subagent 启动时，Orchestrator 应在派发命令中明确指示 subagent 读取对应的 task-brief 文件。
 > 这样 subagent 打开即有完整上下文，不依赖 AI 自觉读取文件。
 
 **执行命令**：
 - 串行任务：`/research-expert` 或 `/analyze-expert`
-- 并行任务：同时发送多个 `/develop-expert` 调用
+- 并行任务：同时发送多个 `/backend-develop-expert` 或 `/frontend-develop-expert` 调用
 
 ### Step 5: 结果验证（🔴 多层验证闭环）
 
@@ -258,7 +258,7 @@ Step 5.0: 自动产出校验（🔴 批次完成后必须执行）
   │   ├── 无 TODO/FIXME/空方法体残留
   │   ├── 无日志替代业务逻辑
   │   └── Design Contract 方法签名一致性
-  ├── 校验失败 → 阻止进入后续验证（Step 5.1/5.2/5.3），返回 develop-expert 修复
+  ├── 校验失败 → 阻止进入后续验证（Step 5.1/5.2/5.3），返回对应的 develop-expert 修复
   └── 校验报告写入: .dev-flow/runtime/validation-report.yaml
   │
   ▼
@@ -286,8 +286,8 @@ Step 5.3: verify-expert 质量检查
   ├── 全部通过 → 进入下一批次
   │
   └── 任一验证失败
-        ├── Step 5.2 R5 失败 → 返回 develop-expert 补充实现
-        ├── Step 5.3 编译失败 → 返回 develop-expert 修复
+        ├── Step 5.2 R5 失败 → 返回对应的 develop-expert 补充实现
+        ├── Step 5.3 编译失败 → 返回对应的 develop-expert 修复
         └── 重试 2 次仍失败 → 升级到 Orchestrator 人工处理
 ```
 
@@ -364,7 +364,7 @@ next_tasks_hint: [建议的后续任务]
 | 依赖任务失败 | 阻塞后续依赖任务，报告用户 |
 | 输出不完整 | 要求 subagent 补充 |
 | 超时 | 后台模式继续，或询问用户 |
-| 产出校验失败 | 返回 develop-expert 修复，最多 2 轮 |
+| 产出校验失败 | 返回对应的 develop-expert 修复，最多 2 轮 |
 
 ## 上下文管理原则
 
@@ -403,22 +403,22 @@ next_tasks_hint: [建议的后续任务]
 **执行方式**：
 1. 构建完整 DAG 依赖图
 2. 执行拓扑排序，划分批次
-3. **同一批次的任务同时启动多个 develop-expert**：`/develop-expert`
+3. **同一批次的任务同时启动多个 backend-develop-expert / frontend-develop-expert**：`/backend-develop-expert`
 3.5. **大批次自动分割**：当批次任务数 > max_concurrent(5) 时，自动拆分为子批次，按滑动窗口逐批派发
 4. 各 subagent 通过 `task-result.yaml` 汇报结果
 5. 主 agent 汇总批次结果后，启动下一批次
 
 **并行执行命令示例**：
 ```
-# 批次 1: 并行启动多个 develop-expert
-/develop-expert [Task-1 上下文]
-/develop-expert [Task-2 上下文]
-/develop-expert [Task-3 上下文]
+# 批次 1: 并行启动多个 backend-develop-expert
+/backend-develop-expert [Task-1 上下文]
+/backend-develop-expert [Task-2 上下文]
+/backend-develop-expert [Task-3 上下文]
 
 # 等待批次 1 全部完成后...
 # 批次 2: 并行启动
-/develop-expert [Task-4 上下文]
-/develop-expert [Task-5 上下文]
+/backend-develop-expert [Task-4 上下文]
+/backend-develop-expert [Task-5 上下文]
 ```
 
 ### 策略二：Cursor 并行模式
@@ -443,14 +443,14 @@ next_tasks_hint: [建议的后续任务]
 **并行执行示例**：
 ```
 # 一条消息中同时启动多个 Task（真正并行）
-Task: /develop-expert [Task-1 上下文, model: inherit]
-Task: /develop-expert [Task-2 上下文, model: inherit, is_background: true]
-Task: /develop-expert [Task-3 上下文, model: composer-2]
+Task: /backend-develop-expert [Task-1 上下文, model: inherit]
+Task: /backend-develop-expert [Task-2 上下文, model: inherit, is_background: true]
+Task: /backend-develop-expert [Task-3 上下文, model: composer-2]
 
 # 等待批次全部完成...
 # 批次 2:
-Task: /develop-expert [Task-4 上下文]
-Task: /develop-expert [Task-5 上下文]
+Task: /backend-develop-expert [Task-4 上下文]
+Task: /backend-develop-expert [Task-5 上下文]
 ```
 
 **产出传递**：
@@ -521,7 +521,7 @@ async function dispatchBatch(tasks, concurrency = 4) { // v3.2: 使用 max_concu
 
 **执行方式**：
 1. 利用 `.codex/agents/*.toml` 中定义的 subagent
-2. 通过 `run agent: develop-expert` 启动 subagent
+2. 通过 `run agent: backend-develop-expert 或 run agent: frontend-develop-expert` 启动 subagent
 3. **3 线程并行执行（max_concurrent=3，防止资源过载）**
 4. 支持 CSV 批量处理，可一次性提交多个任务
 5. `max_depth: 1`（subagent 不能再启动子 subagent）
@@ -555,7 +555,7 @@ next_tasks_input:
 ```
 
 > **🔴 产出校验**：Orchestrator 在收集 task-result.yaml 后，自动运行 `validate-result.cjs`
-> 进行格式校验和代码质量扫描。校验失败的任务会被打回 develop-expert 修复。
+> 进行格式校验和代码质量扫描。校验失败的任务会被打回对应的 develop-expert 修复。
 
 ### 平台检测方法
 

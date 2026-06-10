@@ -19,6 +19,7 @@ const tests = [
   { name: '链接有效性', file: 'links.test.js' },
   { name: '文件大小预警', file: 'size-warning.test.js' },
   { name: 'Markdown 格式', file: 'format.test.js' },
+  { name: '前后端分离架构', file: 'frontend-backend-split.test.js' },
 ];
 
 let totalPassed = 0;
