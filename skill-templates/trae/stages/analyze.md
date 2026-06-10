@@ -3,7 +3,7 @@ stage: Analyze
 type: stage-instruction
 ---
 
-## 阶段二：Analyze（需求分析）
+## 阶段三：Analyze（需求分析）
 
 ### 🔔 入口 Banner（本阶段开始时输出）
 
@@ -18,7 +18,7 @@ type: stage-instruction
 ```
 
 ### 触发条件
-- 全流程模式（Research 确认后）
+- 全流程模式（Research 确认后，或 Clarify 确认后）
 - 用户输入 `/dev-flow -analyze <需求>`
 
 ### 🔴🔴 主 Agent 零编辑约束（本阶段入口铁律）
@@ -28,6 +28,12 @@ type: stage-instruction
 > **所有文件编辑必须由 analyze-expert subagent 执行。**
 > **完整零编辑铁律、失败硬阻断规则、交付物协议见 `references/protocol.md`。**
 
+### 🔴 Clarify 增强输入说明
+
+> **Clarify 是可选阶段**。如果 Clarify 已执行（`clarification-result.yaml` 存在），Analyze 将读取澄清结果作为增强输入。
+> 如果 Clarify 未执行，Analyze 完整执行所有步骤，行为与 v3.4.0 完全一致。
+> **核心原则：不削弱任何现有能力。**
+
 ### 执行步骤
 
 > **⚠️ 以下步骤由 analyze-expert subagent 在独立上下文中执行，主 Agent 不直接执行这些步骤。主 Agent 的职责是：创建 subagent → 传递上下文 → 等待结果 → 向用户汇报。**
@@ -35,6 +41,21 @@ type: stage-instruction
 **Step 0.5: 输入源识别与解析（新增）**
 
 > **目的**：支持从外部需求文档（产品需求模板、飞书/Confluence URL、Markdown 文件）解析需求，降低产品经理使用门槛。
+
+**🔴 条件分支（Clarify 增强路径）**：
+
+```
+检查 .dev-flow/contracts/{需求简称}/clarification-result.yaml 是否存在？
+│
+├── 存在（Clarify 已执行）：
+│     ├── 读取 clarification-result.yaml 的 demand_draft 章节
+│     ├── 跳过重新解析（Clarify 已完成解析）
+│     └── 直接使用 demand-draft.yaml（Clarify 已生成）
+│
+└── 不存在（Clarify 未执行）：
+      ├── 执行完整的 Step 0.5（与 v3.4.0 完全一致）
+      └── 见下方完整流程
+```
 
 **输入类型检测**：
 
@@ -68,6 +89,22 @@ Step 0.5.3: 传递给 Step 1 继续现有流程
 > **⚠️ 降级兼容**：如果用户直接在对话框中描述需求（无外部文档），跳过本步骤，直接进入 Step 1，行为与 v3.4.0 完全一致。
 
 **Step 1: 需求解析**
+
+**🔴 条件分支（Clarify 增强路径）**：
+
+```
+检查 clarification-result.yaml 是否存在？
+│
+├── 存在（Clarify 已执行）：
+│     ├── 从 clarified_requirements.overview 提取需求类型和优先级
+│     ├── 从 clarified_requirements.requirements 提取功能点列表（已澄清，更完整）
+│     └── 微服务跨服务影响评估（使用澄清后的 scope.services）
+│
+└── 不存在（Clarify 未执行）：
+      ├── 执行完整的 Step 1（与 v3.4.0 完全一致）
+      └── 见下方完整流程
+```
+
 - 识别需求类型：新功能 / 功能增强 / Bug 修复 / 重构 / 性能优化
 - 识别优先级：P0(紧急) / P1(高) / P2(中) / P3(低)
 - 提取核心功能点列表
@@ -118,6 +155,29 @@ Step 0.5.3: 传递给 Step 1 继续现有流程
 > **🔴🔴 强制规则**：如果发现任何歧义或缺失信息，必须暂停并等待用户澄清。
 > **禁止行为**：AI 自行假设歧义项的答案并继续分析。
 > **唯一例外**：歧义项有明显的行业标准答案且用户需求明确符合该标准（如 CRUD 操作的分页默认）。
+
+**🔴 条件分支（Clarify 兜底机制）**：
+
+```
+检查 clarification-result.yaml 是否存在？
+│
+├── 存在（Clarify 已执行迭代问答）：
+│     ├── 读取 clarification-result.yaml 的 qa_records
+│     ├── 检查 unresolved 列表中的未解决问题
+│     ├── 执行轻量级歧义扫描：
+│     │   ├── 仅检查 Clarify 未覆盖的新维度
+│     │   ├── 仅检查 Clarify 后新暴露的歧义
+│     │   └── 如果无新歧义 → 跳过强制提问，直接进入 Step 3.5
+│     └── 如果发现新歧义 → 仍然强制阻断并提问（与 v3.4.0 行为一致）
+│
+└── 不存在（Clarify 未执行）：
+      ├── 执行完整的 Step 3（与 v3.4.0 完全一致）
+      ├── 列出所有歧义
+      ├── 强制向用户提问澄清
+      └── 硬性阻断：用户回复前禁止进入 Step 4
+```
+
+> **⚠️ 双重保险**：即使经过 Clarify，Analyze 的歧义识别仍保留为兜底机制。如果 Analyze 发现新歧义，仍然强制阻断。
 
 - 列出需求中不明确的地方
 - 列出缺失的信息（如：认证方式未指定、错误处理策略未定义、数据库事务要求未明确）
@@ -571,6 +631,8 @@ self_check:                            # 九、自检结果
 | 10 | **测试用例契约**：test-case-contract.yaml 已生成，每个 REQ 至少有 API 通道测试用例，DB 断言已定义 | ⬜ 待确认 |
 | 11 | **运行时契约**：runtime-contract.yaml 已生成，服务启动命令和健康检查端点正确 | ⬜ 待确认 |
 | 12 | **产品输入解析**：产品需求文档已完整解析（如有），无遗漏功能点 | ⬜ 待确认 |
+| 13 | **澄清结果整合**：clarification-result.yaml 的问答结果已完整反映在 PRD 中（如有） | ⬜ 待确认 |
+| 14 | **项目技术关联决策**：实体复用、服务复用、API 冲突决策已反映在数据模型和 API 设计中（如有） | ⬜ 待确认 |
 
 **用户操作**：确认无误 → 回复 "确认" 进入 Design 阶段（系统自动写入 `analyze.confirmed`）；需要修改 → 指出具体问题
 

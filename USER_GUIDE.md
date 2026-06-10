@@ -2,18 +2,19 @@
 
 ## 目录
 
-1. [概述](#1-%E6%A6%82%E8%BF%B0)
-2. [安装](#2-%E5%AE%89%E8%A3%85)
-3. [快速上手](#3-%E5%BF%AB%E9%80%9F%E4%B8%8A%E6%89%8B)
-4. [命令参考](#4-%E5%91%BD%E4%BB%A4%E5%8F%82%E8%80%83)
-5. [阶段详解](#5-%E9%98%B6%E6%AE%B5%E8%AF%A6%E8%A7%A3)
-   - [5.1 Research（项目调研）](#51-research%E9%A1%B9%E7%9B%AE%E8%B0%83%E7%A0%94)
-   - [5.2 Analyze（需求分析）](#52-analyze%E9%9C%80%E6%B1%82%E5%88%86%E6%9E%90)
-   - [5.3 Design（详细设计）](#53-design%E8%AF%A6%E7%BB%86%E8%AE%BE%E8%AE%A1)
-   - [5.4 Task Split（智能任务拆分）](#54-task-split%E6%99%BA%E8%83%BD%E4%BB%BB%E5%8A%A1%E6%8B%86%E5%88%86)
-   - [5.5 Develop（开发执行）](#55-develop%E5%BC%80%E5%8F%91%E6%89%A7%E8%A1%8C)
-   - [5.6 Test（统一测试）](#56-test%E7%BB%9F%E4%B8%80%E6%B5%8B%E8%AF%95)
-   - [5.7 Fix（Bug 修复）](#57-fixbug-%E4%BF%AE%E5%A4%8D)
+1. [概述](#1-概述)
+2. [安装](#2-安装)
+3. [快速上手](#3-快速上手)
+4. [命令参考](#4-命令参考)
+5. [阶段详解](#5-阶段详解)
+   - [5.1 Research（项目调研）](#51-research项目调研)
+   - [5.2 Clarify（需求澄清）](#52-clarify需求澄清)
+   - [5.3 Analyze（需求分析）](#53-analyze需求分析)
+   - [5.4 Design（详细设计）](#54-design详细设计)
+   - [5.5 Task Split（智能任务拆分）](#55-task-split智能任务拆分)
+   - [5.6 Develop（开发执行）](#56-develop开发执行)
+   - [5.7 Test（统一测试）](#57-test统一测试)
+   - [5.8 Fix（Bug 修复）](#58-fixbug-修复)
 6. [Subagent 模式](#6-subagent%E6%A8%A1%E5%BC%8F)
    - [6.1 两种运行模式](#61-%E4%B8%A4%E7%A7%8D%E8%BF%90%E8%A1%8C%E6%A8%A1%E5%BC%8F)
    - [6.2 命令](#62-%E5%91%BD%E4%BB%A4)
@@ -35,7 +36,7 @@
 
 dev-flow 是一款为 Cursor、Trae、Qoder、Claude Code、OpenAI Codex 等 AI 编程工具打造的开发流程编排 Skill。
 
-它遵循结构化的 **8 阶段工作流**（Research → Analyze → Design → Task Split → Develop → Test → Fix（按需）→ Delivery），引导 AI 编程工具逐步执行开发任务，避免跳过步骤、代码生成不一致、遗漏边界情况等问题。
+它遵循结构化的 **9 阶段工作流**（Research → Clarify → Analyze → Design → Task Split → Develop → Test → Fix（按需）→ Delivery），引导 AI 编程工具逐步执行开发任务，避免跳过步骤、代码生成不一致、遗漏边界情况等问题。
 
 **核心特性**：
 
@@ -43,7 +44,7 @@ dev-flow 是一款为 Cursor、Trae、Qoder、Claude Code、OpenAI Codex 等 AI 
 - 自动记忆项目结构和编码规范，后续开发自动遵守
 - 具备学习能力——越用越懂你的偏好
 - **主 Agent 零编辑架构**：主 Agent 仅作为纯调度枢纽；所有文件操作由专门的阶段子代理执行
-- **8 阶段工作流**：Research → Analyze → Design → Task Split → Develop → Test → Fix（按需）→ Delivery
+- **9 阶段工作流**：Research → Clarify → Analyze → Design → Task Split → Develop → Test → Fix（按需）→ Delivery
 - **两种运行模式**：标准模式（串行子代理）/ 企业级模式（并行子代理）
 - **两层门禁检查**：Gate-A（前置完整性）/ Gate-B（执行者审计）
 - **LANGUAGE-ONLY 语言过滤**：构建时按项目类型过滤多语言规范，减少子代理上下文负担
@@ -71,7 +72,7 @@ dev-flow 是一款为 Cursor、Trae、Qoder、Claude Code、OpenAI Codex 等 AI 
 cd your-project
 
 # 2. 安装 dev-flow
-npm install Jane-Split/dev-flow#release_3.5.0 --save-dev
+npm install Jane-Split/dev-flow#release_3.6.0 --save-dev
 
 # 3. 执行安装
 npx dev-flow install
@@ -85,8 +86,9 @@ npx dev-flow install
 your-project/
 ├── .trae/skills/dev-flow/
 │   ├── SKILL.md                           # Router（~10KB 骨架）
-│   ├── stages/                            # 8 个阶段指令文件（按需加载）
+│   ├── stages/                            # 9 个阶段指令文件（按需加载）
 │   │   ├── research.md
+│   │   ├── clarify.md
 │   │   ├── analyze.md
 │   │   ├── design.md
 │   │   ├── task-split.md
@@ -142,9 +144,9 @@ your-project/
     │   └── .gitkeep
     ├── session-index.yaml                  # 需求追溯索引（v3.4.0）
     ├── deliverables/                       # 人读取的阶段审批交付物
-    │   └── {需求简称}/      # Session 隔离（v3.4.0）
+    │   └── {需求简称}/      # Session 隔离
     │       ├── 01-research-report.md
-    │       ├── 02-analyze-result.md
+    │       ├── 02-clarification-report.md
     │       └── ...
     └── contracts/                         # 机器读取的结构化数据交换文件
         └── {需求简称}/      # Session 隔离（v3.4.0）
@@ -188,7 +190,7 @@ npx dev-flow install
 
 ```bash
 cd my-react-app
-npm install Jane-Split/dev-flow#release_3.5.0 --save-dev
+npm install Jane-Split/dev-flow#release_3.6.0 --save-dev
 npx dev-flow install
 ```
 
@@ -205,12 +207,13 @@ npx dev-flow install
 AI 会执行以下工作流，每个阶段完成后暂停等待你的确认：
 
 1. **Research** → AI 扫描你的项目，展示技术栈、已有组件等 → 你确认
-2. **Analyze** → AI 分析需求，列出功能点和影响范围 → 你确认
-3. **Design** → AI 设计数据模型、API、组件 → 你确认
-4. **Task Split** → AI 将设计拆分为可并行的子任务，生成 DAG 依赖图 → 你确认
-5. **Develop** → AI 按子任务并行生成完整、可运行的代码 → 你确认
-6. **Test** → AI 生成并执行测试 → 你确认
-7. **Fix** → 如果有测试失败，AI 自动修复（最多 3 轮）
+2. **Clarify** → AI 结合项目代码对需求进行迭代问答，消除歧义 → 你确认
+3. **Analyze** → AI 分析需求，列出功能点和影响范围 → 你确认
+4. **Design** → AI 设计数据模型、API、组件 → 你确认
+5. **Task Split** → AI 将设计拆分为可并行的子任务，生成 DAG 依赖图 → 你确认
+6. **Develop** → AI 按子任务并行生成完整、可运行的代码 → 你确认
+7. **Test** → AI 生成并执行测试 → 你确认
+8. **Fix** → 如果有测试失败，AI 自动修复（最多 3 轮）
 
 ### 3.2 Java 项目示例（Spring Boot + MyBatis-Plus）
 
@@ -220,7 +223,7 @@ AI 会执行以下工作流，每个阶段完成后暂停等待你的确认：
 
 ```bash
 cd my-java-service
-npm install Jane-Split/dev-flow#release_3.4.0 --save-dev
+npm install Jane-Split/dev-flow#release_3.6.0 --save-dev
 npx dev-flow install
 ```
 
@@ -237,12 +240,13 @@ npx dev-flow install
 AI 会执行适配 Java 项目特点的工作流：
 
 1. **Research** → AI 扫描 `pom.xml`，识别 Spring Boot 版本、MyBatis-Plus、分层架构（Entity/Mapper/Service/Controller）→ 你确认
-2. **Analyze** → AI 分析订单管理需求，列出功能点和影响范围 → 你确认
-3. **Design** → AI 设计订单 Entity、Mapper 接口、Service 方法、Controller 接口、DTO → 你确认
-4. **Task Split** → AI 将设计拆分为可并行的子任务（Entity → Mapper → Service → Controller → Test）→ 你确认
-5. **Develop** → AI 按子任务逐层生成代码，遵守 MyBatis-Plus 规范 → 你确认
-6. **Test** → AI 生成单元测试和集成测试，执行 `mvn test` → 你确认
-7. **Fix** → 如果有测试失败，AI 自动修复（最多 3 轮）
+2. **Clarify** → AI 结合项目已有代码对需求进行迭代问答（如"订单实体是否复用已有 Order 类？"）→ 你确认
+3. **Analyze** → AI 分析订单管理需求，列出功能点和影响范围 → 你确认
+4. **Design** → AI 设计订单 Entity、Mapper 接口、Service 方法、Controller 接口、DTO → 你确认
+5. **Task Split** → AI 将设计拆分为可并行的子任务（Entity → Mapper → Service → Controller → Test）→ 你确认
+6. **Develop** → AI 按子任务逐层生成代码，遵守 MyBatis-Plus 规范 → 你确认
+7. **Test** → AI 生成单元测试和集成测试，执行 `mvn test` → 你确认
+8. **Fix** → 如果有测试失败，AI 自动修复（最多 3 轮）
 
 ---
 
@@ -254,13 +258,15 @@ AI 会执行适配 Java 项目特点的工作流：
 /dev-flow <需求描述>
 ```
 
-执行：Research → Analyze → Design → Task Split → Develop → Test → Fix（按需）→ Delivery
+执行：Research → Clarify → Analyze → Design → Task Split → Develop → Test → Fix（按需）→ Delivery
 
 ### 4.2 单阶段模式
 
 | 命令 | 说明 | 适用场景 |
 | --- | --- | --- |
 | `/dev-flow -research` | 仅执行 Research 阶段 | 第一次使用 dev-flow，或项目结构有重大变化 |
+| `/dev-flow -clarify <需求>` | 仅执行 Clarify 阶段（迭代问答） | 产品经理想完善需求文档，或开发前想澄清需求 |
+| `/dev-flow -clarify @requirement.md` | 从文件读取需求并澄清 | 需求文档已写好，需要结合项目分析确认项 |
 | `/dev-flow -analyze <需求>` | 仅执行 Analyze 阶段 | 需要先理解需求范围 |
 | `/dev-flow -design <需求>` | 仅执行 Design 阶段 | 需要在开发前评审设计 |
 | `/dev-flow -split <需求>` | 仅执行 Task Split 阶段（方案 C） | 需要将设计拆分为可并行子任务 |
@@ -270,7 +276,7 @@ AI 会执行适配 Java 项目特点的工作流：
 | `/dev-flow -hotfix <错误信息>` | 生产环境错误紧急热修复 | 生产报错，需要快速修复 |
 | `/dev-flow -subagent <需求>` | 企业级并行子代理模式 | 复杂任务，涉及多服务/多模块 |
 
-### 4.3 Session 隔离（v3.4.0）
+### 4.3 Session 隔离
 
 ```text
 /dev-flow <需求描述>   # 第一个需求
@@ -338,7 +344,54 @@ AI 会执行适配 Java 项目特点的工作流：
 
 ---
 
-### 5.2 Analyze（需求分析）
+### 5.2 Clarify（需求澄清）
+
+**目标**：深度分析需求文档，结合项目上下文进行迭代问答，消除所有歧义和不确定性。
+
+**触发条件**：
+- 全流程模式（Research 确认后自动触发）
+- 用户输入 `/dev-flow -clarify <需求>`
+- 用户输入 `/dev-flow -clarify @requirement.md`
+
+**可选性**：Clarify 是可选阶段，跳过后 Analyze 完整执行所有步骤，不削弱任何现有能力。
+
+**执行步骤**：
+
+1. **输入源识别与解析**（Step 0）
+   - 支持文件路径（@xxx.md）、URL（飞书/Confluence）、产品需求模板、对话描述
+   - 解析为结构化需求草稿（demand-draft.yaml）
+2. **项目上下文关联分析**（Step 1）
+   - 读取项目记忆（project-overview / service-registry / dependency-graph / common-modules / conventions / models / apis）
+   - 10 个维度分析：Entity 复用、Service 复用、API 冲突、枚举复用、跨服务调用、公共模块变更、中间件依赖、数据权限、状态机、前端组件复用
+3. **生成问题清单**（Step 2）
+   - 三类问题：业务歧义（P0）、项目技术关联（P1）、业务规则确认（P2）
+   - 一次性提交所有问题给用户
+4. **用户回答收集与整合**（Step 3）
+   - 支持逐项回复、全部确认、补充说明
+5. **收敛检测**（Step 4）
+   - 整合用户回答，重新分析是否产生新问题
+   - 0 新问题 → 自动收敛
+   - 有新问题且未达最大轮次(5) → 继续下一轮
+   - 达到最大轮次 → 强制收敛，未解决问题使用默认假设
+6. **生成澄清结果契约**（Step 5）
+   - clarification-result.yaml（需求草稿 + 问答记录 + 澄清后需求 + 项目技术关联决策 + 未解决问题）
+7. **生成阶段交付物**（Step 6）
+   - 02-clarification-report.md
+
+**产出**：
+
+- `.dev-flow/contracts/{需求简称}/clarification-result.yaml`（澄清结果契约）
+- `.dev-flow/contracts/{需求简称}/demand-draft.yaml`（需求草稿）
+- `.dev-flow/deliverables/{需求简称}/02-clarification-report.md`（阶段交付物）
+
+**独立使用场景**：
+
+- 产品经理只想完善需求文档：`/dev-flow -clarify @产品需求.md`
+- 开发前先澄清需求：`/dev-flow -clarify <需求>` 后再 `/dev-flow -analyze <需求>`
+
+---
+
+### 5.3 Analyze（需求分析）
 
 **目标**：解析用户需求，关联已有代码，识别歧义点，输出结构化需求分析文档。
 
@@ -354,11 +407,14 @@ AI 会执行适配 Java 项目特点的工作流：
 **产出**：
 
 - 需求分析文档（包含功能点列表、影响范围、依赖分析、风险识别）
-- `.dev-flow/deliverables/{需求简称}/02-analyze-result.md`（阶段交付物）
+- `.dev-flow/contracts/{需求简称}/prd-contract.yaml`（PRD 契约）
+- `.dev-flow/contracts/{需求简称}/test-case-contract.yaml`（测试用例契约）
+- `.dev-flow/contracts/{需求简称}/runtime-contract.yaml`（运行时契约）
+- `.dev-flow/deliverables/{需求简称}/PRD-{需求简称}.md`（阶段交付物）
 
 ---
 
-### 5.3 Design（详细设计）
+### 5.4 Design（详细设计）
 
 **目标**：基于需求分析结果，输出详细设计文档和 Design Contract。
 
@@ -380,7 +436,7 @@ AI 会执行适配 Java 项目特点的工作流：
 
 ---
 
-### 5.4 Task Split（智能任务拆分）
+### 5.5 Task Split（智能任务拆分）
 
 **目标**：将详细设计拆分为可并行的子任务，生成 DAG 依赖图，检测文件冲突。
 
@@ -403,7 +459,7 @@ AI 会执行适配 Java 项目特点的工作流：
 
 ---
 
-### 5.5 Develop（开发执行）
+### 5.6 Develop（开发执行）
 
 **目标**：按子任务生成完整、可运行的代码，遵循项目编码规范。
 
@@ -448,7 +504,7 @@ AI 会执行适配 Java 项目特点的工作流：
 
 ---
 
-### 5.6 Test（统一测试）
+### 5.7 Test（统一测试）
 
 **目标**：执行完整的测试验证，包括单元测试、冒烟测试、E2E 测试、集成测试。
 
@@ -469,7 +525,7 @@ AI 会执行适配 Java 项目特点的工作流：
 
 ---
 
-### 5.7 Fix（Bug 修复）
+### 5.8 Fix（Bug 修复）
 
 **目标**：分析测试失败原因，修复代码，回归测试。
 
@@ -512,12 +568,12 @@ dev-flow 提供两种子代理调度模式，适应不同规模的开发需求�
 
 ```text
 标准模式（/dev-flow <需求描述>）：
-主 Agent → Research → Analyze → Design → Task Split → [动态重评估]
+主 Agent → Research → Clarify → Analyze → Design → Task Split → [动态重评估]
   → Develop（串行：Subtask 1 → Subtask 2 → ... → Subtask N）
   → Test → Fix(按需) → Delivery
 
 企业级模式（/dev-flow -subagent <需求描述>）：
-主 Agent → Research → Analyze → Design → Task Split → [DAG 批次并行]
+主 Agent → Research → Clarify → Analyze → Design → Task Split → [DAG 批次并行]
   → Develop（并行：Batch 1 — Subtask A/B/C 同时执行）
   → Develop（并行：Batch 2 — Subtask D/E 同时执行，依赖 Batch 1）
   → Develop（串行：Subtask F，依赖 Batch 2，且存在写写冲突）
@@ -553,6 +609,7 @@ dev-flow 提供两种子代理调度模式，适应不同规模的开发需求�
               │              Batch 2（数据层，3 并行）→ common-modules / models / config
               │              Batch 3（行为层，3 并行）→ apis / utils / conventions
               │              Batch 4（横切层，2 并行）→ dependency-graph / decisions
+              ├── clarify-expert     → 需求澄清，迭代问答消除歧义
               ├── analyze-expert     → 需求分析
               ├── design-expert      → 详细设计
               ├── task-split-expert  → 任务拆分 + DAG
@@ -587,10 +644,10 @@ dev-flow 提供两种子代理调度模式，适应不同规模的开发需求�
 
 | 平台 | 子代理支持 | 并行能力 | Research 调度 | References 支持 |
 | --- | --- | --- | --- | --- |
-| **Trae** | `/agent-name` 斜杠命令 | 原生并行 | 12 并行 | ✅ |
-| **Cursor** | Task 工具 | 多 Task 并行 | 12 并行 | ✅ |
-| **Claude Code** | Sub agent | 原生并行 | 12 并行 | ✅ |
-| **Qoder** | 串行 | 单会话串行 | 4 批次 | ✅ |
+| **Trae** | `/agent-name` 斜杠命令 | 并行调度 | 12 并行 | ✅ |
+| **Cursor** | Task 工具 | 并行调度 | 12 并行 | ✅ |
+| **Claude Code** | Sub agent | 并行调度 | 12 并行 | ✅ |
+| **Qoder** | 并行调度 | 并行调度 | 4 批次 | ✅ |
 | **Codex** | `AGENTS.md` Agent | 有限并行 | 2 批次合并 | ✅ |
 
 ### 6.6 任务拆分与依赖处理
@@ -818,4 +875,4 @@ npm run build -- --lang typescript,python   # 保留 TypeScript 和 Python 内�
 
 ---
 
-*本用户指南基于 dev-flow v3.4.0 编写。*
+*本用户指南基于 dev-flow v3.6.0 编写。*

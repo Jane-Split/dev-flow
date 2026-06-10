@@ -3,7 +3,7 @@ stage: Develop
 type: stage-instruction
 ---
 
-## 阶段五：Develop（开发执行）
+## 阶段六：Develop（开发执行）
 
 ### 🔴🔴 主 Agent 零编辑约束（本阶段入口铁律）
 

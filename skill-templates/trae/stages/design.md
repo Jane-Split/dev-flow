@@ -3,7 +3,7 @@ stage: Design
 type: stage-instruction
 ---
 
-## 阶段三：Design（详细设计）
+## 阶段四：Design（详细设计）
 
 ### 🔔 入口 Banner（本阶段开始时输出）
 

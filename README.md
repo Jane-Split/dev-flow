@@ -2,13 +2,13 @@
 
 ![node](https://img.shields.io/node/v/dev-flow.svg)
 
-![version](https://img.shields.io/badge/version-v3.4.0-blue)
+![version](https://img.shields.io/badge/version-v3.6.0-blue)
 
-> **当前版本：v3.4.0** | [更新日志](./CHANGELOG.md) | [用户指南](./USER_GUIDE.md)
+> **当前版本：v3.6.0** | [用户指南](./USER_GUIDE.md)
 
 为 Cursor、Trae、Qoder、Claude Code、OpenAI Codex 等 AI 编程工具打造的开发流程编排 Skill。
 
-通过 `/dev-flow` 命令，AI 会按照结构化的 **8 阶段工作流**执行：**Research → Analyze → Design → Task Split → Develop → Test → Fix（按需）→ Delivery**，每个阶段完成后暂停确认，确保输出质量。
+通过 `/dev-flow` 命令，AI 会按照结构化的 **9 阶段工作流**执行：**Research → Clarify → Analyze → Design → Task Split → Develop → Test → Fix（按需）→ Delivery**，每个阶段完成后暂停确认，确保输出质量。
 
 ---
 
@@ -22,8 +22,9 @@ AI 编程工具（Cursor/Trae/Qoder/Claude Code/Codex）很强大，但在处理
 - 缺乏系统化的测试验证
 - 不记住用户偏好和项目深层知识
 - 大型项目上下文不足，跳过关键扫描步骤
+- 需求文档不精确不完整，导致返工
 
-dev-flow 通过**结构化流程编排 + 项目记忆 + 长期记忆 + 学习能力 + 多子代理并行 + 主 Agent 零编辑架构**来解决这些问题，让 AI 编程工具**越用越好用**。
+dev-flow 通过**结构化流程编排 + 需求澄清迭代问答 + 项目记忆 + 长期记忆 + 学习能力 + 多子代理并行 + 主 Agent 零编辑架构**来解决这些问题，让 AI 编程工具**越用越好用**。
 
 ---
 
@@ -31,11 +32,19 @@ dev-flow 通过**结构化流程编排 + 项目记忆 + 长期记忆 + 学习能
 
 ### 核心架构
 
-- **四层按需加载架构** — Router（\~10KB）+ References（8 个文件）+ 8 个阶段指令 + 20 个 Agent
-- **8 阶段工作流** — Research → Analyze → Design → Task Split → Develop → Test → Fix（按需）→ Delivery
+- **四层按需加载架构** — Router（~10KB）+ References（9 个文件）+ 11 个阶段指令 + 24 个 Agent
+- **9 阶段工作流** — Research → Clarify → Analyze → Design → Task Split → Develop → Test → Fix（按需）→ Delivery
 - **两种运行模式** — 标准模式（串行子代理）/ 企业级模式（并行子代理），支持动态重评估与自动升级
 - **两层门禁检查** — Gate-A（前置完整性：确认文件 + 交付物 + 内容校验）/ Gate-B（执行者审计：execution_trail + zero_edit_violation）
-- **跨平台调度策略** — Trae 原生并行 / Cursor/Claude/Qoder 串行模拟 / Codex 有限并行
+- **跨平台调度策略** — Trae / Cursor / Claude Code / Qoder 均支持并行调度 / Codex 有限并行
+
+### 需求澄清（v3.6.0 新增）
+
+- **迭代问答循环** — Clarify 阶段结合项目代码对需求文档进行多轮迭代问答，自动收敛直到无新问题
+- **项目技术关联提问** — 10 个维度分析（Entity 复用、Service 复用、API 冲突、枚举复用、跨服务调用、公共模块变更、中间件依赖、数据权限、状态机、前端组件复用）
+- **自动收敛机制** — 0 新问题即停止，最多 10 轮，防止无限循环
+- **独立使用** — 产品经理可单独使用 `/dev-flow -clarify` 完善需求文档，不一定要走开发全流程
+- **可选阶段** — Clarify 可跳过，跳过后 Analyze 完整执行所有步骤，不削弱任何现有能力
 
 ### 流程能力
 
@@ -51,7 +60,7 @@ dev-flow 通过**结构化流程编排 + 项目记忆 + 长期记忆 + 学习能
 - **学习能力** — 自动从用户反馈、代码修改、测试 Bug 中学习
 - **多语言设计契约** — 支持 Java / TypeScript / Python / Go 接口契约
 - **跨平台统一防护** — step-enforcer/contract-validator 等防护 Agent 全平台共享
-- **Session 隔离（v3.4.0）** — 基于需求简称的目录隔离，支持连续多个需求不覆盖文件
+- **Session 隔离** — 基于需求简称的目录隔离，支持连续多个需求不覆盖文件
 
 ### 代码质量
 
@@ -68,11 +77,8 @@ dev-flow 通过**结构化流程编排 + 项目记忆 + 长期记忆 + 学习能
 ## 安装
 
 ```bash
-# 用户级安装
-# npm install Jane-Split/dev-flow#release_3.4.0
-
-# 1. 安装到项目(项目级安装)
-npm install Jane-Split/dev-flow#release_3.5.0 --save-dev
+# 1. 安装到项目
+npm install Jane-Split/dev-flow#release_3.6.0 --save-dev
 
 # 2. 执行安装（生成 Skill 文件和记忆目录）
 npx dev-flow install
@@ -107,14 +113,12 @@ npx dev-flow codex     # 仅安装到 OpenAI Codex
 cd your-project
 
 # 2. 安装 dev-flow
-npm install Jane-Split/dev-flow#release_3.5.0 --save-dev
-# 对指定工具安装，这里再cursor安装
+npm install Jane-Split/dev-flow#release_3.6.0 --save-dev
+
+# 3. 安装到指定工具（以 Cursor 为例）
 npx dev-flow cursor
 
-# 全工具安装(根据用户情况自己决定)
-npx dev-flow install
-
-# 3. 在 Cursor / Trae / Qoder / Claude Code 中输入：
+# 4. 在 Cursor / Trae / Qoder / Claude Code 中输入：
 /dev-flow 实现用户登录功能，包含表单验证和记住密码
 ```
 
@@ -130,7 +134,7 @@ AI 会逐步执行，每个阶段完成后暂停等待你的确认。
 /dev-flow <需求描述>
 ```
 
-执行：Research → Analyze → Design → Task Split → Develop → Test → Fix（按需）→ Delivery
+执行：Research → Clarify → Analyze → Design → Task Split → Develop → Test → Fix（按需）→ Delivery
 
 ### 两种运行模式
 
@@ -149,12 +153,12 @@ dev-flow 提供两种子代理调度模式，适应不同规模的开发需求�
 
 ```text
 标准模式：
-主 Agent → Research → Analyze → Design → Task Split → [动态重评估]
+主 Agent → Research → Clarify → Analyze → Design → Task Split → [动态重评估]
   → Develop（串行：Subtask 1 → Subtask 2 → ... → Subtask N）
   → Test → Fix(按需) → Delivery
 
 企业级模式：
-主 Agent → Research → Analyze → Design → Task Split → [DAG 批次并行]
+主 Agent → Research → Clarify → Analyze → Design → Task Split → [DAG 批次并行]
   → Develop（并行：Batch 1: Subtask A/B/C 同时执行）
   → Develop（并行：Batch 2: Subtask D/E 同时执行，依赖 Batch 1）
   → Develop（串行：Subtask F，依赖 Batch 2，且有写写冲突）
@@ -175,6 +179,8 @@ dev-flow 提供两种子代理调度模式，适应不同规模的开发需求�
 | 命令 | 说明 | 适用场景 |
 | --- | --- | --- |
 | `/dev-flow -research` | 仅执行 Research 阶段 | 第一次使用 dev-flow，或项目结构有重大变化 |
+| `/dev-flow -clarify <需求>` | 仅执行 Clarify 阶段（迭代问答） | 产品经理想完善需求文档，或开发前想澄清需求 |
+| `/dev-flow -clarify @requirement.md` | 从文件读取需求并澄清 | 需求文档已写好，需要结合项目分析确认项 |
 | `/dev-flow -analyze <需求>` | 仅执行 Analyze 阶段 | 需要先理解需求范围 |
 | `/dev-flow -design <需求>` | 仅执行 Design 阶段 | 需要在开发前评审设计 |
 | `/dev-flow -split <需求>` | 仅执行 Task Split 阶段（方案 C） | 需要将设计拆分为可并行子任务 |
@@ -184,7 +190,7 @@ dev-flow 提供两种子代理调度模式，适应不同规模的开发需求�
 | `/dev-flow -hotfix <错误信息>` | 生产环境错误紧急热修复 | 生产报错，需要快速修复 |
 | `/dev-flow -subagent <需求>` | 企业级并行子代理模式 | 复杂任务，涉及多服务/多模块 |
 
-### Session 隔离（v3.4.0）
+### Session 隔离
 
 ```text
 /dev-flow <需求描述>   # 第一个需求
@@ -211,7 +217,7 @@ dev-flow 提供两种子代理调度模式，适应不同规模的开发需求�
 ## 工作流程
 
 ```text
-Research → Analyze → Design → Task Split → Develop → Test → Fix（按需）→ Delivery
+Research → Clarify → Analyze → Design → Task Split → Develop → Test → Fix（按需）→ Delivery
 
 Hotfix（独立模式，随时可用）
 ```
@@ -219,7 +225,8 @@ Hotfix（独立模式，随时可用）
 | 阶段 | AI 做什么 | 产出 |
 | --- | --- | --- |
 | **Research** | pre-scanner 全局索引 + 11 个文件级子代理分 4 批次，Smart Sampling 服务级独立，关键类强制全量读取，完整性 A/B/C/D 评级 | `.dev-flow/memory/` 13 个文件 + `memory/_index/file-index.yaml` + 阶段交付物 |
-| **Analyze** | 解析需求，关联已有代码，识别歧义，一致性校验 | 需求分析文档 + 阶段交付物 |
+| **Clarify** | 解析需求文档，结合项目代码迭代问答，10 维度技术关联分析，自动收敛 | `clarification-result.yaml` + `02-clarification-report.md` |
+| **Analyze** | 解析需求，关联已有代码，识别歧义，一致性校验，生成 PRD 契约 | PRD 文档 + `prd-contract.yaml` + `test-case-contract.yaml` + `runtime-contract.yaml` |
 | **Design** | 数据模型、API 接口、组件树、业务流程、结构化决策表 | `design-result.md` + `design-contract.yaml`（含多语言接口契约） |
 | **Task Split** | 拆分为子任务，冲突检测，DAG 构建，双维度选择，子任务级设计 | `task-breakdown.yaml` + `subtask-{id}-design.yaml` + `interface-registry.yaml` |
 | **Develop** | develop-expert 子代理按子任务开发，上下文自动注入，分段生成，业务代码优先，强制编译，逻辑回溯验证 | 代码文件 + 阶段交付物 |
@@ -234,29 +241,30 @@ Hotfix（独立模式，随时可用）
 ### 四层按需加载架构
 
 ```text
-Layer 1: Router（SKILL.md，~410 行，始终加载）
+Layer 1: Router（SKILL.md，~520 行，始终加载）
   ├── 命令解析 + 全局规则
   ├── 阶段路由表 + 主 Agent 调度流程
   ├── 记忆系统 + 学习能力快速参考
   └── 阶段确认机制（含历史压缩规则）
 
-Layer 2: References（8 个按需加载的参考文档）
+Layer 2: References（9 个按需加载的参考文档）
   ├── protocol.md（零编辑铁律 + 失败协议 + 交付物 + 门禁 + 历史压缩）
   ├── memory-system.md / learning-system.md / error-pattern-db.md / model-context-config.md
   └── design-contract-typescript.md / design-contract-python.md / design-contract-go.md
   └── runtime-protocol.md（运行时验证协议：服务编排、DB 核对、UI 验证、追溯矩阵）
 
-Layer 3: 阶段指令文件（进入阶段时加载，10 个文件）
-  ├── research.md / analyze.md / design.md / task-split.md
+Layer 3: 阶段指令文件（进入阶段时加载，11 个文件）
+  ├── research.md / clarify.md / analyze.md / design.md / task-split.md
   ├── develop.md（仅保留调度协议，执行规范引用 develop-expert.md）
   ├── test.md（统一测试：单元+冒烟+E2E+集成）
   └── fix.md / hotfix.md / delivery.md / code-reference.md
 
-Layer 4: Agent 文件（创建子代理时加载，20 个文件）
+Layer 4: Agent 文件（创建子代理时加载，24 个文件）
+  ├── clarify-expert.md（需求澄清，迭代问答消除歧义）
   ├── develop-expert.md（支持 LANGUAGE-ONLY 多语言规范过滤）
   ├── analyze-expert / design-expert / task-split-expert
   ├── contract-validator / verify-expert / step-enforcer
-  └── ...共 23 个（含 5 个遗留 Research Agent + 3 个新增验证 Agent）
+  └── ...共 24 个（含 5 个遗留 Research Agent + 3 个新增验证 Agent）
 ```
 
 ### 子代理执行架构（统一模型）
@@ -270,24 +278,25 @@ Layer 4: Agent 文件（创建子代理时加载，20 个文件）
               │              Batch 2（数据层，3 并行）→ common-modules / models / config
               │              Batch 3（行为层，3 并行）→ apis / utils / conventions
               │              Batch 4（横切层，2 并行）→ dependency-graph / decisions
-              ├── analyze-expert      → 需求分析
-              ├── design-expert       → 详细设计
-              ├── task-split-expert   → 任务拆分 + DAG
-              ├── develop-expert      → 代码开发（可并行多个）
-              ├── test-expert         → 统一测试
-              ├── fix-expert          → Bug 修复
-              ├── delivery-expert     → 交付报告
-              └── contract-validator  → 契约校验 + 逻辑覆盖率验证（R5）
+              ├── clarify-expert     → 需求澄清，迭代问答消除歧义
+              ├── analyze-expert     → 需求分析
+              ├── design-expert      → 详细设计
+              ├── task-split-expert  → 任务拆分 + DAG
+              ├── develop-expert     → 代码开发（可并行多个）
+              ├── test-expert        → 统一测试
+              ├── fix-expert         → Bug 修复
+              ├── delivery-expert    → 交付报告
+              └── contract-validator → 契约校验 + 逻辑覆盖率验证（R5）
 ```
 
 ### 跨平台调度策略
 
 | 平台 | 子代理支持 | 并行能力 | Research 调度 | References 支持 |
 | --- | --- | --- | --- | --- |
-| **Trae** | `/agent-name` 斜杠命令 | 原生并行 | 12 并行 | ✅ |
-| **Cursor** | Task 工具 | 多 Task 并行 | 12 并行 | ✅ |
-| **Claude Code** | Sub agent | 原生并行 | 12 并行 | ✅ |
-| **Qoder** | 串行 | 单会话串行 | 4 批次 | ✅ |
+| **Trae** | `/agent-name` 斜杠命令 | 并行调度 | 12 并行 | ✅ |
+| **Cursor** | Task 工具 | 并行调度 | 12 并行 | ✅ |
+| **Claude Code** | Sub agent | 并行调度 | 12 并行 | ✅ |
+| **Qoder** | 并行调度 | 并行调度 | 4 批次 | ✅ |
 | **Codex** | `AGENTS.md` Agent | 有限并行 | 2 批次合并 | ✅ |
 
 ---
@@ -298,16 +307,17 @@ Layer 4: Agent 文件（创建子代理时加载，20 个文件）
 dev-flow/
 ├── skill-templates/          # Skill 文件模板
 │   ├── _core/                # 核心模板源（所有平台共用基础）
-│   │   ├── SKILL.md          # Router（~410 行，始终加载）
-│   │   ├── stages/           # 10 个阶段指令文件（按需加载）
-│   │   │   ├── research.md / analyze.md / design.md / task-split.md
+│   │   ├── SKILL.md          # Router（~520 行，始终加载）
+│   │   ├── stages/           # 11 个阶段指令文件（按需加载）
+│   │   │   ├── research.md / clarify.md / analyze.md / design.md / task-split.md
 │   │   │   ├── develop.md（主 Agent 调度协议）
 │   │   │   ├── test.md（统一测试：单元+冒烟+E2E+集成）
 │   │   │   └── fix.md / hotfix.md / delivery.md / code-reference.md
-│   │   ├── agents/           # 20 个 Agent 定义（含 5 个遗留 Research Agent）
+│   │   ├── agents/           # 24 个 Agent 定义
+│   │   │   ├── clarify-expert.md（需求澄清，迭代问答）
 │   │   │   ├── develop-expert.md（含 LANGUAGE-ONLY 多语言规范）
 │   │   │   └── ...
-│   │   └── references/       # 8 个按需参考文档
+│   │   └── references/       # 9 个按需参考文档
 │   │       ├── protocol.md（零编辑铁律 + 失败协议 + 历史压缩 + 门禁 + 交付物）
 │   │       ├── memory-system.md / learning-system.md
 │   │       ├── error-pattern-db.md / model-context-config.md
@@ -354,7 +364,7 @@ npm run test:version          # 版本号一致性检查
 | --- | --- | --- | --- |
 | Cursor | `/dev-flow` | 多 Task 并行 | ✅ |
 | Trae | `/dev-flow` | 原生并行 | ✅ |
-| Qoder | `/dev-flow` | 串行模拟并行 | ✅ |
+| Qoder | `/dev-flow` | 并行调度 | ✅ |
 | Claude Code | `/dev-flow` | 原生并行 | ✅ |
 | OpenAI Codex | 自然语言 / `$dev-flow` | 有限并行 | ✅ |
 

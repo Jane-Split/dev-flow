@@ -21,6 +21,7 @@ description: AI开发全流程编排技能 - 在AI编程工具对话框中结构
 | 阶段 | 执行者 | 主 Agent 职责 |
 |------|--------|-------------|
 | Research | `pre-scanner` + 11 文件子代理（4 批次） | 分批调度 + 读取交付物 + 展示审批 |
+| Clarify | `clarify-expert` | 调度 + 传递问答 + 读取交付物 + 展示审批 |
 | Analyze | `analyze-expert` | 调度 + 读取交付物 + 展示审批 |
 | Design | `design-expert` | 调度 + 读取交付物 + 展示审批 |
 | Task Split | `task-split-expert` | 调度 + 读取交付物 + 展示审批 |
@@ -38,9 +39,11 @@ description: AI开发全流程编排技能 - 在AI编程工具对话框中结构
 
 | 命令 | 说明 |
 |------|------|
-| `/dev-flow <需求描述>` | 全流程：Research → Analyze → Design → Task Split → Develop → Test → Fix(按需) → Delivery |
+| `/dev-flow <需求描述>` | 全流程：Research → Clarify → Analyze → Design → Task Split → Develop → Test → Fix(按需) → Delivery |
 | `/dev-flow -subagent <需求描述>` | 企业级模式：并行 Subagent 调度，适合复杂需求 |
 | `/dev-flow -research` | 仅执行项目调研 |
+| `/dev-flow -clarify <需求>` | 仅执行需求澄清（迭代问答） |
+| `/dev-flow -clarify @requirement.md` | 从文件读取需求并澄清 |
 | `/dev-flow -analyze <需求>` | 仅执行需求分析 |
 | `/dev-flow -design <需求>` | 仅执行详细设计 |
 | `/dev-flow -split <需求>` | 仅执行任务拆分 |
@@ -99,6 +102,7 @@ description: AI开发全流程编排技能 - 在AI编程工具对话框中结构
   │     ├── batch-2 (数据层 ×3)   → common-modules / models / config
   │     ├── batch-3 (行为层 ×3)   → apis / utils / conventions
   │     └── batch-4 (横切层 ×2)   → dependency-graph / decisions
+              ├── clarify-expert      → 需求澄清，迭代问答消除歧义
               ├── analyze-expert     → 分析需求，输出需求分析文档
               ├── design-expert      → 详细设计，输出设计文档
               ├── task-split-expert  → 任务拆分，输出任务清单（DAG）
@@ -116,7 +120,7 @@ description: AI开发全流程编排技能 - 在AI编程工具对话框中结构
 
 **工作流程**：
 1. 主 Agent 接收需求，提取 `{需求简称}`（规则见下方），生成 `session-id`，创建/更新 `.dev-flow/session-index.yaml`，创建会话目录 `.dev-flow/sessions/{session-id}/`，创建当前需求的目录 `.dev-flow/deliverables/{需求简称}/`、`.dev-flow/contracts/{需求简称}/`、`.dev-flow/stage-confirmations/{需求简称}/`
-2. 主 Agent 按顺序调度 subagent：Research → Analyze → Design → Task Split → Develop → Test → Fix(按需) → Delivery
+2. 主 Agent 按顺序调度 subagent：Research → Clarify → Analyze → Design → Task Split → Develop → Test → Fix(按需) → Delivery
 3. **标准模式**：串行调度（一个 subagent 完成后再创建下一个）；Task Split 后根据动态重评估可能升级并行
 4. **企业级模式**：按 DAG 批次并行调度（同批次多个 subagent 同时启动）
 5. 每个 subagent 在独立上下文中执行，只读取必要的文件
@@ -419,7 +423,8 @@ Step R4: 升级时通知用户
 | 场景 | 门禁规则 |
 |------|---------|
 | `/dev-flow -research` | 无前置要求，直接执行 |
-| `/dev-flow -analyze <需求>` | 检查 `.dev-flow/stage-confirmations/{需求简称}/research.confirmed` |
+| `/dev-flow -clarify <需求>` | 检查 `.dev-flow/stage-confirmations/{需求简称}/research.confirmed` |
+| `/dev-flow -analyze <需求>` | 检查 `.dev-flow/stage-confirmations/{需求简称}/research.confirmed`（最低要求，Clarify 可选） |
 | `/dev-flow -design <需求>` | 检查 `.dev-flow/stage-confirmations/{需求简称}/analyze.confirmed` |
 | `/dev-flow -split <需求>` | 检查 `.dev-flow/stage-confirmations/{需求简称}/design.confirmed` |
 | `/dev-flow -develop <需求>` | 检查 `.dev-flow/stage-confirmations/{需求简称}/task-split.confirmed`（全流程时）/ 无前置（直接开发时） |
@@ -434,14 +439,15 @@ Step R4: 升级时通知用户
 | 阶段 | 指令文件 | 加载时机 | 前置确认文件 |
 |------|---------|---------|------------|
 | Research（项目调研） | `stages/research.md` | 进入阶段一 | 无 |
-| Analyze（需求分析） | `stages/analyze.md` | 进入阶段二 | `{需求简称}/research.confirmed` |
-| Design（详细设计） | `stages/design.md` | 进入阶段三 | `{需求简称}/analyze.confirmed` |
-| Task Split（任务拆分） | `stages/task-split.md` | 进入阶段四 | `{需求简称}/design.confirmed` |
-| **Develop（开发执行）** | **`stages/develop.md`** | **进入阶段五** | `{需求简称}/task-split.confirmed` |
-| Test（统一测试） | `stages/test.md` | 进入阶段六 | `{需求简称}/develop.confirmed` |
-| Fix（Bug 修复） | `stages/fix.md` | 进入阶段七 | 无（Bug 触发） |
+| Clarify（需求澄清） | `stages/clarify.md` | 进入阶段二 | `{需求简称}/research.confirmed`（可选阶段，可跳过） |
+| Analyze（需求分析） | `stages/analyze.md` | 进入阶段三 | `{需求简称}/research.confirmed`（最低要求）或 `{需求简称}/clarify.confirmed`（如 Clarify 已执行） |
+| Design（详细设计） | `stages/design.md` | 进入阶段四 | `{需求简称}/analyze.confirmed` |
+| Task Split（任务拆分） | `stages/task-split.md` | 进入阶段五 | `{需求简称}/design.confirmed` |
+| **Develop（开发执行）** | **`stages/develop.md`** | **进入阶段六** | `{需求简称}/task-split.confirmed` |
+| Test（统一测试） | `stages/test.md` | 进入阶段七 | `{需求简称}/develop.confirmed` |
+| Fix（Bug 修复） | `stages/fix.md` | 进入阶段八 | 无（Bug 触发） |
 | Hotfix（独立模式） | `stages/hotfix.md` | 使用 Hotfix 模式 | 无 |
-| Delivery（交付报告） | `stages/delivery.md` | 进入阶段八 | `{需求简称}/test.confirmed` |
+| Delivery（交付报告） | `stages/delivery.md` | 进入阶段九 | `{需求简称}/test.confirmed` |
 | E2E 验证（独立） | `stages/test.md` | 使用 -e2e 命令 | `{需求简称}/develop.confirmed` |
 | UI 验证（独立） | `stages/test.md` | 使用 -e2e-ui 命令 | `{需求简称}/develop.confirmed` |
 | API+DB 验证（独立） | `stages/test.md` | 使用 -e2e-api 命令 | `{需求简称}/develop.confirmed` |
@@ -464,6 +470,8 @@ Step 1: 创建 pre-scanner subagent → Phase 0 Quick Scan → file-index.yaml
 Step 2: 等待完成 → 按批次并行调度 11 个文件子代理（4 批次）
 Step 3: 全部完成 → 自检 → 生成交付物 → 打开 .dev-flow/deliverables/{需求简称}/01-research-report.md → 确认 Checklist → 写入 .dev-flow/stage-confirmations/{需求简称}/research.confirmed
   ↓ 用户确认
+Step 3.5: 🔴 门禁检查 → clarify-expert → Clarify 阶段（迭代问答，可选，用户可跳过）→ 确认 → clarify.confirmed
+  ↓ 用户确认（或跳过 Clarify）
 Step 4: 🔴 门禁检查 → analyze-expert → Analyze 阶段 → 确认 → analyze.confirmed
 Step 5: 🔴 门禁检查 → design-expert → Design 阶段 → 确认 → design.confirmed
 Step 6: 🔴 门禁检查 → task-split-expert → Task Split → 确认 → task-split.confirmed

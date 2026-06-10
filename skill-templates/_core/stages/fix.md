@@ -3,7 +3,7 @@ stage: Fix
 type: stage-instruction
 ---
 
-## 阶段七：Fix（Bug 修复）
+## 阶段八：Fix（Bug 修复）
 
 ### 🔔 入口 Banner（本阶段开始时输出）
 

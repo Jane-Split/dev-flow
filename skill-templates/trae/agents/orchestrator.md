@@ -43,6 +43,7 @@ is_background: false
 | 阶段 | Subagent | 阶段指令文件 |
 |------|----------|-------------|
 | Research | research-expert | `stages/research.md` |
+| Clarify | clarify-expert | `stages/clarify.md` |
 | Analyze | analyze-expert | `stages/analyze.md` |
 | Design | design-expert | `stages/design.md` |
 | Task Split | task-split-expert | `stages/task-split.md` |
@@ -164,6 +165,7 @@ Step 0.6.3: 按子批次逐步派发（滑动窗口调度）
 | 子任务类型 | 对应 Subagent | 说明 |
 |-----------|--------------|------|
 | research | research-expert | 项目扫描、架构识别 |
+| clarify | clarify-expert | 需求澄清、迭代问答 |
 | analyze | analyze-expert | 需求分析、影响评估 |
 | design | design-expert | 详细设计 |
 | develop | develop-expert | 代码开发（可并行） |

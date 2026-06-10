@@ -26,6 +26,12 @@ is_background: false
 - 需求描述（自然语言）
 - `.dev-flow/memory/` - 项目记忆文件
 
+可选增强输入（Clarify 阶段产出）：
+- `.dev-flow/contracts/{需求简称}/clarification-result.yaml` - 澄清结果契约（如存在，读取并整合到 PRD 生成中）
+- `.dev-flow/contracts/{需求简称}/demand-draft.yaml` - 需求草稿（如存在，跳过 Step 0.5 重新解析）
+
+> **⚠️ Clarify 可选性**：如果 clarification-result.yaml 不存在，Analyze 完整执行所有步骤（与 v3.4.0 一致），不削弱任何能力。
+
 ## 输出
 
 写入 `.dev-flow/contracts/{需求简称}/`：

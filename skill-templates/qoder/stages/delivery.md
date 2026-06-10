@@ -3,7 +3,7 @@ stage: Delivery
 type: stage-instruction
 ---
 
-## 阶段十：Delivery Report（交付报告）
+## 阶段九：Delivery Report（交付报告）
 
 ### 🔔 入口 Banner（本阶段开始时输出）
 

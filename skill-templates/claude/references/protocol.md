@@ -146,6 +146,7 @@ Level 3 — 🔴 人工升级（Escalate to Human）
 ```
 .dev-flow/deliverables/{需求简称}/
 ├── 01-research-report.md         # Research 阶段交付物
+├── 02-clarification-report.md    # Clarify 阶段交付物（新增）
 ├── PRD-{需求简称}.md               # Analyze 阶段交付物（人类可读 PRD 文档）
 ├── 03-design-result.md           # Design 阶段交付物
 ├── 04-task-breakdown.md          # Task Split 阶段交付物
@@ -164,6 +165,7 @@ Level 3 — 🔴 人工升级（Escalate to Human）
 .dev-flow/contracts/{需求简称}/
 ├── design-contract.yaml          # Design → Develop 标准数据交换
 ├── prd-contract.yaml             # Analyze 输出（PRD 契约 — 单一真相源，包含验收标准+追溯矩阵+业务规则+数据模型）
+├── clarification-result.yaml     # Clarify 输出（澄清结果契约 — 迭代问答记录+澄清后需求+项目技术关联决策）
 ├── task-dag.yaml                 # Task Split 任务依赖图
 ├── fix-log.yaml                  # Fix 修复日志
 └── develop-integration.yaml      # Develop 集成验证结果
@@ -299,7 +301,8 @@ checklist:                      # 必填
 
 ```
 Research ← (无前置)
-Analyze  ← {需求简称}/research.confirmed + 01-research-report.md
+Clarify  ← {需求简称}/research.confirmed（可选阶段，可跳过）
+Analyze  ← {需求简称}/research.confirmed（最低要求）或 {需求简称}/clarify.confirmed（如 Clarify 已执行）
 Design   ← {需求简称}/analyze.confirmed + PRD-{需求简称}.md
 TaskSplit ← {需求简称}/design.confirmed + 03-design-result.md
 Develop  ← {需求简称}/task-split.confirmed + 04-task-breakdown.md
@@ -307,6 +310,9 @@ Test     ← {需求简称}/develop.confirmed + 05-develop-result.md
 Fix      ← (由 Test 阶段触发，无前置确认要求)
 Delivery ← {需求简称}/test.confirmed + 06-test-report.md
 ```
+
+> **⚠️ Clarify 可选性说明**：Analyze 的最低前置条件为 `research.confirmed`，确保跳过 Clarify 时 Analyze 仍可正常执行。
+> 如果 Clarify 已执行（`clarify.confirmed` 存在），Analyze 将读取 `clarification-result.yaml` 作为增强输入。
 
 > **⚠️ 关键规则**：即使阶段指令文件中也包含门禁检查描述，
 > Router 层的检查仍然必须执行。这是双重保险机制。

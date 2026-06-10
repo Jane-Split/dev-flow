@@ -2,6 +2,65 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.6.0] - 2026-06-10
+
+### Clarify（需求澄清）独立阶段 — 迭代问答消除歧义
+
+**核心变化**：新增 Clarify 阶段，在 Research 和 Analyze 之间插入，通过迭代问答循环结合项目代码深度分析需求文档，消除所有歧义和不确定性，生成更高质量的 PRD。
+
+#### 新增 Clarify 阶段
+
+- **迭代问答循环**：结合项目代码对需求文档进行多轮迭代问答，自动收敛直到无新问题
+- **项目技术关联提问**：10 个维度分析（Entity 复用、Service 复用、API 冲突、枚举复用、跨服务调用、公共模块变更、中间件依赖、数据权限、状态机、前端组件复用）
+- **自动收敛机制**：0 新问题即停止，最多 10 轮，防止无限循环
+- **可选阶段**：Clarify 可跳过，跳过后 Analyze 完整执行所有步骤，不削弱任何现有能力
+- **独立命令**：支持 `/dev-flow -clarify <需求>` 和 `/dev-flow -clarify @requirement.md` 单独使用
+
+#### 新增文件
+
+- `skill-templates/_core/stages/clarify.md` — Clarify 阶段完整指令（7 个步骤 + 确认清单）
+- `skill-templates/_core/agents/clarify-expert.md` — clarify-expert 子代理定义
+- 各平台 `agents/clarify-expert.md` — 5 个平台适配文件
+
+#### 修改文件
+
+- `_core/SKILL.md` — 新增 Clarify 路由、命令、依赖链、调度流程
+- `_core/stages/analyze.md` — Step 0.5/1/3 增加条件分支（Clarify 增强路径 + 兜底机制），确认清单新增 2 项
+- `_core/agents/analyze-expert.md` — 输入源新增 Clarify 可选增强输入说明
+- `_core/references/protocol.md` — 依赖链新增 Clarify（可选）、交付物目录新增 `02-clarification-report.md`、契约目录新增 `clarification-result.yaml`
+- `_core/agents/orchestrator.md` — 阶段路由表和任务拆分表新增 clarify-expert
+- 各平台 SKILL.md / dev-flow.md — 同步更新路由表、命令、调度流程
+
+#### 阶段编号顺延
+
+- Research：阶段一（不变）
+- Clarify：阶段二（新增）
+- Analyze：阶段二 → 阶段三
+- Design：阶段三 → 阶段四
+- Task Split：阶段四 → 阶段五
+- Develop：阶段五 → 阶段六
+- Test：阶段六 → 阶段七
+- Fix：阶段七 → 阶段八
+- Delivery：阶段十 → 阶段九
+
+#### 新增契约和交付物
+
+- `.dev-flow/contracts/{需求简称}/clarification-result.yaml` — 澄清结果契约（需求草稿 + 问答记录 + 澄清后需求 + 项目技术关联决策 + 未解决问题）
+- `.dev-flow/contracts/{需求简称}/demand-draft.yaml` — 需求草稿
+- `.dev-flow/deliverables/{需求简称}/02-clarification-report.md` — 澄清报告
+
+#### 其他修正
+
+- 跨平台调度策略描述修正：Trae / Cursor / Claude Code / Qoder 均支持并行调度（原描述"串行模拟"不准确）
+
+#### 能力保证
+
+- Analyze 阶段 19 项能力全部保留，0 项被削弱
+- Analyze Step 3 歧义识别保留为兜底机制（双重保险）
+- 跳过 Clarify 时流程回退为 8 阶段（与 v3.4.0 一致）
+
+---
+
 ## [Unreleased]
 
 ### PRD-Contract 单一真相源架构（Step 1）
