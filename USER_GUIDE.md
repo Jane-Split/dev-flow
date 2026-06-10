@@ -54,6 +54,7 @@ dev-flow 是一款为 Cursor、Trae、Qoder、Claude Code、OpenAI Codex 等 AI 
 - **结构化代码分段生成**：大文件自动启用"骨架 + 逐方法填充"
 - **设计→代码逻辑回溯验证**：Step 4.3 强制 100% 覆盖率验证
 - **设计契约多语言**：Java / TypeScript / Python / Go 接口契约
+- **前后端分离架构（v3.7.0）**：Research 前后端分离扫描 + Develop 双专家域路由调度 + Task Split 域标签，支持纯前端/纯后端/全栈三种场景
 - **Session 隔离（v3.4.0）**：基于需求简称的目录隔离，支持连续多个需求不覆盖文件
 
 ---
@@ -72,7 +73,7 @@ dev-flow 是一款为 Cursor、Trae、Qoder、Claude Code、OpenAI Codex 等 AI 
 cd your-project
 
 # 2. 安装 dev-flow
-npm install Jane-Split/dev-flow#release_3.6.0 --save-dev
+npm install Jane-Split/dev-flow#release_3.7.0 --save-dev
 
 # 3. 执行安装
 npx dev-flow install
@@ -190,7 +191,7 @@ npx dev-flow install
 
 ```bash
 cd my-react-app
-npm install Jane-Split/dev-flow#release_3.6.0 --save-dev
+npm install Jane-Split/dev-flow#release_3.7.0 --save-dev
 npx dev-flow install
 ```
 
@@ -223,7 +224,7 @@ AI 会执行以下工作流，每个阶段完成后暂停等待你的确认：
 
 ```bash
 cd my-java-service
-npm install Jane-Split/dev-flow#release_3.6.0 --save-dev
+npm install Jane-Split/dev-flow#release_3.7.0 --save-dev
 npx dev-flow install
 ```
 
@@ -323,22 +324,37 @@ AI 会执行适配 Java 项目特点的工作流：
    - 扫描项目目录结构
    - 识别技术栈（package.json / pom.xml / build.gradle）
    - 生成 `file-index.yaml`（\~15KB，无源码读取）
-2. **Phase 1：11 个文件级子代理分 4 批次并行**
+2. **Phase 0.5：前后端存在性检测（v3.7.0 新增）**
+   - 自动识别项目类型（纯后端 / 纯前端 / 全栈）
+   - 输出 `project-domains.yaml` + 分域索引文件
+3. **后端扫描组**：11 个文件级子代理分 4 批次并行（与 v3.6.0 完全一致）
    - Batch 1（基础层，3 并行）：project-overview / service-registry / architecture
    - Batch 2（数据层，3 并行）：common-modules / models / config
    - Batch 3（行为层，3 并行）：apis / utils / conventions
    - Batch 4（横切层，2 并行）：dependency-graph / decisions
-3. **Smart Sampling 服务级独立采样**
+4. **前端扫描组**（v3.7.0 新增）：9 个文件级子代理分 3 批次并行
+   - Batch 1（基础层，3 并行）：frontend-overview / frontend-structure / frontend-architecture
+   - Batch 2（组件层，3 并行）：components / routes-and-state / frontend-config
+   - Batch 3（行为层，3 并行）：frontend-apis / frontend-utils / frontend-conventions
+5. **Smart Sampling 服务级独立采样**
    - 每个服务/模块独立执行采样
    - 关键类强制全量读取（Base/Abstract/Core/Common 类 + @Configuration/@Primary 注解类）
    - 公共模块强制全量扫描
-4. **记忆完整性评级**
+6. **记忆完整性评级**
    - A/B/C/D 四级
    - 低于 B 级不允许进入 Analyze
 
+**项目类型自动适配**：
+
+| 项目类型 | 扫描策略 | Memory 目录 |
+|----------|---------|------------|
+| 纯后端 | 仅后端扫描组（11 子代理） | `backend/` + 共享根目录 |
+| 纯前端 | 仅前端扫描组（9 子代理） | `frontend/` + 共享根目录 |
+| 全栈 | 两组并行扫描（11+9 子代理） | `frontend/` + `backend/` + 共享根目录 |
+
 **产出**：
 
-- `.dev-flow/memory/` 13 个文件
+- `.dev-flow/memory/` 13+ 文件（含 `frontend/` 和 `backend/` 子目录）
 - `memory/_index/file-index.yaml`
 - `.dev-flow/deliverables/{需求简称}/01-research-report.md`（阶段交付物）
 
@@ -438,17 +454,20 @@ AI 会执行适配 Java 项目特点的工作流：
 
 ### 5.5 Task Split（智能任务拆分）
 
-**目标**：将详细设计拆分为可并行的子任务，生成 DAG 依赖图，检测文件冲突。
+**目标**：将详细设计拆分为可并行的子任务，生成 DAG 依赖图，检测文件冲突，标记域标签。
 
 **执行步骤**：
 
 1. 读取 Design Contract
 2. 拆分为子任务
-3. 检测文件冲突（write-write / write-read / read-write）
-4. 构建 DAG 依赖图
-5. 双维度选择（并行度 vs 上下文占用）
-6. 生成子任务级设计
-7. 生成阶段交付物
+3. 为每个任务标记 `domain: frontend | backend` 标签（v3.7.0 新增）
+   - 前端标识：`.tsx/.jsx/.vue/.svelte/.css/.scss/.less` + `src/components/` / `src/pages/` / `src/views/`
+   - 后端标识：`.java/.py/.go/.rs` + `src/main/java/` / `controller/` / `service/` / `mapper/`
+4. 检测文件冲突（write-write / write-read / read-write）
+5. 构建 DAG 依赖图
+6. 双维度选择（并行度 vs 上下文占用）
+7. 生成子任务级设计
+8. 生成阶段交付物
 
 **产出**：
 
@@ -463,9 +482,20 @@ AI 会执行适配 Java 项目特点的工作流：
 
 **目标**：按子任务生成完整、可运行的代码，遵循项目编码规范。
 
+**域路由调度（v3.7.0 新增）**：
+
+- 每个子任务根据 `domain` 标签自动路由到对应开发专家
+- `domain: backend` → `backend-develop-expert`
+- `domain: frontend` → `frontend-develop-expert`
+- 前后端任务可并行执行（全栈项目）
+
 **执行步骤**：
 
 1. **读取上下文注入文件**（task-brief），如存在则跳过依赖扫描
+2. **域路由调度**（v3.7.0 新增）
+   - 读取任务 `domain` 标签
+   - 路由到 `backend-develop-expert` 或 `frontend-develop-expert`
+   - 前后端任务可并行派发
 2. **代码生成规划与分段决策**（Step 0.5）
    - 预估输出量
    - 决策流程
@@ -603,17 +633,24 @@ dev-flow 提供两种子代理调度模式，适应不同规模的开发需求�
 ```text
 用户 ←→ 主 Agent（纯调度枢纽，零编辑）
               │
-              ├── [Research: pre-scanner + 11 个文件级子代理，4 批次]
+              ├── [Research: pre-scanner + 前后端分离扫描]
               │     Phase 0: pre-scanner × 1          → file-index.yaml
-              │     Phase 1: Batch 1（基础层，3 并行）→ project-overview / service-registry / architecture
-              │              Batch 2（数据层，3 并行）→ common-modules / models / config
-              │              Batch 3（行为层，3 并行）→ apis / utils / conventions
-              │              Batch 4（横切层，2 并行）→ dependency-graph / decisions
+              │     Phase 0.5: 前后端存在性检测        → project-domains.yaml
+              │     后端扫描组 (11 子代理, 4 批次)
+              │     ├── Batch 1（基础层，3 并行）→ project-overview / service-registry / architecture
+              │     ├── Batch 2（数据层，3 并行）→ common-modules / models / config
+              │     ├── Batch 3（行为层，3 并行）→ apis / utils / conventions
+              │     └── Batch 4（横切层，2 并行）→ dependency-graph / decisions
+              │     前端扫描组 (9 子代理, 3 批次)
+              │     ├── Batch 1（基础层，3 并行）→ frontend-overview / frontend-structure / frontend-architecture
+              │     ├── Batch 2（组件层，3 并行）→ components / routes-and-state / frontend-config
+              │     └── Batch 3（行为层，3 并行）→ frontend-apis / frontend-utils / frontend-conventions
               ├── clarify-expert     → 需求澄清，迭代问答消除歧义
               ├── analyze-expert     → 需求分析
               ├── design-expert      → 详细设计
-              ├── task-split-expert  → 任务拆分 + DAG
-              ├── develop-expert     → 代码开发（可并行多个）
+              ├── task-split-expert  → 任务拆分 + DAG + 域标签
+              ├── backend-develop-expert  → 后端代码开发（可并行多个）
+              ├── frontend-develop-expert → 前端代码开发（可并行多个）
               ├── test-expert        → 统一测试
               ├── fix-expert         → Bug 修复
               ├── delivery-expert    → 交付报告
@@ -875,4 +912,4 @@ npm run build -- --lang typescript,python   # 保留 TypeScript 和 Python 内�
 
 ---
 
-*本用户指南基于 dev-flow v3.6.0 编写。*
+*本用户指南基于 dev-flow v3.7.0 编写。*

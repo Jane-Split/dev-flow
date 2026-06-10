@@ -2,9 +2,9 @@
 
 ![node](https://img.shields.io/node/v/dev-flow.svg)
 
-![version](https://img.shields.io/badge/version-v3.6.0-blue)
+![version](https://img.shields.io/badge/version-v3.7.0-blue)
 
-> **当前版本：v3.6.0** | [用户指南](./USER_GUIDE.md)
+> **当前版本：v3.7.0** | [用户指南](./USER_GUIDE.md)
 
 为 Cursor、Trae、Qoder、Claude Code、OpenAI Codex 等 AI 编程工具打造的开发流程编排 Skill。
 
@@ -32,11 +32,18 @@ dev-flow 通过**结构化流程编排 + 需求澄清迭代问答 + 项目记忆
 
 ### 核心架构
 
-- **四层按需加载架构** — Router（~10KB）+ References（9 个文件）+ 11 个阶段指令 + 24 个 Agent
+- **四层按需加载架构** — Router（~10KB）+ References（9 个文件）+ 11 个阶段指令 + 25 个 Agent
 - **9 阶段工作流** — Research → Clarify → Analyze → Design → Task Split → Develop → Test → Fix（按需）→ Delivery
 - **两种运行模式** — 标准模式（串行子代理）/ 企业级模式（并行子代理），支持动态重评估与自动升级
 - **两层门禁检查** — Gate-A（前置完整性：确认文件 + 交付物 + 内容校验）/ Gate-B（执行者审计：execution_trail + zero_edit_violation）
 - **跨平台调度策略** — Trae / Cursor / Claude Code / Qoder 均支持并行调度 / Codex 有限并行
+
+### 前后端分离架构（v3.7.0 新增）
+
+- **Research 前后端分离扫描** — 自动识别项目类型（纯前端 / 纯后端 / 全栈），按需启动前端扫描组（9 子代理，3 批次）和/或后端扫描组（11 子代理，4 批次）
+- **Develop 前后端分离开发** — `backend-develop-expert` + `frontend-develop-expert` 双专家域路由调度，前后端可并行开发
+- **Task Split 域标签** — 每个任务自动标记 `domain: frontend | backend`，按文件扩展名和目录智能判定
+- **全栈项目原生支持** — 纯后端 / 纯前端 / 全栈三种场景自动适配，纯后端项目零削弱
 
 ### 需求澄清（v3.6.0 新增）
 
@@ -78,7 +85,7 @@ dev-flow 通过**结构化流程编排 + 需求澄清迭代问答 + 项目记忆
 
 ```bash
 # 1. 安装到项目
-npm install Jane-Split/dev-flow#release_3.6.0 --save-dev
+npm install Jane-Split/dev-flow#release_3.7.0 --save-dev
 
 # 2. 执行安装（生成 Skill 文件和记忆目录）
 npx dev-flow install
@@ -113,7 +120,7 @@ npx dev-flow codex     # 仅安装到 OpenAI Codex
 cd your-project
 
 # 2. 安装 dev-flow
-npm install Jane-Split/dev-flow#release_3.6.0 --save-dev
+npm install Jane-Split/dev-flow#release_3.7.0 --save-dev
 
 # 3. 安装到指定工具（以 Cursor 为例）
 npx dev-flow cursor
@@ -224,12 +231,12 @@ Hotfix（独立模式，随时可用）
 
 | 阶段 | AI 做什么 | 产出 |
 | --- | --- | --- |
-| **Research** | pre-scanner 全局索引 + 11 个文件级子代理分 4 批次，Smart Sampling 服务级独立，关键类强制全量读取，完整性 A/B/C/D 评级 | `.dev-flow/memory/` 13 个文件 + `memory/_index/file-index.yaml` + 阶段交付物 |
+| **Research** | pre-scanner 全局索引 + 前后端存在性检测 + 后端 11 子代理 4 批次 + 前端 9 子代理 3 批次，Smart Sampling 服务级独立，关键类强制全量读取，完整性 A/B/C/D 评级 | `.dev-flow/memory/` 13+ 文件 + `memory/_index/file-index.yaml` + 阶段交付物 |
 | **Clarify** | 解析需求文档，结合项目代码迭代问答，10 维度技术关联分析，自动收敛 | `clarification-result.yaml` + `02-clarification-report.md` |
 | **Analyze** | 解析需求，关联已有代码，识别歧义，一致性校验，生成 PRD 契约 | PRD 文档 + `prd-contract.yaml` + `test-case-contract.yaml` + `runtime-contract.yaml` |
 | **Design** | 数据模型、API 接口、组件树、业务流程、结构化决策表 | `design-result.md` + `design-contract.yaml`（含多语言接口契约） |
-| **Task Split** | 拆分为子任务，冲突检测，DAG 构建，双维度选择，子任务级设计 | `task-breakdown.yaml` + `subtask-{id}-design.yaml` + `interface-registry.yaml` |
-| **Develop** | develop-expert 子代理按子任务开发，上下文自动注入，分段生成，业务代码优先，强制编译，逻辑回溯验证 | 代码文件 + 阶段交付物 |
+| **Task Split** | 拆分为子任务，域标签标记，冲突检测，DAG 构建，双维度选择，子任务级设计 | `task-breakdown.yaml` + `subtask-{id}-design.yaml` + `interface-registry.yaml` |
+| **Develop** | backend-develop-expert + frontend-develop-expert 域路由调度，上下文自动注入，分段生成，业务代码优先，强制编译，逻辑回溯验证 | 代码文件 + 阶段交付物 |
 | **Test** | 统一测试：单元测试 → 冒烟测试 → E2E 测试 → 集成测试 | 统一测试报告 |
 | **Fix** | 分析失败原因，修复代码，回归测试（最多 3 轮循环） | `fix-report.md` + 修复后的代码（按需触发） |
 | **Delivery** | 总结全流程结果，生成交付检查清单 | 交付报告 |
@@ -259,12 +266,13 @@ Layer 3: 阶段指令文件（进入阶段时加载，11 个文件）
   ├── test.md（统一测试：单元+冒烟+E2E+集成）
   └── fix.md / hotfix.md / delivery.md / code-reference.md
 
-Layer 4: Agent 文件（创建子代理时加载，24 个文件）
+Layer 4: Agent 文件（创建子代理时加载，25 个文件）
   ├── clarify-expert.md（需求澄清，迭代问答消除歧义）
-  ├── develop-expert.md（支持 LANGUAGE-ONLY 多语言规范过滤）
+  ├── backend-develop-expert.md（后端开发专家，支持 LANGUAGE-ONLY 多语言规范过滤）
+  ├── frontend-develop-expert.md（前端开发专家，v3.7.0 新增）
   ├── analyze-expert / design-expert / task-split-expert
   ├── contract-validator / verify-expert / step-enforcer
-  └── ...共 24 个（含 5 个遗留 Research Agent + 3 个新增验证 Agent）
+  └── ...共 25 个（含 5 个遗留 Research Agent + 3 个新增验证 Agent）
 ```
 
 ### 子代理执行架构（统一模型）
@@ -272,17 +280,24 @@ Layer 4: Agent 文件（创建子代理时加载，24 个文件）
 ```text
 用户 ←→ 主 Agent（纯调度枢纽，零编辑）
               │
-              ├── [Research: pre-scanner + 11 个文件级子代理，4 批次]
+              ├── [Research: pre-scanner + 前后端分离扫描]
               │     Phase 0: pre-scanner × 1          → file-index.yaml
-              │     Phase 1: Batch 1（基础层，3 并行）→ project-overview / service-registry / architecture
-              │              Batch 2（数据层，3 并行）→ common-modules / models / config
-              │              Batch 3（行为层，3 并行）→ apis / utils / conventions
-              │              Batch 4（横切层，2 并行）→ dependency-graph / decisions
+              │     Phase 0.5: 前后端存在性检测        → project-domains.yaml
+              │     后端扫描组 (11 子代理, 4 批次)
+              │     ├── Batch 1（基础层，3 并行）→ project-overview / service-registry / architecture
+              │     ├── Batch 2（数据层，3 并行）→ common-modules / models / config
+              │     ├── Batch 3（行为层，3 并行）→ apis / utils / conventions
+              │     └── Batch 4（横切层，2 并行）→ dependency-graph / decisions
+              │     前端扫描组 (9 子代理, 3 批次)
+              │     ├── Batch 1（基础层，3 并行）→ frontend-overview / frontend-structure / frontend-architecture
+              │     ├── Batch 2（组件层，3 并行）→ components / routes-and-state / frontend-config
+              │     └── Batch 3（行为层，3 并行）→ frontend-apis / frontend-utils / frontend-conventions
               ├── clarify-expert     → 需求澄清，迭代问答消除歧义
               ├── analyze-expert     → 需求分析
               ├── design-expert      → 详细设计
-              ├── task-split-expert  → 任务拆分 + DAG
-              ├── develop-expert     → 代码开发（可并行多个）
+              ├── task-split-expert  → 任务拆分 + DAG + 域标签
+              ├── backend-develop-expert  → 后端代码开发（可并行多个）
+              ├── frontend-develop-expert → 前端代码开发（可并行多个）
               ├── test-expert        → 统一测试
               ├── fix-expert         → Bug 修复
               ├── delivery-expert    → 交付报告
@@ -310,12 +325,13 @@ dev-flow/
 │   │   ├── SKILL.md          # Router（~520 行，始终加载）
 │   │   ├── stages/           # 11 个阶段指令文件（按需加载）
 │   │   │   ├── research.md / clarify.md / analyze.md / design.md / task-split.md
-│   │   │   ├── develop.md（主 Agent 调度协议）
+│   │   │   ├── develop.md（主 Agent 调度协议 + 域路由）
 │   │   │   ├── test.md（统一测试：单元+冒烟+E2E+集成）
 │   │   │   └── fix.md / hotfix.md / delivery.md / code-reference.md
-│   │   ├── agents/           # 24 个 Agent 定义
+│   │   ├── agents/           # 25 个 Agent 定义
+│   │   │   ├── backend-develop-expert.md（后端开发专家）
+│   │   │   ├── frontend-develop-expert.md（前端开发专家，v3.7.0 新增）
 │   │   │   ├── clarify-expert.md（需求澄清，迭代问答）
-│   │   │   ├── develop-expert.md（含 LANGUAGE-ONLY 多语言规范）
 │   │   │   └── ...
 │   │   └── references/       # 9 个按需参考文档
 │   │       ├── protocol.md（零编辑铁律 + 失败协议 + 历史压缩 + 门禁 + 交付物）

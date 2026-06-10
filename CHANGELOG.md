@@ -2,6 +2,76 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.7.0] - 2026-06-10
+
+### 前后端分离架构 — 全栈项目原生支持
+
+**核心变化**：将 Research 扫描和 Develop 开发专家按前后端分离，支持纯前端项目、纯后端项目、全栈项目三种场景，实现前后端并行扫描与并行开发。
+
+#### Research 阶段前后端分离扫描
+
+- **pre-scanner 新增 Step P1.5 前后端存在性检测**：自动识别项目类型（纯后端 / 纯前端 / 全栈）
+- **输出分域索引**：`backend-file-index.yaml` 和/或 `frontend-file-index.yaml` + `project-domains.yaml`
+- **后端扫描组**：11 个子代理，4 批次（与现有完全一致，零削弱）
+- **前端扫描组**（新增）：9 个子代理，3 批次
+  - Batch 1（基础层 ×3）：frontend-overview / frontend-structure / frontend-architecture
+  - Batch 2（组件层 ×3）：components / routes-and-state / frontend-config
+  - Batch 3（行为层 ×3）：frontend-apis / frontend-utils / frontend-conventions
+- **Memory 分目录**：`frontend/` + `backend/` + 共享根目录
+
+#### Develop 阶段前后端分离开发
+
+- **`develop-expert` → `backend-develop-expert`**（重命名，内容不变）
+- **新增 `frontend-develop-expert`**：前端专用开发专家，工具集与后端完全一致（Read, Write, Edit, Bash, Grep, Glob）
+- **域路由调度**：根据任务 `domain` 标签自动路由到对应开发专家
+  - `domain: backend` → `backend-develop-expert`
+  - `domain: frontend` → `frontend-develop-expert`
+
+#### Task Split 阶段域标签
+
+- **每个任务新增 `domain: frontend | backend` 标签**
+- **domain 判定规则**：按文件扩展名和目录自动判断
+  - 前端标识：`.tsx/.jsx/.vue/.svelte/.css/.scss/.less` + `src/components/` / `src/pages/` / `src/views/`
+  - 后端标识：`.java/.py/.go/.rs` + `src/main/java/` / `controller/` / `service/` / `mapper/`
+
+#### 调度策略适配
+
+| 项目类型 | Research 扫描 | Develop 调度 |
+|----------|-------------|-------------|
+| 纯后端 | 仅后端扫描组（11 子代理） | 仅 `backend-develop-expert` |
+| 纯前端 | 仅前端扫描组（9 子代理） | 仅 `frontend-develop-expert` |
+| 全栈 | 两组并行扫描（11+9 子代理） | 两个专家按域路由，可并行 |
+
+#### 新增文件
+
+- `skill-templates/_core/agents/frontend-develop-expert.md` — 前端开发专家子代理定义
+- 各平台 `agents/frontend-develop-expert.md` — 5 个平台适配文件
+- 各平台 `agents/backend-develop-expert.md` — 从 `develop-expert.md` 重命名
+
+#### 修改文件
+
+- `_core/SKILL.md` — Develop 阶段子代理从 `develop-expert` 更新为 `backend-develop-expert` + `frontend-develop-expert` 域路由调度
+- `_core/stages/research.md` — 新增 Step P1.5 前后端存在性检测 + 前端扫描组调度
+- `_core/stages/develop.md` — 新增域路由调度逻辑（domain → 对应专家）
+- `_core/stages/task-split.md` — 每个任务新增 `domain` 标签 + 判定规则
+- `_core/agents/backend-develop-expert.md` — 从 `develop-expert.md` 重命名
+- 各平台 SKILL.md / dev-flow.md — 同步更新子代理列表和调度策略
+
+#### 向后兼容
+
+- 纯后端项目流程与 v3.6.0 完全一致，零削弱
+- 现有 `develop-expert.md` 重命名为 `backend-develop-expert.md`，内容不变
+- 现有 `file-index.yaml` 重命名为 `backend-file-index.yaml`
+- 所有现有规则、铁律、验证步骤全部保留
+
+#### 子代理总数变化
+
+- Research 阶段：12 子代理（1 pre-scanner + 11 后端）→ 22 子代理（1 pre-scanner + 11 后端 + 9 前端 + 1 域检测）
+- Develop 阶段：1 个 `develop-expert` → 2 个域专家（`backend-develop-expert` + `frontend-develop-expert`）
+- Agent 文件总数：24 → 25（新增 `frontend-develop-expert`）
+
+---
+
 ## [3.6.0] - 2026-06-10
 
 ### Clarify（需求澄清）独立阶段 — 迭代问答消除歧义
