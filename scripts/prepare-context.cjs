@@ -15,6 +15,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const { CompletenessGate } = require('./completeness-gate.cjs');
 
 const ROOT = path.resolve(__dirname, '..');
 const DOCS_DIR = path.join(ROOT, '.dev-flow', 'docs');
@@ -677,7 +678,69 @@ function processTask(taskId, demandName) {
     return false;
   }
 
-  const brief = generateBrief(taskId, sections, totalSize);
+  let brief = generateBrief(taskId, sections, totalSize);
+
+  // Step 2.5: 完整性门控
+  // 收集依赖信息用于门控检查
+  const dependencies = [];
+  const contractFile = findDemandFile(demandName ? `${demandName}-design-contract` : 'design-contract');
+  let designContract = null;
+  if (contractFile) {
+    designContract = safeRead(contractFile, MAX_BRIEF_SIZE / 3);
+  }
+
+  // 从 Dependency Class Definitions 章节提取依赖内容
+  const depSectionIdx = sections.findIndex(s => s.includes('## Dependency Class Definitions'));
+  if (depSectionIdx >= 0) {
+    const depSection = sections[depSectionIdx];
+    const depBlocks = depSection.split(/###\s+/);
+    for (const block of depBlocks) {
+      const fileMatch = block.match(/File:\s*(.+?)\n/);
+      if (fileMatch) {
+        const filePath = fileMatch[1].trim();
+        const codeMatch = block.match(/```[\s\S]*?```/);
+        const content = codeMatch ? codeMatch[0] : block;
+        const stat = fs.existsSync(filePath) ? fs.statSync(filePath) : null;
+        dependencies.push({
+          path: filePath,
+          content: content,
+          originalSize: stat ? stat.size : 0
+        });
+      }
+    }
+  }
+
+  const gate = new CompletenessGate({
+    maxFileSizeKB: MAX_FILE_READ / 1024
+  });
+
+  const gateResult = gate.check({
+    taskBrief: brief,
+    dependencies: dependencies,
+    contractContent: designContract
+  });
+
+  if (!gateResult.passed) {
+    console.error('[COMPLETENESS_GATE_BLOCKED]', JSON.stringify(gateResult, null, 2));
+
+    if (gateResult.recommendation.action === 'SPLIT_TASK') {
+      throw new Error(`TASK_TOO_LARGE: ${gateResult.recommendation.reason}. Files: ${gateResult.recommendation.details.map(d => d.file).join(', ')}`);
+    }
+
+    if (gateResult.recommendation.action === 'ON_DEMAND_LOAD') {
+      brief += '\n\n## ON_DEMAND_LOAD_REQUIRED\n';
+      for (const file of gateResult.recommendation.files) {
+        brief += `- ${file}\n`;
+      }
+      console.warn('[WARN] Task brief marked for on-demand loading');
+    }
+
+    if (gateResult.recommendation.action === 'EXPAND_SEARCH') {
+      throw new Error(`DEPENDENCY_NOT_FOUND: ${gateResult.recommendation.reason}`);
+    }
+  } else {
+    brief = `<!-- COMPLETENESS_GATE_PASSED -->\n${brief}`;
+  }
 
   fs.mkdirSync(RUNTIME_DIR, { recursive: true });
   const briefPath = path.join(RUNTIME_DIR, `task-brief-${taskId}.md`);
