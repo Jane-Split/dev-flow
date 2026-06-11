@@ -18,6 +18,7 @@
 const fs = require('fs');
 const path = require('path');
 const { StaticValidationSuite } = require('./static-validation-suite.cjs');
+const { ValidationWorker } = require('./validation-worker.cjs');
 
 const ROOT = path.resolve(__dirname, '..');
 const DOCS_DIR = path.join(ROOT, '.dev-flow', 'docs');
@@ -552,4 +553,84 @@ function yamlStringify(obj) {
   }).join('\n');
 }
 
-main();
+// ============================================================
+// 异步验证 API（验证与主 Agent 解耦）
+// ============================================================
+
+/**
+ * 提交异步验证请求（主 Agent 使用）
+ * 不等待验证完成，立即返回，不占用主 Agent 上下文
+ */
+async function submitValidation(taskId, filePath, contractPath, options = {}) {
+  const worker = new ValidationWorker({
+    resultsDir: options.resultsDir || '.dev-flow/validation-results'
+  });
+
+  // 启动验证（异步，不等待）
+  worker.validate(taskId, filePath, contractPath, options).catch(err => {
+    console.error(`[Validation Error] Task ${taskId}:`, err.message);
+  });
+
+  return {
+    taskId,
+    status: 'SUBMITTED',
+    resultPath: `.dev-flow/validation-results/${taskId}.yaml`,
+    message: 'Validation submitted asynchronously'
+  };
+}
+
+/**
+ * 读取验证结果（主 Agent 使用）
+ * 只返回摘要，不加载详细结果
+ */
+function readValidationResult(taskId, options = {}) {
+  const resultsDir = options.resultsDir || '.dev-flow/validation-results';
+  const resultPath = path.join(resultsDir, `${taskId}.yaml`);
+
+  if (!fs.existsSync(resultPath)) {
+    return { status: 'NOT_FOUND', passed: false };
+  }
+
+  const yaml = require('js-yaml');
+  const result = yaml.load(fs.readFileSync(resultPath, 'utf8'));
+
+  // 只返回摘要信息，减少主 Agent 上下文占用
+  return {
+    status: result.status,
+    passed: result.status === 'PASSED',
+    summary: result.summary || 'No summary',
+    failedLayer: result.failed_layer || null,
+    blockingCount: result.layer_1?.blocking?.length || 0,
+    warningCount: result.layer_1?.warnings?.length || 0
+  };
+}
+
+/**
+ * 等待验证完成（阻塞式，用于必须等待的场景）
+ */
+async function waitForValidation(taskId, timeoutMs = 60000) {
+  const startTime = Date.now();
+  const interval = 1000; // 每秒检查一次
+
+  while (Date.now() - startTime < timeoutMs) {
+    const result = readValidationResult(taskId);
+    if (result.status === 'PASSED' || result.status === 'FAILED' || result.status === 'ERROR') {
+      return result;
+    }
+    await new Promise(resolve => setTimeout(resolve, interval));
+  }
+
+  return { status: 'TIMEOUT', passed: false, summary: 'Validation timeout' };
+}
+
+module.exports = {
+  validateResult,        // 保留原有同步验证
+  submitValidation,      // 新增：异步提交
+  readValidationResult,  // 新增：读取摘要
+  waitForValidation      // 新增：等待完成
+};
+
+// 仅在直接运行时执行 main()
+if (require.main === module) {
+  main();
+}
