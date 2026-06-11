@@ -26,8 +26,11 @@ const STAGES_DIR = path.join(ROOT, 'skill-templates', '_core', 'stages');
 // 配置
 // ============================================================
 
-const MAX_BRIEF_SIZE = 120 * 1024; // 120KB - 给 subagent 留足够空间
 const MAX_FILE_READ = 30 * 1024;   // 单个依赖文件最大 30KB
+
+// 动态上下文预算（由 context-budget.cjs 计算）
+const { calculateBudget } = require('./context-budget.cjs');
+let MAX_BRIEF_SIZE = 120 * 1024; // 默认值，会被动态覆盖
 
 // 支持的 agent 类型
 const AGENT_TYPES = [
@@ -47,12 +50,13 @@ const AGENT_CONTEXT_MAP = {
 // ============================================================
 
 function parseArgs(args) {
-  const opts = { task: null, demand: null, batch: null, dryRun: false };
+  const opts = { task: null, demand: null, batch: null, dryRun: false, model: null };
   for (let i = 0; i < args.length; i++) {
     if (args[i] === '--task' && args[i + 1]) { opts.task = args[++i]; }
     else if (args[i] === '--demand' && args[i + 1]) { opts.demand = args[++i]; }
     else if (args[i] === '--batch' && args[i + 1]) { opts.batch = args[++i]; }
     else if (args[i] === '--dry-run') { opts.dryRun = true; }
+    else if (args[i] === '--model' && args[i + 1]) { opts.model = args[++i]; }
     else if (args[i] === '--help') { opts.help = true; }
   }
   return opts;
@@ -232,16 +236,44 @@ function findDemandFile(prefix) {
 // 上下文收集器
 // ============================================================
 
-function collectTaskContext(taskId, demandName) {
+function collectTaskContext(taskId, demandName, modelName) {
+  // 动态计算上下文预算
+  const budget = calculateBudget(modelName);
+  MAX_BRIEF_SIZE = budget.max_brief_kb * 1024;
+  console.log(`[INFO] Model: ${budget.model}, Window: ${budget.window_kb}KB, MAX_BRIEF: ${budget.max_brief_kb}KB`);
+
   const sections = [];
   let totalSize = 0;
+  const trimmedSections = [];
+  const skippedSections = [];
 
-  function addSection(title, content) {
+  // 优先级裁剪比例：critical=不可裁剪, high=可裁剪50%, medium=可裁剪70%, low=可省略
+  const TRIM_RATIO = { critical: 1.0, high: 0.5, medium: 0.3, low: 0 };
+
+  function addSection(title, content, priority) {
+    priority = priority || 'medium';
     if (!content || content.trim() === '') return false;
-    const section = `\n## ${title}\n\n${content.trim()}\n`;
+
+    // 按优先级裁剪
+    const maxSectionSize = MAX_BRIEF_SIZE * (TRIM_RATIO[priority] || 0.3);
+    let trimmedContent = content;
+
+    if (content.length > maxSectionSize && priority !== 'critical') {
+      trimmedContent = content.substring(0, maxSectionSize) +
+        `\n\n<!-- [TRIMMED] Original: ${Math.round(content.length / 1024)}KB, trimmed to ${Math.round(maxSectionSize / 1024)}KB. Full content available via query protocol. -->`;
+      trimmedSections.push(`${title} (${Math.round(content.length / 1024)}KB → ${Math.round(maxSectionSize / 1024)}KB)`);
+    }
+
+    const section = `\n## ${title}\n\n${trimmedContent.trim()}\n`;
     if (totalSize + section.length > MAX_BRIEF_SIZE) {
-      console.warn(`[WARN] 上下文已达 ${Math.round(MAX_BRIEF_SIZE / 1024)}KB 上限，跳过: ${title}`);
-      return false;
+      if (priority === 'critical') {
+        console.error(`[ERROR] Critical section "${title}" cannot fit in budget (${Math.round(section.length / 1024)}KB). Consider enabling query protocol mode.`);
+        // 仍然尝试添加
+      } else {
+        console.warn(`[WARN] Context budget exceeded (${Math.round(MAX_BRIEF_SIZE / 1024)}KB), skipping: ${title}`);
+        skippedSections.push(title);
+        return false;
+      }
     }
     sections.push(section);
     totalSize += section.length;
@@ -250,10 +282,12 @@ function collectTaskContext(taskId, demandName) {
 
   // 1. 任务基本信息
   const dagFile = findDemandFile(demandName ? `${demandName}-task-dag` : 'task-dag');
+  let dagContent = null;
+  let taskInfo = null;
   if (dagFile) {
-    const dagContent = safeRead(dagFile);
+    dagContent = safeRead(dagFile);
     if (dagContent) {
-      const taskInfo = extractTaskFromDag(dagContent, taskId);
+      taskInfo = extractTaskFromDag(dagContent, taskId);
       if (taskInfo) {
         addSection('Task Info', [
           `Task ID: ${taskInfo.id}`,
@@ -263,7 +297,7 @@ function collectTaskContext(taskId, demandName) {
           taskInfo.description ? `Description: ${taskInfo.description}` : '',
           taskInfo.dependencies.length > 0 ? `Dependencies: ${taskInfo.dependencies.join(', ')}` : 'Dependencies: none (can start immediately)',
           taskInfo.parallel_group ? `Parallel Group: ${taskInfo.parallel_group}` : '',
-        ].filter(Boolean).join('\n'));
+        ].filter(Boolean).join('\n'), 'critical');
       }
     }
   }
@@ -272,7 +306,7 @@ function collectTaskContext(taskId, demandName) {
   const subtaskDesign = findDemandFile(demandName ? `subtask-${taskId.replace(/^Task-/, '')}` : `subtask-${taskId.replace(/^Task-/, '')}`);
   if (subtaskDesign) {
     const content = safeRead(subtaskDesign, MAX_BRIEF_SIZE / 4);
-    if (content) addSection('Subtask Design', content);
+    if (content) addSection('Subtask Design', content, 'critical');
   }
   // 尝试在 docs 目录下找
   if (!subtaskDesign) {
@@ -280,7 +314,7 @@ function collectTaskContext(taskId, demandName) {
                 findFile(DOCS_DIR, taskId.toLowerCase());
     if (alt) {
       const content = safeRead(alt, MAX_BRIEF_SIZE / 4);
-      if (content) addSection('Subtask Design', content);
+      if (content) addSection('Subtask Design', content, 'critical');
     }
   }
 
@@ -291,12 +325,12 @@ function collectTaskContext(taskId, demandName) {
     if (content) {
       // 提取与本任务相关的部分
       const taskSpecific = extractRelevantContract(content, taskId);
-      addSection('Design Contract (Relevant)', taskSpecific || content);
+      addSection('Design Contract (Relevant)', taskSpecific || content, 'critical');
     }
   }
 
   // 3.5 Agent 专属上下文文件（基于 AGENT_CONTEXT_MAP）
-  const taskAgent = extractTaskFromDag(dagContent || (dagFile ? safeRead(dagFile) : ''), taskId);
+  const taskAgent = taskInfo || (dagContent ? extractTaskFromDag(dagContent, taskId) : null);
   if (taskAgent && taskAgent.agent && AGENT_CONTEXT_MAP[taskAgent.agent]) {
     const requiredFiles = AGENT_CONTEXT_MAP[taskAgent.agent];
     const agentSections = [];
@@ -320,7 +354,7 @@ function collectTaskContext(taskId, demandName) {
       }
     }
     if (agentSections.length > 0) {
-      addSection(`Agent-Specific Context (${taskAgent.agent})`, agentSections.join('\n\n'));
+      addSection(`Agent-Specific Context (${taskAgent.agent})`, agentSections.join('\n\n'), 'high');
     }
   }
 
@@ -331,27 +365,26 @@ function collectTaskContext(taskId, demandName) {
     if (fullContent) {
       // 提取关键步骤规则，而非全文
       const coreRules = extractDevelopCoreRules(fullContent);
-      addSection('Develop Rules (Core)', coreRules);
+      addSection('Develop Rules (Core)', coreRules, 'critical');
     }
   }
 
   // 5. 编码规范
   const conventions = path.join(MEMORY_DIR, 'conventions.md');
   const convContent = safeRead(conventions, 15 * 1024);
-  if (convContent) addSection('Coding Conventions', convContent);
+  if (convContent) addSection('Coding Conventions', convContent, 'medium');
 
   // 6. 错误模式
   const mistakes = path.join(MEMORY_DIR, 'mistakes.md');
   const mistakesContent = safeRead(mistakes, 10 * 1024);
-  if (mistakesContent) addSection('Error Patterns to Avoid', mistakesContent);
+  if (mistakesContent) addSection('Error Patterns to Avoid', mistakesContent, 'medium');
 
   // 7. 父任务结果（依赖的 subagent 产出）
-  const dagContent = safeRead(dagFile);
   if (dagContent) {
-    const taskInfo = extractTaskFromDag(dagContent, taskId);
-    if (taskInfo && taskInfo.dependencies.length > 0) {
+    const parentTaskInfo = taskInfo || extractTaskFromDag(dagContent, taskId);
+    if (parentTaskInfo && parentTaskInfo.dependencies.length > 0) {
       const parentResults = [];
-      for (const depId of taskInfo.dependencies) {
+      for (const depId of parentTaskInfo.dependencies) {
         const resultFile = path.join(RUNTIME_DIR, `task-result-${depId}.yaml`);
         const resultContent = safeRead(resultFile, 5 * 1024);
         if (resultContent) {
@@ -359,7 +392,7 @@ function collectTaskContext(taskId, demandName) {
         }
       }
       if (parentResults.length > 0) {
-        addSection('Parent Task Results', parentResults.join('\n\n'));
+        addSection('Parent Task Results', parentResults.join('\n\n'), 'low');
       }
     }
   }
@@ -384,12 +417,12 @@ function collectTaskContext(taskId, demandName) {
         }
       }
       if (depDefinitions.length > 0) {
-        addSection('Dependency Class Definitions', depDefinitions.join('\n\n'));
+        addSection('Dependency Class Definitions', depDefinitions.join('\n\n'), 'high');
       }
     }
   }
 
-  return { sections, totalSize };
+  return { sections, totalSize, budget, trimmedSections, skippedSections };
 }
 
 function extractTaskFromDag(dagContent, taskId) {
@@ -603,12 +636,16 @@ function searchClassFile(projectRoot, className) {
 // 输出生成
 // ============================================================
 
-function generateBrief(taskId, sections, totalSize) {
+function generateBrief(taskId, sections, totalSize, budget, trimmedSections, skippedSections) {
+  const budgetInfo = budget
+    ? `> Budget: ${budget.max_brief_kb}KB / ${budget.window_kb}KB model window | Sections: ${sections.length} loaded${trimmedSections.length > 0 ? ` | Trimmed: ${trimmedSections.length}` : ''}${skippedSections.length > 0 ? ` | Skipped: ${skippedSections.length}` : ''}`
+    : `> Size: ${Math.round(totalSize / 1024)}KB / ${Math.round(MAX_BRIEF_SIZE / 1024)}KB`;
+
   const header = [
     `# Task Brief: ${taskId}`,
     ``,
     `> Auto-generated by prepare-context.cjs`,
-    `> Size: ${Math.round(totalSize / 1024)}KB / ${Math.round(MAX_BRIEF_SIZE / 1024)}KB`,
+    budgetInfo,
     `> Generated at: ${new Date().toISOString()}`,
     ``,
     `## Instructions`,
@@ -628,7 +665,7 @@ function generateBrief(taskId, sections, totalSize) {
 // 批量处理
 // ============================================================
 
-function processBatch(batchIndex, demandName) {
+function processBatch(batchIndex, demandName, modelName) {
   const dagFile = findDemandFile(demandName ? `${demandName}-task-dag` : 'task-dag');
   if (!dagFile) {
     console.error(`[ERROR] 未找到 task-dag.yaml`);
@@ -663,21 +700,22 @@ function processBatch(batchIndex, demandName) {
   const taskId = batchTasks[Math.min(batchIndex, batchTasks.length - 1)];
   console.log(`[INFO] 处理批次 ${batchIndex} 中的任务: ${taskId}`);
 
-  return processTask(taskId, demandName);
+  return processTask(taskId, demandName, modelName);
 }
 
-function processTask(taskId, demandName) {
+function processTask(taskId, demandName, modelName) {
   console.log(`[INFO] 为任务 ${taskId} 准备上下文...`);
   console.log(`[INFO] 需求名称: ${demandName || 'current'}`);
+  console.log(`[INFO] 模型: ${modelName || 'default'}`);
 
-  const { sections, totalSize } = collectTaskContext(taskId, demandName);
+  const { sections, totalSize, budget, trimmedSections, skippedSections } = collectTaskContext(taskId, demandName, modelName);
 
   if (sections.length === 0) {
     console.error(`[ERROR] 未找到任何上下文信息给任务 ${taskId}`);
     return false;
   }
 
-  const brief = generateBrief(taskId, sections, totalSize);
+  const brief = generateBrief(taskId, sections, totalSize, budget, trimmedSections, skippedSections);
 
   fs.mkdirSync(RUNTIME_DIR, { recursive: true });
   const briefPath = path.join(RUNTIME_DIR, `task-brief-${taskId}.md`);
@@ -685,6 +723,12 @@ function processTask(taskId, demandName) {
   fs.writeFileSync(briefPath, brief, 'utf-8');
   console.log(`[INFO] Task Brief 已生成: ${briefPath}`);
   console.log(`[INFO] 大小: ${Math.round(totalSize / 1024)}KB (${sections.length} 个章节)`);
+  if (trimmedSections.length > 0) {
+    console.log(`[WARN] 已裁剪: ${trimmedSections.join(', ')}`);
+  }
+  if (skippedSections.length > 0) {
+    console.log(`[WARN] 已跳过: ${skippedSections.join(', ')}`);
+  }
 
   return true;
 }
@@ -702,29 +746,30 @@ function main() {
 dev-flow Subagent 上下文注入工具
 
 用法：
-  node scripts/prepare-context.cjs --task <taskId> [--demand <demandName>] [--dry-run]
-  node scripts/prepare-context.cjs --batch <batchIndex> --demand <demandName> [--dry-run]
+  node scripts/prepare-context.cjs --task <taskId> [--demand <demandName>] [--model <model>] [--dry-run]
+  node scripts/prepare-context.cjs --batch <batchIndex> --demand <demandName> [--model <model>] [--dry-run]
   node scripts/prepare-context.cjs --help
 
 选项：
   --task <taskId>     为指定任务准备上下文（如 Task-5）
   --batch <index>     为指定批次准备上下文
   --demand <name>     需求名称（用于定位 design-contract.yaml 和 task-dag.yaml）
+  --model <model>     AI 模型名称（如 gpt-4, claude-3.5-sonnet, deepseek-v3），影响上下文预算
   --dry-run           仅输出分析结果，不生成文件
   --help              显示帮助
 
 示例：
-  node scripts/prepare-context.cjs --task Task-5 --demand user-management
-  node scripts/prepare-context.cjs --batch 3 --demand user-management --dry-run
+  node scripts/prepare-context.cjs --task Task-5 --demand user-management --model gpt-4
+  node scripts/prepare-context.cjs --batch 3 --demand user-management --model claude-3.5-sonnet
 `);
     process.exit(0);
   }
 
   if (opts.task) {
-    const success = processTask(opts.task, opts.demand);
+    const success = processTask(opts.task, opts.demand, opts.model);
     if (!success) process.exit(1);
   } else if (opts.batch !== null && opts.demand) {
-    processBatch(parseInt(opts.batch), opts.demand);
+    processBatch(parseInt(opts.batch), opts.demand, opts.model);
   } else {
     console.error('[ERROR] 必须指定 --task 或 --batch + --demand');
     process.exit(1);

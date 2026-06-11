@@ -457,3 +457,108 @@ Step H3: 继续下一阶段门禁检查
 .dev-flow/contracts/{需求简称}/design-contract.yaml
 .dev-flow/stage-confirmations/{需求简称}/research.confirmed
 ```
+
+---
+
+## 🔴 阶段间状态恢复协议（v3.8.0 — 主 Agent 上下文保护）
+
+> **核心原则**：主 Agent 的调度状态必须持久化到文件，不依赖对话历史。
+> 每个阶段入口从文件恢复状态，出口更新状态文件。
+
+### 状态恢复流程
+
+```
+阶段 N 完成
+    │
+    ▼
+Step S1: 生成阶段摘要
+  ├── 写入 .dev-flow/sessions/{id}/stage-summaries/{stage}-summary.yaml
+  └── 摘要大小目标: ~1-2KB
+
+Step S2: 更新调度状态
+  ├── 执行: node scripts/orchestrator-state.cjs --action update --session {id} --stage {stage}
+  └── 更新: stages_completed, develop_progress, next_action
+
+Step S3: 用户确认
+  ├── 写入 .confirmed 文件
+  └── 确认后进入下一阶段
+
+Step S4: 阶段 N+1 入口
+  ├── 执行: node scripts/orchestrator-state.cjs --action summary --session {id}
+  ├── 从文件恢复调度上下文（~2KB）
+  └── 执行门禁检查 → 读取阶段指令 → 开始调度
+```
+
+### 状态恢复铁律
+
+1. **入口必读**：进入任何阶段前，必须读取 orchestrator-state.yaml 摘要
+2. **出口必写**：离开任何阶段后，必须更新 orchestrator-state.yaml
+3. **对话历史可压缩**：状态已持久化，主 Agent 可在阶段间压缩对话历史
+4. **断点续传**：如果会话中断，从 orchestrator-state.yaml 恢复最后状态
+
+### 状态文件位置
+
+```
+.dev-flow/sessions/{session-id}/orchestrator-state.yaml
+```
+
+### 工具命令
+
+```bash
+# 保存状态
+node scripts/orchestrator-state.cjs --action save --session {id} --demand {name} --stage {stage}
+
+# 恢复状态
+node scripts/orchestrator-state.cjs --action restore --session {id}
+
+# 更新状态
+node scripts/orchestrator-state.cjs --action update --session {id} --stage {stage} --data "key=value"
+
+# 输出摘要（~2KB，供主 Agent 恢复上下文）
+node scripts/orchestrator-state.cjs --action summary --session {id}
+```
+
+---
+
+## 🔴 分段锁协议（v3.8.0 — 代码生成完整性保障）
+
+> **核心原则**：分段生成从"建议性"升级为"强制性"，跳过任何 segment 会导致验证失败。
+
+### 分段锁文件
+
+```
+.dev-flow/runtime/segment-lock-{taskId}.yaml
+```
+
+### 分段锁格式
+
+```yaml
+task_id: "Task-5"
+lock_created_at: "2026-06-10T10:00:00Z"
+segmentation_mode: "skeleton_plus_fill"
+total_segments: 5
+
+segments:
+  - id: "seg-1"
+    type: "skeleton"
+    status: "pending"      # pending | completed | skipped
+    completed_at: null
+  - id: "seg-2"
+    type: "method_fill"
+    target_method: "createOrder"
+    status: "pending"
+    depends_on: ["seg-1"]
+  ...
+
+enforcement:
+  all_must_complete: true
+  skip_any_segment: "FAIL"
+  verification_required: true
+```
+
+### 分段锁铁律
+
+1. **锁文件生成**：segment-code.cjs --plan 执行后自动生成锁文件
+2. **逐段完成**：每完成一个 segment，执行 `node scripts/segment-code.cjs --complete --segment {segId} --task {taskId}`
+3. **验证拦截**：validate-result.cjs 检查锁文件，未完成 segment = FAIL
+4. **不可跳过**：任何 segment 被标记为 skipped = FAIL

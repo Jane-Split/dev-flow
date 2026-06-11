@@ -165,6 +165,47 @@ Step 1.1.1: 检查上下文注入文件是否存在
 
 ---
 
+### 查询协议模式（v3.8.0）
+
+> 当 task-skeleton-{taskId}.md 存在（而非 task-brief-{taskId}.md）时，自动启用查询协议模式。
+
+**触发条件**：
+- context-budget.cjs 报告 brief 预算不足（预估 > 80% MAX_BRIEF_SIZE）
+- prepare-context.cjs 生成 task-skeleton 而非 task-brief
+
+**执行流程**：
+
+1. **读取 task-skeleton**（~8KB）
+   - Layer 0: 任务信息 + 禁止事项
+   - Layer 1: 接口签名（Entity/Service/DTO/Mapper）
+   - Layer 2: 逻辑步骤
+   - 查询清单（Query Checklist）
+
+2. **Step 2.5 依赖验证**（按查询清单逐项执行）：
+   ```
+   node scripts/query-protocol.cjs --action execute --task {taskId} --query q1
+   node scripts/query-protocol.cjs --action execute --task {taskId} --query q2
+   ...
+   ```
+   每项查询返回 1-5KB 精准片段，上下文始终安全。
+
+3. **Step 3 代码生成**（按查询清单获取逻辑步骤详情）：
+   ```
+   node scripts/query-protocol.cjs --action execute --task {taskId} --query q6
+   node scripts/query-protocol.cjs --action execute --task {taskId} --query q7
+   ...
+   ```
+   逐方法生成代码，代码生成空间充裕（43-83KB for 128KB model）。
+
+4. **完整性防线检查** → **编译验证** → **写入 task-result**
+
+**优势**：
+- 子代理初始上下文从 60-105KB 降至 ~8KB
+- 128KB 模型代码生成空间从 0-23KB 升至 43-83KB
+- 每步查询返回完整文件片段（非摘要），信息完整性 = 当前方案
+
+---
+
 ### 代码开发步骤（由 develop-expert subagent 执行）
 
 > **⚠️ 以下所有步骤由 backend-develop-expert 或 frontend-develop-expert subagent 执行，主 Agent 仅负责调度。**

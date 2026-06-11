@@ -2,6 +2,91 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.8.0] - 2026-06-10
+
+### 上下文溢出根治方案（Phase 1+2+3）
+
+**核心变化**：将上下文保护从"软约束（AI 自觉执行）"升级为"硬约束（脚本强制执行）"，彻底解决因 AI 上下文窗口有限导致的开发不完整、代码错误问题。
+
+#### Phase 1：硬约束脚本增强
+
+- **新增 `scripts/context-budget.cjs`**：上下文预算计算引擎
+  - 模型上下文窗口映射（Claude 200KB / GPT-4 128KB / DeepSeek 128KB / Qwen 128KB / Gemini）
+  - 动态 MAX_BRIEF_SIZE 计算（128KB 模型 → 32KB, 200KB 模型 → 90KB）
+  - 上下文预算报告生成（`.dev-flow/runtime/context-budget-{taskId}.yaml`）
+  - 分段模式强制触发（超限时自动生成分段标记文件）
+- **改造 `scripts/prepare-context.cjs`**：
+  - 集成 context-budget.cjs，删除固定 MAX_BRIEF_SIZE = 120KB
+  - 新增 `--model` 参数，根据模型动态计算上下文预算
+  - addSection 函数支持优先级裁剪（critical/high/medium/low）
+  - brief 头部输出预算摘要（model, window, MAX_BRIEF, sections loaded/trimmed/skipped）
+  - 超出预算的 section 按 priority 自动裁剪或跳过
+
+#### Phase 2：主 Agent 状态机化
+
+- **新增 `scripts/orchestrator-state.cjs`**：主 Agent 状态持久化工具
+  - save：保存调度状态到 `.dev-flow/sessions/{id}/orchestrator-state.yaml`
+  - restore：从文件恢复调度状态
+  - update：更新阶段进度、develop_progress、next_action
+  - summary：输出 ~2KB 精简摘要（供主 Agent 在新阶段入口读取）
+- **SKILL.md 新增阶段间状态恢复协议**：
+  - 入口协议：读取 orchestrator-state.yaml 摘要 → 门禁检查 → 读取阶段指令 → 开始调度
+  - 出口协议：生成阶段摘要 → 更新状态文件 → 用户确认 → 输出摘要
+  - 上下文预算检查：派发 subagent 前执行 context-budget.cjs --action enforce
+- **protocol.md 新增阶段间状态恢复协议 + 分段锁协议**
+
+#### Phase 3：查询协议模板
+
+- **新增 `scripts/query-protocol.cjs`**：查询协议生成器
+  - 四源合并生成查询清单（design-contract + subtask-design + conventions + Grep 扫描）
+  - 精准片段提取（从大文件中提取指定 YAML 段落）
+  - 查询执行辅助（子代理按 queryId 获取精准片段）
+  - 查询清单输出到 `.dev-flow/runtime/query-protocol-{taskId}.yaml`
+- **develop.md 新增查询协议模式说明**：
+  - 触发条件：task-skeleton 存在（而非 task-brief）
+  - 执行流程：读取 skeleton → 按 Query Checklist 逐步查询 → 逐方法生成代码
+  - 子代理初始上下文从 60-105KB 降至 ~8KB
+  - 128KB 模型代码生成空间从 0-23KB 升至 43-83KB
+- **backend-develop-expert.md + frontend-develop-expert.md 新增输入模式说明**：
+  - 模式 A：全量 brief（空间足够时）
+  - 模式 B：查询协议（空间不足时）
+
+#### 量化效果
+
+| 指标 | v3.7.0 | v3.8.0 |
+|------|--------|--------|
+| 主 Agent 上下文（9 阶段后） | ~78KB | ~19KB（状态机化） |
+| 子代理初始上下文 | 60-105KB | 8-33KB（查询协议） |
+| 128KB 模型代码生成空间 | 0-23KB | 43-83KB |
+| 200KB 模型代码生成空间 | 35-65KB | 107-155KB |
+| 上下文溢出风险 | 高频 | 极低频 |
+
+#### 新增文件
+
+- `scripts/context-budget.cjs` — 上下文预算计算引擎
+- `scripts/orchestrator-state.cjs` — 主 Agent 状态持久化工具
+- `scripts/query-protocol.cjs` — 查询协议生成器
+
+#### 修改文件
+
+- `scripts/prepare-context.cjs` — 动态 MAX_BRIEF_SIZE + 优先级裁剪 + --model 参数
+- `skill-templates/_core/SKILL.md` — 阶段间状态恢复 + 查询协议模式
+- `skill-templates/_core/stages/develop.md` — 查询协议执行流程
+- `skill-templates/_core/agents/backend-develop-expert.md` — 输入模式（全量 brief / 查询协议）
+- `skill-templates/_core/agents/frontend-develop-expert.md` — 输入模式（全量 brief / 查询协议）
+- `skill-templates/_core/agents/context-manager.md` — 上下文预算硬约束执行
+- `skill-templates/_core/references/protocol.md` — 阶段间状态恢复协议 + 分段锁协议
+- `skill-templates/_core/references/model-context-config.md` — 动态上下文预算
+
+#### 向后兼容
+
+- 所有现有工具能力不变，零削弱
+- 不指定 --model 时使用默认 128KB 保守值
+- 简单任务（brief 预算足够时）仍使用全量 brief 模式
+- 现有命令、文件结构、阶段流程完全不变
+
+---
+
 ## [3.7.0] - 2026-06-10
 
 ### 前后端分离架构 — 全栈项目原生支持

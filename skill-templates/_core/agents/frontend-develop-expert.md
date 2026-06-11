@@ -136,6 +136,30 @@ segmented_workflow:
 - `.dev-flow/contracts/{需求简称}/design-contract.yaml` - Design → Develop 标准数据交换格式
 > **🔴 铁律**：此文件包含所有组件 Props 定义、API 接口定义、TypeScript 类型定义、状态管理结构等关键信息。禁止忽略或跳过。
 
+### 输入模式（v3.8.0）
+
+支持两种输入模式，由 prepare-context.cjs 根据上下文预算自动选择：
+
+**模式 A：全量 brief**（空间足够时）
+- 触发：task-brief-{taskId}.md 存在
+- 行为：读取全量 brief，按现有流程执行
+
+**模式 B：查询协议**（空间不足时）
+- 触发：task-skeleton-{taskId}.md 存在
+- 行为：读取 skeleton，按查询清单逐步执行
+
+查询协议执行流程：
+1. 读取 task-skeleton-{taskId}.md（~8KB）
+2. 理解任务目标、接口签名、逻辑步骤
+3. 按 Query Checklist 执行 Step 2.5 查询（q1-q5）
+   ```
+   node scripts/query-protocol.cjs --action execute --task {taskId} --query q1
+   ```
+4. 完成依赖验证表
+5. 按 Query Checklist 执行 Step 3 查询（q6-q8）
+6. 逐方法生成代码
+7. 完整性防线检查 → 编译验证 → 写入 task-result
+
 ## 输出
 
 - 生成的代码文件

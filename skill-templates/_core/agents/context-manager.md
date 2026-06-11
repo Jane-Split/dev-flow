@@ -362,6 +362,40 @@ context_usage_monitoring:
         - "提示用户上下文溢出"
 ```
 
+## 🔴 上下文预算硬约束执行（v3.8.0）
+
+> **核心原则**：上下文保护从"软约束（AI 自觉执行）"升级为"硬约束（脚本强制执行）"。
+
+### 执行引擎
+
+```bash
+node scripts/context-budget.cjs --model {model} --task {taskId} --action enforce
+```
+
+### 强制检查项
+
+| 检查项 | 执行方式 | 说明 |
+|--------|---------|------|
+| MAX_BRIEF_SIZE 动态计算 | context-budget.cjs 脚本强制 | 128KB 模型 → 32KB, 200KB 模型 → 90KB |
+| brief 裁剪 | prepare-context.cjs 按 priority 裁剪 | critical 不可裁剪, high 可裁剪 50%, medium 可裁剪 70%, low 可省略 |
+| 分段锁 | validate-result.cjs 检查锁文件 | 未完成 segment = FAIL |
+| 查询协议 | prepare-context.cjs 自动切换 | brief 预估 > 80% MAX_BRIEF 时启用查询协议模式 |
+
+### 优先级定义
+
+| 优先级 | 裁剪比例 | 适用内容 |
+|--------|---------|---------|
+| critical | 不可裁剪 | Task Info, Design Contract, Subtask Design, Develop Rules |
+| high | 可裁剪 50% | Agent Context, Dependency Definitions |
+| medium | 可裁剪 70% | Coding Conventions, Error Patterns |
+| low | 可省略 | Parent Task Results |
+
+### 上下文预算报告
+
+每次 prepare-context.cjs 执行时自动生成：
+- `.dev-flow/runtime/context-budget-{taskId}.yaml` — 完整预算报告
+- brief 头部包含预算摘要（model, window, MAX_BRIEF, sections loaded/trimmed/skipped）
+
 ### 分段执行机制
 
 ```yaml

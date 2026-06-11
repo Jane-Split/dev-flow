@@ -57,6 +57,49 @@ model_adaptive_thresholds:
       - "统计已生成代码的大小: find src -name '*.java' -newer .dev-flow/session-start | xargs wc -c | tail -1"
 ```
 
+## 动态上下文预算（v3.8.0）
+
+> 从 v3.8.0 起，MAX_BRIEF_SIZE 不再是固定值，而是根据模型上下文窗口动态计算。
+
+### 计算公式
+
+```
+MAX_BRIEF_SIZE = model_window_kb × safe_pct - system_prompt(15KB) - code_read(25KB) - code_generation(20KB) - conversation(10KB)
+```
+
+### 模型上下文窗口映射
+
+| 模型系列 | 窗口大小 | 安全比例 | MAX_BRIEF_SIZE |
+|---------|---------|---------|---------------|
+| Claude 系列 | 200KB | 80% | 90KB |
+| GPT-4 系列 | 128KB | 80% | 32KB |
+| DeepSeek 系列 | 128KB | 80% | 32KB |
+| Qwen 系列 | 128KB | 80% | 32KB |
+| Gemini 1.5 Pro | 200KB | 80% | 90KB |
+| Gemini 其他 | 128KB | 80% | 32KB |
+| 默认（未知模型） | 128KB | 80% | 32KB |
+
+### 执行方式
+
+```bash
+# 查看当前模型的预算
+node scripts/context-budget.cjs --model gpt-4 --action calculate
+
+# 生成预算报告
+node scripts/context-budget.cjs --model gpt-4 --task Task-5 --demand user-mgmt --action report
+
+# 强制执行（生成预算文件 + 分段标记）
+node scripts/context-budget.cjs --model gpt-4 --task Task-5 --demand user-mgmt --action enforce
+```
+
+### 与 prepare-context.cjs 的集成
+
+prepare-context.cjs 启动时自动调用 context-budget.cjs：
+1. 根据 `--model` 参数计算动态 MAX_BRIEF_SIZE
+2. 按 priority 裁剪超出预算的 section
+3. 在 brief 头部输出预算摘要
+4. 超出 80% 预算时建议启用查询协议模式
+
 ## 动态上下文分配
 
 ```yaml

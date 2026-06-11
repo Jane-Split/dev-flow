@@ -54,6 +54,7 @@ dev-flow 是一款为 Cursor、Trae、Qoder、Claude Code、OpenAI Codex 等 AI 
 - **结构化代码分段生成**：大文件自动启用"骨架 + 逐方法填充"
 - **设计→代码逻辑回溯验证**：Step 4.3 强制 100% 覆盖率验证
 - **设计契约多语言**：Java / TypeScript / Python / Go 接口契约
+- **上下文溢出根治（v3.8.0）**：硬约束脚本增强 + 主 Agent 状态机化 + 查询协议模板，128KB 模型代码生成空间从 0-23KB 升至 43-83KB
 - **前后端分离架构（v3.7.0）**：Research 前后端分离扫描 + Develop 双专家域路由调度 + Task Split 域标签，支持纯前端/纯后端/全栈三种场景
 - **Session 隔离（v3.4.0）**：基于需求简称的目录隔离，支持连续多个需求不覆盖文件
 
@@ -73,7 +74,7 @@ dev-flow 是一款为 Cursor、Trae、Qoder、Claude Code、OpenAI Codex 等 AI 
 cd your-project
 
 # 2. 安装 dev-flow
-npm install Jane-Split/dev-flow#release_3.7.0 --save-dev
+npm install Jane-Split/dev-flow#release_3.8.0 --save-dev
 
 # 3. 执行安装
 npx dev-flow install
@@ -191,7 +192,7 @@ npx dev-flow install
 
 ```bash
 cd my-react-app
-npm install Jane-Split/dev-flow#release_3.7.0 --save-dev
+npm install Jane-Split/dev-flow#release_3.8.0 --save-dev
 npx dev-flow install
 ```
 
@@ -224,7 +225,7 @@ AI 会执行以下工作流，每个阶段完成后暂停等待你的确认：
 
 ```bash
 cd my-java-service
-npm install Jane-Split/dev-flow#release_3.7.0 --save-dev
+npm install Jane-Split/dev-flow#release_3.8.0 --save-dev
 npx dev-flow install
 ```
 

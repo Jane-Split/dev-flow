@@ -489,6 +489,14 @@ Step 6: 🔴 门禁检查 → task-split-expert → Task Split → 确认 → ta
   │ 🔴 模式动态重评估网关（Task Split 确认后自动执行）             │
   └──────────────────────────────────────────────────────────────┘
 Step 7: 重评估通过 → backend-develop-expert 和/或 frontend-develop-expert（串行或并行）→ 确认 → develop.confirmed
+
+**查询协议模式**（v3.8.0）：
+当 context-budget.cjs 报告 brief 预算不足时，prepare-context.cjs 自动切换为查询协议模式：
+- 生成 task-skeleton（~8KB）替代 task-brief（60-105KB）
+- 子代理按查询清单逐步加载上下文（每步 1-5KB）
+- 查询清单由 query-protocol.cjs 四源合并生成
+- 子代理执行: `node scripts/query-protocol.cjs --action execute --task {taskId} --query {queryId}`
+
 Step 8: 🔴 门禁检查 → test-expert → 统一 Test（单元+冒烟+E2E+集成）→ 确认 → test.confirmed
 Step 9: 🔴 门禁检查 → fix-expert → Fix(按需，仅当测试未通过) → 确认 → fix.confirmed
 Step 10: 🔴 门禁检查 → delivery-expert → Delivery → 确认 → delivery.confirmed
@@ -498,6 +506,28 @@ Step 10: 🔴 门禁检查 → delivery-expert → Delivery → 确认 → deliv
 - **每个阶段都由专门的 subagent 执行，主 Agent 不直接编辑文件**
 - **每个阶段完成后必须暂停，等待用户确认后才能调度下一阶段**
 - **🔴 Task Split 确认后自动执行模式动态重评估，基于实际任务数据判断是否升级并行调度**
+
+### 阶段间状态恢复（v3.8.0）
+
+> 主 Agent 调度状态持久化到文件，不依赖对话历史。每个阶段入口从文件恢复，出口更新状态。
+
+**入口协议**（进入任何阶段前）：
+1. 执行: `node scripts/orchestrator-state.cjs --action summary --session {sessionId}`
+2. 从状态文件恢复调度上下文（~2KB）
+3. 执行门禁检查（Gate-A + Gate-B）
+4. 读取目标阶段指令文件
+5. 开始阶段调度
+
+**出口协议**（离开任何阶段后）：
+1. 生成阶段摘要（stage-summary.yaml）
+2. 执行: `node scripts/orchestrator-state.cjs --action update --session {sessionId} --stage {stage}`
+3. 用户确认后写入 .confirmed 文件
+4. 输出状态摘要（~2KB，供下一阶段入口读取）
+
+**上下文预算检查**（派发 subagent 前）：
+1. 执行: `node scripts/context-budget.cjs --model {model} --task {taskId} --action enforce`
+2. 根据预算报告决定 brief 模式（全量 / 查询协议）
+3. 执行: `node scripts/prepare-context.cjs --task {taskId} --demand {demand} --model {model}`
 
 ---
 

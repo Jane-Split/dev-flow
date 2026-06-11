@@ -18,7 +18,7 @@ const CORE_DIR = path.join(ROOT, 'skill-templates', '_core');
 const THRESHOLDS = {
   'SKILL.md': 35 * 1024,       // Router: 35KB（前后端分离架构增加了内容）
   'stages/*.md': 35 * 1024,    // 单个 stage: 35KB
-  'agents/*.md': 35 * 1024,    // 单个 agent: 30KB
+  'agents/*.md': 38 * 1024,    // 单个 agent: 38KB（含前后端分离+查询协议+LANGUAGE-ONLY多语言规范）
   'references/*.md': 25 * 1024, // 单个 reference: 25KB
 };
 

@@ -2,9 +2,9 @@
 
 ![node](https://img.shields.io/node/v/dev-flow.svg)
 
-![version](https://img.shields.io/badge/version-v3.7.0-blue)
+![version](https://img.shields.io/badge/version-v3.8.0-blue)
 
-> **当前版本：v3.7.0** | [用户指南](./USER_GUIDE.md)
+> **当前版本：v3.8.0** | [用户指南](./USER_GUIDE.md)
 
 为 Cursor、Trae、Qoder、Claude Code、OpenAI Codex 等 AI 编程工具打造的开发流程编排 Skill。
 
@@ -32,13 +32,19 @@ dev-flow 通过**结构化流程编排 + 需求澄清迭代问答 + 项目记忆
 
 ### 核心架构
 
-- **四层按需加载架构** — Router（~10KB）+ References（9 个文件）+ 11 个阶段指令 + 25 个 Agent
+- **四层按需加载架构** — Router（\~10KB）+ References（9 个文件）+ 11 个阶段指令 + 25 个 Agent
 - **9 阶段工作流** — Research → Clarify → Analyze → Design → Task Split → Develop → Test → Fix（按需）→ Delivery
 - **两种运行模式** — 标准模式（串行子代理）/ 企业级模式（并行子代理），支持动态重评估与自动升级
 - **两层门禁检查** — Gate-A（前置完整性：确认文件 + 交付物 + 内容校验）/ Gate-B（执行者审计：execution_trail + zero_edit_violation）
 - **跨平台调度策略** — Trae / Cursor / Claude Code / Qoder 均支持并行调度 / Codex 有限并行
 
-### 前后端分离架构（v3.7.0 新增）
+### 上下文溢出根治（v3.8.0）
+
+- **硬约束脚本增强** — `context-budget.cjs` 动态计算上下文预算（128KB 模型 → 32KB brief, 200KB 模型 → 90KB brief），优先级裁剪（critical/high/medium/low），超限强制分段
+- **主 Agent 状态机化** — `orchestrator-state.cjs` 持久化调度状态，每阶段入口从文件恢复（\~2KB），对话历史可安全压缩，主 Agent 上下文从 \~78KB 降至 \~19KB
+- **查询协议模板** — `query-protocol.cjs` 四源合并生成查询清单，子代理从"预加载 60-105KB brief"变为"预加载 \~8KB skeleton + 按步精准查询"，128KB 模型代码生成空间从 0-23KB 升至 43-83KB
+
+### 前后端分离架构（v3.7.0）
 
 - **Research 前后端分离扫描** — 自动识别项目类型（纯前端 / 纯后端 / 全栈），按需启动前端扫描组（9 子代理，3 批次）和/或后端扫描组（11 子代理，4 批次）
 - **Develop 前后端分离开发** — `backend-develop-expert` + `frontend-develop-expert` 双专家域路由调度，前后端可并行开发
@@ -85,7 +91,7 @@ dev-flow 通过**结构化流程编排 + 需求澄清迭代问答 + 项目记忆
 
 ```bash
 # 1. 安装到项目
-npm install Jane-Split/dev-flow#release_3.7.0 --save-dev
+npm install Jane-Split/dev-flow#release_3.8.0 --save-dev
 
 # 2. 执行安装（生成 Skill 文件和记忆目录）
 npx dev-flow install
@@ -120,7 +126,7 @@ npx dev-flow codex     # 仅安装到 OpenAI Codex
 cd your-project
 
 # 2. 安装 dev-flow
-npm install Jane-Split/dev-flow#release_3.7.0 --save-dev
+npm install Jane-Split/dev-flow#release_3.8.0 --save-dev
 
 # 3. 安装到指定工具（以 Cursor 为例）
 npx dev-flow cursor
@@ -343,7 +349,10 @@ dev-flow/
 ├── scripts/
 │   ├── build.cjs             # 构建脚本（路径替换 + PLATFORM-ONLY + LANGUAGE-ONLY）
 │   ├── dispatch.cjs          # 平台调度引擎
-│   ├── prepare-context.cjs   # 子代理上下文自动注入（精确匹配）
+│   ├── prepare-context.cjs   # 子代理上下文自动注入（动态预算 + 优先级裁剪 + 查询协议）
+│   ├── context-budget.cjs    # 上下文预算计算引擎（模型检测 + 动态阈值 + 预算报告）v3.8.0
+│   ├── orchestrator-state.cjs# 主 Agent 状态持久化/恢复工具 v3.8.0
+│   ├── query-protocol.cjs    # 查询协议生成器（四源合并 + 精准片段提取）v3.8.0
 │   ├── segment-code.cjs      # 结构化代码分段生成
 │   ├── validate-result.cjs   # 子代理产出自动校验（多语言增强）
 │   ├── validate-contract.cjs # 设计契约校验
