@@ -231,6 +231,28 @@ grep -E "\w+\.\w+\s*\(" UserServiceImpl.java
 > **目的**：确保 design-contract.yaml 中定义的每个 logic step / condition / call action
 > 都在生成的代码中有对应的实现，覆盖率必须达到 100%。
 
+#### R5. 逻辑步骤覆盖（增强版）
+
+**自动化分析**：
+1. 首先运行 `logic-coverage-auto.cjs` 获取自动化覆盖率报告
+2. 如果覆盖率 >= 90%，接受自动化结果
+3. 如果覆盖率 < 90%，进行人工复核
+
+**人工复核要点**：
+- 检查未匹配的 design step 是否在代码中有对应实现
+- 检查未匹配的 code block 是否是过度实现
+- 确认边界情况和异常处理是否覆盖
+
+**输出格式**：
+```yaml
+r5_coverage:
+  auto_coverage: 0.95
+  manual_review_required: false
+  unmapped_steps: []
+  unmapped_blocks: []
+  assessment: "PASS"
+```
+
 **校验内容**：
 ```yaml
 validation_rules:
