@@ -17,6 +17,7 @@ const fs = require('fs');
 const path = require('path');
 const { CompletenessGate } = require('./completeness-gate.cjs');
 const { calculateBudget, detectModel, formatBudgetReport } = require('./dynamic-budget.cjs');
+const { DependencyResolver } = require('./dependency-resolver.cjs');
 
 const ROOT = path.resolve(__dirname, '..');
 const DOCS_DIR = path.join(ROOT, '.dev-flow', 'docs');
@@ -570,59 +571,79 @@ function findProjectRoot() {
   return process.cwd();
 }
 
-function searchClassFile(projectRoot, className) {
-  // 纯 Node.js 实现，跨平台兼容（不依赖 find/ls 等系统命令）
-  const results = [];
-  const extensions = ['.java', '.ts', '.tsx', '.py', '.go'];
-  const maxDepth = 15;
-  const maxResults = 5;
-  const skipDirs = new Set([
-    'node_modules', '.git', '.mvn', 'target', 'build', '__pycache__',
-    '.idea', '.vscode', 'dist', '.gradle', 'bin', 'out', '.next',
-    'vendor', '.cache', 'coverage', '.nyc_output',
-  ]);
+function injectOnDemandHints(taskBrief, files) {
+  let hints = '\n\n## ON_DEMAND_LOAD_REQUIRED\n\n';
+  hints += '以下文件因大小超过预算未完整加载，如需使用请按需读取：\n\n';
 
-  function walk(dir, depth) {
-    if (depth > maxDepth || results.length >= maxResults) return;
-    let entries;
-    try {
-      entries = fs.readdirSync(dir, { withFileTypes: true });
-    } catch (e) { return; }
+  for (const file of files) {
+    const stats = fs.existsSync(file) ? fs.statSync(file) : null;
+    const knownInfo = stats ? extractKnownInfo(file) : { methods: [], fields: [] };
 
-    for (const entry of entries) {
-      if (results.length >= maxResults) break;
-      const fullPath = path.join(dir, entry.name);
-      if (entry.isDirectory()) {
-        if (skipDirs.has(entry.name)) continue;
-        walk(fullPath, depth + 1);
-      } else if (entry.isFile()) {
-        const ext = path.extname(entry.name);
-        if (extensions.includes(ext) && entry.name === `${className}${ext}`) {
-          results.push(fullPath);
+    hints += `- \`${file}\` (${stats ? Math.round(stats.size / 1024) : '?'}KB)\n`;
+    if (knownInfo.methods.length > 0) {
+      hints += `  - 已知方法: ${knownInfo.methods.join(', ')}\n`;
+    }
+    if (knownInfo.fields.length > 0) {
+      hints += `  - 已知字段: ${knownInfo.fields.join(', ')}\n`;
+    }
+    hints += `  - 按需读取: \`Read: {"file_path": "${file}", "offset": 1, "limit": 50}\`\n`;
+  }
+
+  hints += '\n> ⚠️ 按需读取会增加上下文占用。如果频繁需要读取，说明任务可能过大，应触发拆分。\n';
+
+  return taskBrief + hints;
+}
+
+function extractKnownInfo(filePath) {
+  const methods = [];
+  const fields = [];
+
+  try {
+    const content = fs.readFileSync(filePath, 'utf8');
+
+    const methodMatches = content.match(/(?:public|private|protected)\s+[\w<>\[\]]+\s+(\w+)\s*\(/g);
+    if (methodMatches) {
+      methodMatches.forEach(m => {
+        const nameMatch = m.match(/(\w+)\s*\($/);
+        if (nameMatch) {
+          const name = nameMatch[1];
+          if (!['if', 'while', 'for', 'switch'].includes(name)) {
+            methods.push(name);
+          }
         }
-      }
+      });
     }
+
+    const fieldMatches = content.match(/(?:private|public|protected)\s+[\w<>\[\]]+\s+(\w+)\s*;/g);
+    if (fieldMatches) {
+      fieldMatches.forEach(f => {
+        const nameMatch = f.match(/(\w+)\s*;$/);
+        if (nameMatch) {
+          fields.push(nameMatch[1]);
+        }
+      });
+    }
+  } catch (e) {
+    // 忽略读取失败
   }
 
-  // 按优先级搜索常见源码目录，最后兜底搜全项目
-  const searchDirs = [
-    path.join(projectRoot, 'src', 'main'),
-    path.join(projectRoot, 'src'),
-    path.join(projectRoot, 'pkg'),
-    path.join(projectRoot, 'lib'),
-    path.join(projectRoot, 'app'),
-    path.join(projectRoot, 'internal'),
-    projectRoot,
-  ];
+  return { methods: methods.slice(0, 10), fields: fields.slice(0, 10) };
+}
 
-  for (const dir of searchDirs) {
-    if (results.length >= maxResults) break;
-    if (fs.existsSync(dir)) {
-      walk(dir, 0);
-    }
+function searchClassFile(projectRoot, className, context = {}) {
+  const resolver = new DependencyResolver({ projectRoot });
+  const result = resolver.resolve(className, { currentFile: context.currentFile });
+
+  if (result.status === 'UNIQUE' || result.status === 'HIGH_CONFIDENCE') {
+    return [result.candidate];
   }
 
-  return [...new Set(results)];
+  if (result.status === 'AMBIGUOUS') {
+    console.warn(`[Ambiguous] Multiple candidates for ${className}:`, result.candidates);
+    return [result.candidates[0].path];
+  }
+
+  return [];
 }
 
 // ============================================================
@@ -754,10 +775,7 @@ function processTask(taskId, demandName) {
     }
 
     if (gateResult.recommendation.action === 'ON_DEMAND_LOAD') {
-      brief += '\n\n## ON_DEMAND_LOAD_REQUIRED\n';
-      for (const file of gateResult.recommendation.files) {
-        brief += `- ${file}\n`;
-      }
+      brief = injectOnDemandHints(brief, gateResult.recommendation.files || []);
       console.warn('[WARN] Task brief marked for on-demand loading');
     }
 
