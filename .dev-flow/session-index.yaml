@@ -1,0 +1,30 @@
+# .dev-flow/session-index.yaml
+# 主 Agent 的唯一状态源，所有详细状态外置到独立文件
+
+session:
+  id: "sess-YYYYMMDD-NNN"
+  current_stage: "Research"
+  current_batch: 0
+  next_action: "start_research"
+
+  # 外置状态引用
+  refs:
+    task_dag: ".dev-flow/task-dag.yaml"
+    stage_summaries: ".dev-flow/stage-summaries/"
+    task_results: ".dev-flow/task-results/"
+    checkpoints: ".dev-flow/checkpoints/"
+    pending: ".dev-flow/pending/"
+
+  # 运行时统计（只保留数字）
+  stats:
+    total_tasks: 0
+    completed_tasks: 0
+    failed_tasks: 0
+    pending_tasks: 0
+
+  # 上下文预算监控
+  context_budget:
+    total_kb: 50
+    used_kb: 0
+    usage_percent: 0
+    last_cleanup: null
