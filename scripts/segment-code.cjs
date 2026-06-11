@@ -23,6 +23,8 @@
 
 const fs = require('fs');
 const path = require('path');
+const { MethodDependencyGraph } = require('./method-dependency-graph.cjs');
+const { CheckpointManager } = require('./checkpoint-manager.cjs');
 
 const ROOT = path.resolve(__dirname, '..');
 const DOCS_DIR = path.join(ROOT, '.dev-flow', 'docs');
@@ -591,21 +593,41 @@ Examples:
   } else if (opts.fill) {
     extractMethodSpec(opts.task, opts.method, opts.demand);
   } else if (opts.fillAll) {
-    // Read plan, extract specs for all method_fill segments
-    const planPath = path.join(RUNTIME_DIR, `code-gen-plan-${opts.task}.yaml`);
-    const planContent = safeRead(planPath);
-    if (!planContent) {
-      console.error('[ERROR] No code-gen-plan found. Run --plan first.');
-      process.exit(1);
+    // 读取设计契约并生成拓扑排序填充计划
+    const contractFile = findDemandFile(opts.demand ? opts.demand + '-design-contract' : 'design-contract');
+    let contract = { methods: [] };
+    if (contractFile) {
+      const contractContent = safeRead(contractFile);
+      if (contractContent) {
+        try {
+          const yaml = require('js-yaml');
+          contract = yaml.load(contractContent);
+        } catch (e) {
+          // 回退：使用简易解析
+          contract = parseYaml(contractContent);
+        }
+      }
     }
-    const segments = extractSegmentsFromPlan(planContent);
-    const methodSegments = segments.filter(s => s.type === 'method_fill');
-    console.log(`[INFO] Found ${methodSegments.length} method segments to fill`);
-    for (const seg of methodSegments) {
+
+    // 生成填充计划
+    const graph = new MethodDependencyGraph();
+    const fillPlan = graph.generateFillPlan(contract);
+
+    console.log(`[Fill Plan] Order: ${fillPlan.order.join(' → ')}`);
+    console.log(`[Fill Plan] Batches: ${fillPlan.batches.map(b => `[${b.join(', ')}]`).join(' → ')}`);
+
+    // 按拓扑批次顺序提取方法规格
+    for (const batch of fillPlan.batches) {
       console.log('');
-      console.log(`--- Filling: ${seg.id} (${seg.description}) ---`);
-      extractMethodSpec(opts.task, seg.target_method, opts.demand);
+      console.log(`[Batch] Extracting specs: ${batch.join(', ')}`);
+      for (const methodName of batch) {
+        console.log(`--- Extracting spec: ${methodName} ---`);
+        extractMethodSpec(opts.task, methodName, opts.demand);
+      }
     }
+
+    console.log('');
+    console.log('[OK] All method specs extracted in topological order.');
   } else if (opts.verify) {
     console.log('');
     console.log('=== Phase 3: Verification ===');
@@ -654,6 +676,104 @@ function extractSegmentsFromPlan(planContent) {
   }
   if (current.id) segments.push(current);
   return segments;
+}
+
+// ============================================================
+// Checkpoint 集成代码生成
+// ============================================================
+
+async function generateCode(task, options) {
+  const checkpointMgr = new CheckpointManager(task.id, {
+    checkpointDir: options.checkpointDir || '.dev-flow/checkpoints'
+  });
+
+  // 尝试从 checkpoint 恢复
+  const resumeResult = checkpointMgr.resume();
+  if (resumeResult.canResume) {
+    console.log(`[Resume] ${resumeResult.message}`);
+  }
+
+  // Step 1: 生成骨架
+  const skeleton = await generateSkeleton(task);
+  fs.writeFileSync(task.outputPath, skeleton);
+
+  checkpointMgr.create('SKELETON_WRITTEN', {
+    filePath: task.outputPath,
+    content: skeleton
+  }, {
+    totalMethods: task.methods.length,
+    completedMethods: [],
+    currentMethod: null,
+    pendingMethods: task.methods.map(m => m.name)
+  }, {
+    briefExcerpt: task.brief?.substring(0, 200),
+    tokensUsed: estimateTokens(skeleton),
+    model: task.model
+  });
+
+  // Step 2: 逐个填充方法
+  for (let i = 0; i < task.methods.length; i++) {
+    const method = task.methods[i];
+
+    try {
+      const filled = await fillMethod(task.outputPath, method, task);
+
+      checkpointMgr.create('METHOD_FILLED', {
+        filePath: task.outputPath,
+        content: fs.readFileSync(task.outputPath, 'utf8')
+      }, {
+        totalMethods: task.methods.length,
+        completedMethods: task.methods.slice(0, i + 1).map(m => m.name),
+        currentMethod: method.name,
+        pendingMethods: task.methods.slice(i + 1).map(m => m.name)
+      }, {
+        briefExcerpt: task.brief?.substring(0, 200),
+        tokensUsed: estimateTokens(filled),
+        model: task.model
+      });
+
+    } catch (error) {
+      console.error(`[Fill Error] Method ${method.name}:`, error.message);
+
+      const latest = checkpointMgr.getLatest();
+      if (latest) {
+        fs.writeFileSync(task.outputPath, latest.code);
+        console.log(`[Rollback] Restored to checkpoint for method ${latest.progress.currentMethod}`);
+      }
+
+      throw error;
+    }
+  }
+
+  checkpointMgr.create('COMPLETE', {
+    filePath: task.outputPath,
+    content: fs.readFileSync(task.outputPath, 'utf8')
+  }, {
+    totalMethods: task.methods.length,
+    completedMethods: task.methods.map(m => m.name),
+    currentMethod: null,
+    pendingMethods: []
+  }, {
+    briefExcerpt: task.brief?.substring(0, 200),
+    tokensUsed: estimateTokens(fs.readFileSync(task.outputPath, 'utf8')),
+    model: task.model
+  });
+}
+
+function estimateTokens(content) {
+  return Math.ceil(content.length / 4);
+}
+
+// 骨架生成占位（实际由子 agent 调用 AI 生成）
+async function generateSkeleton(task) {
+  console.log(`[Skeleton] Generating skeleton for ${task.outputPath}`);
+  return '';
+}
+
+// 方法填充占位（实际由子 agent 调用 AI 生成）
+async function fillMethod(outputPath, method, task) {
+  console.log(`[Fill] Filling method ${method.name}`);
+  return '';
 }
 
 main();
