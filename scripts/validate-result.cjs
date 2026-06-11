@@ -17,6 +17,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const { StaticValidationSuite } = require('./static-validation-suite.cjs');
 
 const ROOT = path.resolve(__dirname, '..');
 const DOCS_DIR = path.join(ROOT, '.dev-flow', 'docs');
@@ -33,6 +34,12 @@ const CONTRACT_FILES = [
 // ============================================================
 // 校验器
 // ============================================================
+
+function detectLanguage(filePath) {
+  const ext = path.extname(filePath);
+  const map = { '.java': 'java', '.ts': 'ts', '.js': 'js', '.py': 'py', '.go': 'go' };
+  return map[ext] || 'java';
+}
 
 function validateResult(taskId, demandName) {
   const resultFile = path.join(RUNTIME_DIR, `task-result-${taskId}.yaml`);
@@ -68,7 +75,7 @@ function validateResult(taskId, demandName) {
     }
   }
 
-  // 4. 文件存在性验证
+  // 4. 文件存在性验证 + Layer 1 静态验证套件
   const projectRoot = process.cwd();
   for (const filePath of completedFiles) {
     const fullPath = path.resolve(projectRoot, filePath);
@@ -78,6 +85,26 @@ function validateResult(taskId, demandName) {
       const stat = fs.statSync(fullPath);
       if (stat.size === 0) {
         errors.push(`产出文件为空: ${filePath}`);
+      }
+    }
+
+    // Layer 1: 静态验证套件（硬阻断）
+    if (fs.existsSync(fullPath)) {
+      const suite = new StaticValidationSuite({
+        projectRoot,
+        language: detectLanguage(filePath)
+      });
+      const staticResult = suite.run(fullPath);
+
+      if (!staticResult.passed) {
+        for (const block of staticResult.blocking) {
+          errors.push(`[LAYER_1][${path.basename(filePath)}] ${block.name}: ${JSON.stringify(block.details)}`);
+        }
+      }
+      if (staticResult.warnings.length > 0) {
+        for (const warn of staticResult.warnings) {
+          warnings.push(`[LAYER_1][${path.basename(filePath)}] ${warn.name}: ${JSON.stringify(warn.details)}`);
+        }
       }
     }
   }
