@@ -92,6 +92,12 @@ class CheckpointManager {
       return { canResume: false, reason: 'No checkpoint found' };
     }
 
+    // 确保目标目录存在
+    const targetDir = path.dirname(latest.filePath);
+    if (!fs.existsSync(targetDir)) {
+      fs.mkdirSync(targetDir, { recursive: true });
+    }
+
     fs.writeFileSync(latest.filePath, latest.code);
 
     return {
@@ -150,6 +156,18 @@ class CheckpointManager {
   hash(content) {
     const crypto = require('crypto');
     return crypto.createHash('sha256').update(content).digest('hex').substring(0, 16);
+  }
+
+  /**
+   * 重置 checkpoint 管理器
+   */
+  reset() {
+    if (fs.existsSync(this.checkpointDir)) {
+      const files = fs.readdirSync(this.checkpointDir).filter(f => f.endsWith('.yaml'));
+      for (const file of files) {
+        fs.unlinkSync(path.join(this.checkpointDir, file));
+      }
+    }
   }
 }
 

@@ -118,6 +118,25 @@ Step 0: 选择拆分维度
 
 **粒度自检**：拆分完成后，逐项检查每个任务是否满足上述约束。不满足的必须进一步拆分。
 
+**🔴 任务域标签（domain）**：
+
+每个任务必须标记 `domain` 字段，用于 Develop 阶段的域路由调度：
+
+| 文件类型 | domain |
+|---------|--------|
+| `.java`, `.go`, `.py`, `.rs` 文件 | `backend` |
+| `.tsx`, `.jsx`, `.vue`, `.svelte` 文件 | `frontend` |
+| `.ts` 文件 | 根据目录和内容判断：`src/api/` → `frontend`，`src/**/*.service.ts`（NestJS）→ `backend` |
+| `.css`, `.scss`, `.less`, `.module.css` | `frontend` |
+| `.xml`, `.yml`, `.properties` | `backend` |
+| SQL 文件 | `backend` |
+| 配置文件（Docker/CI/部署） | `backend` |
+
+**domain 判定规则**：
+- 单文件任务：根据文件扩展名直接判定
+- 多文件任务：取主要文件的 domain（如 Entity+DTO+Service → backend）
+- 跨域任务（极少）：拆分为两个独立任务，分别标记 domain
+
 对每个开发任务分析：
 - **输入依赖**：该任务需要哪些其他任务的输出（如 Entity → Service → Controller）
 - **数据依赖**：该任务需要哪些公共模块的数据（如 common-bean 的 Entity）
@@ -271,7 +290,7 @@ conflicts:
 
 为每个任务生成详细描述：
 
-| 任务ID | 任务名称 | 文件路径 | 依赖任务 | 批次 | 预估复杂度 |
+| 任务ID | 任务名称 | 文件路径 | 依赖任务 | 批次 | 域(domain) | 预估复杂度 |
 |--------|----------|----------|----------|------|-----------|
 | Task-1 | 新增不合格品实体 | entity/NonConformingProduct.java | 无 | 1 | 低 |
 | Task-2 | 新增处置类型枚举 | enums/DispositionType.java | 无 | 1 | 低 |
@@ -335,8 +354,11 @@ graph TD
 
 **Step 6: 派发任务给主 Agent**
 
-输出任务清单后，主 Agent 根据批次顺序调度 develop-expert subagent：
+输出任务清单后，主 Agent 根据批次顺序和域路由调度 develop-expert subagent：
 - 同一批次的任务可并行派发给多个 subagent
+- `domain: "backend"` 的任务派发给 backend-develop-expert
+- `domain: "frontend"` 的任务派发给 frontend-develop-expert
+- 跨域依赖（前端任务依赖后端 API）→ 后端任务先完成，前端任务再启动
 - 下一批次需等待上一批次全部完成
 - 每个 subagent 完成后向主 Agent 汇报
 
@@ -457,7 +479,7 @@ graph TD
 ```
 
 ## 3. 执行批次
-| 批次 | 任务ID | 任务名称 | 文件路径 | 依赖 | 复杂度 |
+| 批次 | 任务ID | 任务名称 | 文件路径 | 依赖 | 域 | 复杂度 |
 |------|--------|----------|----------|------|--------|
 | 1 | Task-1 | ... | ... | 无 | 低 |
 | 1 | Task-2 | ... | ... | 无 | 低 |
@@ -499,6 +521,7 @@ graph TD
 | 4 | 拆分维度选择合理（代码层/功能维度） | ⬜ 待确认 |
 | 5 | 并行/串行执行顺序符合实际开发约束 | ⬜ 待确认 |
 | 6 | 每个任务的负责 Subagent 已分配 | ⬜ 待确认 |
+| 6.5 | **任务域标签已正确标记**：所有任务的 domain 字段（frontend/backend）已根据文件类型正确判定 | ⬜ 待确认 |
 | 7 | **开发模式选择**（🔴 自动判定，见下方规则） | ⬜ 待确认 |
 
 **🔴 确认项 #7 开发模式自动判定规则**：

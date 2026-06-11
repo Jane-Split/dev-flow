@@ -51,7 +51,7 @@ error_record:
   context:
     phase: "develop"                 # develop / global_compile / test
     subtask_id: "task-003"
-    agent: "develop-expert"
+    agent: "backend-develop-expert"
     
   error_details:
     file: "UserServiceImpl.java"
@@ -63,7 +63,7 @@ error_record:
   fix_history:
     - attempt: 1
       fix_strategy: "修正方法名为 getUserStatus()"
-      fixed_by: "develop-expert"
+      fixed_by: "backend-develop-expert"
       result: "success"
 ```
 
@@ -152,7 +152,7 @@ error_pattern:
     total_occurrences: 5
     first_seen: "2026-05-20"
     last_seen: "2026-05-29"
-    affected_agents: ["develop-expert"]
+    affected_agents: ["backend-develop-expert"]
 ```
 
 #### 2.2 错误模式库
@@ -183,7 +183,7 @@ root_cause_analysis:
   underlying_cause: "未读取 Entity 实际定义，根据字段名猜测方法名"
   
   root_cause: |
-    develop-expert 在 Step 2.5 强制读取验证阶段未严格执行，
+    backend-develop-expert 在 Step 2.5 强制读取验证阶段未严格执行，
     未读取 QmsInspectionBatch Entity 的实际方法定义，
     而是根据字段名 status 猜测 getter 为 getStatus()
     
@@ -194,7 +194,7 @@ root_cause_analysis:
       description: "跳过了 Step 2.5 的方法签名验证"
       
   prevention_opportunity: |
-    在 develop-expert 的 Step 2.5 添加强制检查，
+    在 backend-develop-expert 的 Step 2.5 添加强制检查，
     确保所有 Entity 方法调用都经过实际定义验证
 ```
 
@@ -251,7 +251,7 @@ prevention_strategy_types:
 ```yaml
 # agent-guidance-update.yaml
 guidance_updates:
-  - target_agent: "develop-expert"
+  - target_agent: "backend-develop-expert"
     update_type: "step_enhancement"
     location: "Step 2.5.3"
     content: |
@@ -271,7 +271,7 @@ guidance_updates:
       - getType() → getOrderType()
       - getName() → getProductName()
       
-  - target_agent: "develop-expert"
+  - target_agent: "backend-develop-expert"
     update_type: "warning_injection"
     location: "Step 3 开头"
     content: |
@@ -344,8 +344,8 @@ guidance_updates:
 **自动更新执行**：
 
 ```bash
-# 1. 读取当前 develop-expert.md
-cat develop-expert.md
+# 1. 读取当前 backend-develop-expert.md
+cat backend-develop-expert.md
 
 # 2. 定位 Step 2.5.1 位置
 # 3. 插入警告提示
@@ -365,7 +365,7 @@ tracking:
   application_history:
     - date: "2026-05-29"
       action: "auto_applied"
-      target: "develop-expert.md"
+      target: "backend-develop-expert.md"
       
   effectiveness_monitoring:
     period: "7天"
@@ -419,19 +419,19 @@ learning_session:
   auto_applications:
     - pattern_id: "P001"
       strategy_id: "S001"
-      applied_to: "develop-expert.md"
+      applied_to: "backend-develop-expert.md"
       applied_at: "2026-05-29 16:05:00"
       applied_by: "auto"
       status: "success"
       
     - pattern_id: "P003"
       strategy_id: "S003"
-      applied_to: "develop-expert.md"
+      applied_to: "backend-develop-expert.md"
       applied_at: "2026-05-29 16:06:00"
       status: "pending_review"  # 需要人工确认
       
   agent_guidance_updates:
-    - agent: "develop-expert"
+    - agent: "backend-develop-expert"
       updates_count: 3
       auto_updates: 2            # 🔴 新增：自动更新数
       manual_updates: 1
@@ -479,13 +479,13 @@ manual_triggers:
 
 ## 与其他 Agent 的协作
 
-### 与 develop-expert 协作
+### 与 backend-develop-expert / frontend-develop-expert 协作
 
 ```
-1. error-pattern-learner 分析 develop-expert 产生的错误
+1. error-pattern-learner 分析 backend-develop-expert / frontend-develop-expert 产生的错误
 2. 生成针对性的预防策略
-3. 更新 develop-expert 的指导文档
-4. develop-expert 后续执行时应用预防策略
+3. 更新 backend-develop-expert / frontend-develop-expert 的指导文档
+4. backend-develop-expert / frontend-develop-expert 后续执行时应用预防策略
 ```
 
 ### 与 orchestrator 协作

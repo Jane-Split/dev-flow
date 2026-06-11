@@ -2,9 +2,9 @@
 
 ![node](https://img.shields.io/node/v/dev-flow.svg)
 
-![version](https://img.shields.io/badge/version-v3.7.0-blue)
+![version](https://img.shields.io/badge/version-v4.0.0-blue)
 
-> **当前版本：v3.7.0** | [用户指南](./USER_GUIDE.md)
+> **当前版本：v4.0.0** | [用户指南](./USER_GUIDE.md)
 
 为 Cursor、Trae、Qoder、Claude Code、OpenAI Codex 等 AI 编程工具打造的开发流程编排 Skill。
 
@@ -24,7 +24,7 @@ AI 编程工具（Cursor/Trae/Qoder/Claude Code/Codex）很强大，但在处理
 - 大型项目上下文不足，跳过关键扫描步骤
 - 需求文档不精确不完整，导致返工
 
-dev-flow 通过**结构化流程编排 + 需求澄清迭代问答 + 项目记忆 + 长期记忆 + 学习能力 + 多子代理并行 + 主 Agent 零编辑架构**来解决这些问题，让 AI 编程工具**越用越好用**。
+dev-flow 通过**结构化流程编排 + 需求澄清迭代问答 + 项目记忆 + 长期记忆 + 学习能力 + 多子代理并行 + 主 Agent 零编辑架构 + 五层防御体系**来解决这些问题，让 AI 编程工具**越用越好用**。
 
 ---
 
@@ -32,11 +32,20 @@ dev-flow 通过**结构化流程编排 + 需求澄清迭代问答 + 项目记忆
 
 ### 核心架构
 
-- **四层按需加载架构** — Router（~10KB）+ References（9 个文件）+ 11 个阶段指令 + 25 个 Agent
+- **四层按需加载架构** — Router（~10KB）+ References（11 个文件）+ 11 个阶段指令 + 25 个 Agent
 - **9 阶段工作流** — Research → Clarify → Analyze → Design → Task Split → Develop → Test → Fix（按需）→ Delivery
 - **两种运行模式** — 标准模式（串行子代理）/ 企业级模式（并行子代理），支持动态重评估与自动升级
 - **两层门禁检查** — Gate-A（前置完整性：确认文件 + 交付物 + 内容校验）/ Gate-B（执行者审计：execution_trail + zero_edit_violation）
 - **跨平台调度策略** — Trae / Cursor / Claude Code / Qoder 均支持并行调度 / Codex 有限并行
+
+### 五层防御体系（v4.0.0 新增）
+
+- **L1 上下文预算硬约束** — 动态预算计算（`prepare-context.cjs` 集成 `dynamic-budget.cjs`），支持 8+ 模型（Claude/GPT-4 等），`task-brief` 严格预算控制
+- **L2 分段生成事务化** — Checkpoint 系统（`checkpoint-manager.cjs`），代码生成状态快照，支持失败回滚；方法依赖图拓扑排序（`method-dependency-graph.cjs`）确定最优填充顺序
+- **L3 主 Agent 上下文隔离** — 完整性门控（`completeness-gate.cjs`），3 项检查（截断/缺失/契约）在 subagent 派发前硬阻断；阶段历史压缩释放主 Agent 上下文空间
+- **L4 冗余验证链** — 静态验证套件（`static-validation-suite.cjs`），6 项 Layer 1 机器自动验证（语法、TODO、空方法、签名匹配）；独立验证工作进程（`validation-worker.cjs`），验证解耦主 Agent 只读摘要；R5 逻辑覆盖率自动化（`logic-coverage-auto.cjs`）
+- **L5 故障自动恢复** — 降级策略矩阵（`degradation-matrix.md`），5 种故障场景 × 4 级降级策略；部分交付报告（`partial-delivery.cjs`）；编译循环管理（`compile-loop-manager.cjs`）
+- **功能开关管理** — 11 个优化功能的独立开关配置（`feature-flag-manager.cjs` + `feature-flags.yaml`）
 
 ### 前后端分离架构（v3.7.0 新增）
 
@@ -85,7 +94,7 @@ dev-flow 通过**结构化流程编排 + 需求澄清迭代问答 + 项目记忆
 
 ```bash
 # 1. 安装到项目
-npm install Jane-Split/dev-flow#release_3.7.0 --save-dev
+npm install Jane-Split/dev-flow#release_4.0.0 --save-dev
 
 # 2. 执行安装（生成 Skill 文件和记忆目录）
 npx dev-flow install
@@ -120,7 +129,7 @@ npx dev-flow codex     # 仅安装到 OpenAI Codex
 cd your-project
 
 # 2. 安装 dev-flow
-npm install Jane-Split/dev-flow#release_3.7.0 --save-dev
+npm install Jane-Split/dev-flow#release_4.0.0 --save-dev
 
 # 3. 安装到指定工具（以 Cursor 为例）
 npx dev-flow cursor
@@ -254,11 +263,13 @@ Layer 1: Router（SKILL.md，~520 行，始终加载）
   ├── 记忆系统 + 学习能力快速参考
   └── 阶段确认机制（含历史压缩规则）
 
-Layer 2: References（9 个按需加载的参考文档）
+Layer 2: References（11 个按需加载的参考文档）
   ├── protocol.md（零编辑铁律 + 失败协议 + 交付物 + 门禁 + 历史压缩）
   ├── memory-system.md / learning-system.md / error-pattern-db.md / model-context-config.md
-  └── design-contract-typescript.md / design-contract-python.md / design-contract-go.md
-  └── runtime-protocol.md（运行时验证协议：服务编排、DB 核对、UI 验证、追溯矩阵）
+  ├── design-contract-typescript.md / design-contract-python.md / design-contract-go.md
+  ├── runtime-protocol.md（运行时验证协议：服务编排、DB 核对、UI 验证、追溯矩阵）
+  └── degradation-matrix.md（5 种故障场景 × 4 级降级策略，v4.0.0 新增）
+  └── on-demand-loader.md（按需加载优化策略，v4.0.0 新增）
 
 Layer 3: 阶段指令文件（进入阶段时加载，11 个文件）
   ├── research.md / clarify.md / analyze.md / design.md / task-split.md
@@ -273,6 +284,30 @@ Layer 4: Agent 文件（创建子代理时加载，25 个文件）
   ├── analyze-expert / design-expert / task-split-expert
   ├── contract-validator / verify-expert / step-enforcer
   └── ...共 25 个（含 5 个遗留 Research Agent + 3 个新增验证 Agent）
+
+### 可靠性组件架构（v4.0.0 新增）
+
+```text
+五层防御体系
+├── L1 上下文预算硬约束
+│   └── prepare-context.cjs → dynamic-budget.cjs → task-brief（预算硬约束）
+├── L2 分段生成事务化
+│   ├── checkpoint-manager.cjs（代码生成状态快照 + 失败回滚）
+│   └── method-dependency-graph.cjs（方法依赖图拓扑排序，最优填充顺序）
+├── L3 主 Agent 上下文隔离
+│   ├── completeness-gate.cjs（3 项检查：截断/缺失/契约，subagent 派发前硬阻断）
+│   └── stage-summary.yaml（阶段历史压缩，释放主 Agent 上下文空间）
+├── L4 冗余验证链
+│   ├── static-validation-suite.cjs（6 项 Layer 1 机器自动验证：语法、TODO、空方法、签名匹配）
+│   ├── validation-worker.cjs（独立验证工作进程，解耦主 Agent 只读摘要）
+│   └── logic-coverage-auto.cjs（R5 逻辑覆盖率自动化）
+└── L5 故障自动恢复
+    ├── degradation-matrix.md（5 种故障场景 × 4 级降级策略）
+    ├── partial-delivery.cjs（部分交付报告）
+    └── compile-loop-manager.cjs（编译循环管理）
+
+功能开关管理
+└── feature-flag-manager.cjs + .dev-flow/feature-flags.yaml（11 个优化功能独立开关）
 ```
 
 ### 子代理执行架构（统一模型）
@@ -333,24 +368,38 @@ dev-flow/
 │   │   │   ├── frontend-develop-expert.md（前端开发专家，v3.7.0 新增）
 │   │   │   ├── clarify-expert.md（需求澄清，迭代问答）
 │   │   │   └── ...
-│   │   └── references/       # 9 个按需参考文档
+│   │   └── references/       # 11 个按需参考文档
 │   │       ├── protocol.md（零编辑铁律 + 失败协议 + 历史压缩 + 门禁 + 交付物）
 │   │       ├── memory-system.md / learning-system.md
 │   │       ├── error-pattern-db.md / model-context-config.md
-│   │       └── design-contract-typescript.md / design-contract-python.md / design-contract-go.md
+│   │       ├── design-contract-typescript.md / design-contract-python.md / design-contract-go.md
+│   │       ├── runtime-protocol.md（运行时验证协议）
+│   │       ├── degradation-matrix.md（降级策略矩阵，v4.0.0 新增）
+│   │       └── on-demand-loader.md（按需加载优化策略，v4.0.0 新增）
 │   ├── _platforms/           # 平台特定文件
 │   └── trae/ cursor/ qoder/ claude/ codex/  # 各平台构建输出
 ├── scripts/
-│   ├── build.cjs             # 构建脚本（路径替换 + PLATFORM-ONLY + LANGUAGE-ONLY）
-│   ├── dispatch.cjs          # 平台调度引擎
-│   ├── prepare-context.cjs   # 子代理上下文自动注入（精确匹配）
-│   ├── segment-code.cjs      # 结构化代码分段生成
-│   ├── validate-result.cjs   # 子代理产出自动校验（多语言增强）
-│   ├── validate-contract.cjs # 设计契约校验
-│   ├── audit.cjs             # 文件修改审计（零编辑铁律 + checksum）
-│   ├── install.js            # 安装脚本
-│   ├── version-check.js      # 版本一致性检查
-│   └── pre-publish.js        # 发布前检查
+│   ├── build.cjs                     # 构建脚本（路径替换 + PLATFORM-ONLY + LANGUAGE-ONLY）
+│   ├── dispatch.cjs                  # 平台调度引擎
+│   ├── prepare-context.cjs           # 子代理上下文自动注入（精确匹配）
+│   ├── dynamic-budget.cjs            # 动态预算计算（L1，v4.0.0 新增）
+│   ├── segment-code.cjs              # 结构化代码分段生成
+│   ├── checkpoint-manager.cjs        # 代码生成状态快照与回滚（L2，v4.0.0 新增）
+│   ├── method-dependency-graph.cjs   # 方法依赖图拓扑排序（L2，v4.0.0 新增）
+│   ├── completeness-gate.cjs         # 完整性门控（L3，v4.0.0 新增）
+│   ├── static-validation-suite.cjs   # 静态验证套件（L4，v4.0.0 新增）
+│   ├── validation-worker.cjs         # 独立验证工作进程（L4，v4.0.0 新增）
+│   ├── logic-coverage-auto.cjs       # R5 逻辑覆盖率自动化（L4，v4.0.0 新增）
+│   ├── partial-delivery.cjs          # 部分交付报告（L5，v4.0.0 新增）
+│   ├── compile-loop-manager.cjs      # 编译循环管理（L5，v4.0.0 新增）
+│   ├── dependency-resolver.cjs       # 依赖解析器（v4.0.0 新增）
+│   ├── feature-flag-manager.cjs      # 功能开关管理（v4.0.0 新增）
+│   ├── validate-result.cjs           # 子代理产出自动校验（多语言增强）
+│   ├── validate-contract.cjs         # 设计契约校验
+│   ├── audit.cjs                     # 文件修改审计（零编辑铁律 + checksum）
+│   ├── install.js                    # 安装脚本
+│   ├── version-check.js              # 版本一致性检查
+│   └── pre-publish.js                # 发布前检查
 ├── tests/                    # 测试套件
 │   ├── build.test.js / links.test.js / size-warning.test.js / format.test.js
 │   └── run-all.js

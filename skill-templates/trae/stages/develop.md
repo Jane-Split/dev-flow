@@ -19,7 +19,7 @@ type: stage-instruction
 ════════════════════════════════════
 目标：按设计方案和任务拆分编写完整代码
 输出：代码文件 + develop-result.yaml
-模式：L0 / L1 / L2 / L3
+模式：L0 / L1 / L2 / L3（前后端域路由）
 预计：10-60 分钟（取决于规模）
 ════════════════════════════════════
 ```
@@ -83,9 +83,14 @@ type: stage-instruction
 > **统一 Subagent 执行模型**：无论需求规模，Develop 阶段必须由 develop-expert subagent 执行。
 > 主 Agent 仅负责调度，不直接编辑代码。
 >
+> **🔴 前后端域路由**：根据 task-dag.yaml 中每个任务的 `domain` 字段，路由到对应的开发专家：
+> - `domain: "backend"` → `backend-develop-expert` subagent
+> - `domain: "frontend"` → `frontend-develop-expert` subagent
+>
 > **调度方式由 Router 层动态重评估网关决定**：
 > - **串行调度**（简单需求）：主 Agent 串行创建单个 develop-expert subagent，按任务列表顺序执行
 > - **并行调度**（复杂需求）：主 Agent 启动 Orchestrator，按 DAG 拓扑排序分批并行派发多个 develop-expert subagent
+> - **域路由调度**（全栈需求）：主 Agent 根据任务 domain 字段路由到 backend-develop-expert 或 frontend-develop-expert
 >
 > **触发条件**：Router 动态重评估判定（任务数>5/写写冲突/DAG深度>3/批次>3 → 并行调度）
 
@@ -101,11 +106,14 @@ Step D2: 读取任务拆分文档和 DAG
 Step D3: 运行 prepare-context.cjs（如 Subagent 模式）
         ├── node scripts/prepare-context.cjs --task {taskId}
         └── 为每个任务生成 task-brief-{taskId}.md
-Step D4: 根据调度策略创建 develop-expert subagent
+Step D4: 根据调度策略和域路由创建 develop-expert subagent
         ├── 串行调度 → 创建 1 个 develop-expert，传递 task-brief + design-contract
-        │     └── subagent 按 develop-expert.md 工作流执行所有任务
+        │     ├── domain=backend → 创建 backend-develop-expert
+        │     └── domain=frontend → 创建 frontend-develop-expert
         └── 并行调度 → 启动 Orchestrator，按 DAG 批次派发多个 develop-expert
-              └── 详见 orchestrator.md 的工作流
+              ├── 同批次的 backend 任务 → backend-develop-expert
+              ├── 同批次的 frontend 任务 → frontend-develop-expert
+              └── 跨域依赖（前端依赖后端 API）→ 串行处理
 Step D5: 监控 subagent 执行
         ├── 接收进度汇报
         ├── 处理阻塞问题（协调依赖）
@@ -159,8 +167,8 @@ Step 1.1.1: 检查上下文注入文件是否存在
 
 ### 代码开发步骤（由 develop-expert subagent 执行）
 
-> **⚠️ 以下所有步骤由 develop-expert subagent 执行，主 Agent 仅负责调度。**
-> **完整执行规范见 `agents/develop-expert.md`。**
+> **⚠️ 以下所有步骤由 backend-develop-expert 或 frontend-develop-expert subagent 执行，主 Agent 仅负责调度。**
+> **完整执行规范见 `agents/backend-develop-expert.md` 和 `agents/frontend-develop-expert.md`。**
 
 | 步骤 | 内容 | 关键规则 |
 |------|------|---------|
@@ -311,6 +319,82 @@ Step 4.3.4: 处理未覆盖项
 > - **R3-4-1/R3-4-2** 由 step-enforcer 独立执行，作为外部验证
 > 两者独立运行，结果交叉比对，确保无遗漏。
 
+## 故障处理与降级策略
+
+> 详细降级矩阵参见: [degradation-matrix.md](../references/degradation-matrix.md)
+
+### 快速参考
+
+1. **上下文不足** → 按 degradation-matrix 场景 1 执行（拆分/按需加载/骨架交付/跳过）
+2. **编译错误** → 按 degradation-matrix 场景 2 执行（自动修复→隔离修复→回滚→人工）
+3. **Subagent 无响应** → 按 degradation-matrix 场景 3 执行（重启→简化→串行→人工）
+4. **契约冲突** → 按 degradation-matrix 场景 4 执行（对齐→更新契约→部分实现→重新设计）
+5. **Session 不稳定** → 按 degradation-matrix 场景 5 执行（压缩→续跑→部分交付→紧急停止）
+
+### 编译验证循环（上下文感知版）
+
+> 编译循环上下文管理由 `scripts/compile-loop-manager.cjs` 自动执行
+
+```
+Round 1:
+  - 正常修复
+  - 保留完整错误日志（用于分析根本原因）
+  - 上下文占用: +~10KB
+
+Round 2:
+  PRE_ACTION: 压缩 Round 1 日志
+    - 只保留错误类型、位置、关键信息
+    - 去掉详细堆栈和重复信息
+    - 节省 ~60% 空间
+  - 基于压缩后的日志修复
+  - 上下文占用: +~4KB (vs +10KB)
+
+Round 3:
+  PRE_ACTION: 完全清理 Round 1-2 日志
+    - 只保留当前轮次的错误
+    - 历史错误已尝试修复，不再 relevant
+  - 基于当前错误修复
+  - 上下文占用: +~10KB (但历史已清理)
+
+Round 3 失败:
+  - 不再继续 Round 4
+  - 触发 degradation-matrix 场景 2 的 L3/L4
+  - L3: 回滚到 checkpoint，尝试替代实现
+  - L4: 标记为 NEEDS_HUMAN_FIX
+```
+
+### 编译循环上下文监控
+
+每个 Round 开始时，CompileLoopManager 自动执行：
+1. 检查当前轮次是否超过最大限制（默认 3 轮）
+2. 根据轮次选择清理策略（KEEP_FULL / COMPRESS_HISTORY / PURGE_HISTORY）
+3. 应用清理并返回清理后的上下文大小
+4. 如果上下文使用率 > 95%，触发紧急清理
+
+### 使用方式
+
+在 develop subagent 中，编译失败后：
+```javascript
+const { CompileLoopManager } = require('../../scripts/compile-loop-manager.cjs');
+const loop = new CompileLoopManager({ taskId: 'T3' });
+
+const result = loop.startRound(compilerErrorOutput);
+if (!result.canContinue) {
+  // 触发降级策略
+  return { action: 'ESCALATE', reason: result.reason };
+}
+
+// 使用 result.contextSize 监控上下文占用
+console.log(`Round ${result.round}: context ${result.contextSize}KB / ${result.contextLimit}KB`);
+```
+
+### 任务分类检查点
+
+每个任务开始前，确认其分类：
+- 阻塞性任务: 失败时不得跳过，必须成功或人工升级
+- 核心非阻塞: 可延期，但需记录
+- 边缘/优化: 失败时可跳过，记录到 pending 清单
+
 ### 🔴 失败恢复策略
 
 1. **保存当前进度**：将已完成的文件写入磁盘
@@ -346,7 +430,7 @@ Step 4.3.4: 处理未覆盖项
 
 ### 代码质量要求
 
-> **完整禁止事项和完整性铁律见 `agents/develop-expert.md`。**
+> **完整禁止事项和完整性铁律见 `agents/backend-develop-expert.md` 和 `agents/frontend-develop-expert.md`。**
 > develop-expert 必须确保：无 TODO/FIXME、无空壳占位、无 return null 空实现、每个方法体至少 3 行实质代码。
 
 ---
@@ -470,7 +554,7 @@ Task-9: Controller + Feign    ░░░░░░░░░░░░░░░░�
 
 | # | 确认项 | 状态 |
 |---|--------|------|
-| 0 | **执行者审计**：Develop 阶段由 develop-expert subagent 执行，主 Agent 未直接编辑任何代码文件 | ⬜ 待确认 |
+| 0 | **执行者审计**：Develop 阶段由 backend-develop-expert 和/或 frontend-develop-expert subagent 执行，主 Agent 未直接编辑任何代码文件 | ⬜ 待确认 |
 | 1 | 所有设计文档中的文件都已生成 | ⬜ 待确认 |
 | 2 | 所有文件编译通过（Step 4 实际编译验证） | ⬜ 待确认 |
 | 3 | 前置单元测试通过或已标记需深入验证（Step 4.2） | ⬜ 待确认 |
@@ -478,6 +562,7 @@ Task-9: Controller + Feign    ░░░░░░░░░░░░░░░░�
 | 5 | 无 TODO/FIXME/空方法体残留 | ⬜ 待确认 |
 | 6 | Import 路径、方法签名、类型全部验证通过 | ⬜ 待确认 |
 | 7 | 跨服务 Feign Client 与目标 Controller 端点一致 | ⬜ 待确认 |
+| 7.5 | 跨域 API 调用与后端 Controller 端点一致（全栈项目） | ⬜ 待确认 |
 | 8 | 开发报告已输出 | ⬜ 待确认 |
 
 **暂停，等待用户确认。**

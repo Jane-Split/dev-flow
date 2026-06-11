@@ -99,7 +99,7 @@ class FeatureFlagManager {
    * 获取功能的 fallback 描述
    */
   getFallback(featureName) {
-    return this.config.features?.[featureName]?.fallback || 'No fallback defined';
+    return this.config.features?.[featureName]?.fallback || this.config.features?.[featureName]?.description || 'No fallback defined';
   }
 
   /**

@@ -36,9 +36,10 @@ const MODEL_CONFIG = {
 function calculateBudget(modelName, options = {}) {
   const config = MODEL_CONFIG[modelName] || MODEL_CONFIG['default'];
   
-  // 计算总代码容量（tokens → 字符 → KB）
-  // 1 token ≈ 4 字符（英文代码），1 KB = 1024 字节
-  const totalCodeKB = (config.totalTokens * config.codeRatio) / 4 / 1024;
+  // 计算总代码容量（tokens → KB）
+  // codeRatio: 可用上下文比例（考虑系统提示、输出等开销后）
+  // 1 token ≈ 0.75 字符（代码平均），再 /1024 转为 KB
+  const totalCodeKB = (config.totalTokens * config.codeRatio) / 1024;
   
   // 预留空间
   const systemPromptSizeKB = options.systemPromptSizeKB || 15;

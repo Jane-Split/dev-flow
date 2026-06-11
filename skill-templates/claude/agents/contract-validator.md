@@ -231,6 +231,28 @@ grep -E "\w+\.\w+\s*\(" UserServiceImpl.java
 > **目的**：确保 design-contract.yaml 中定义的每个 logic step / condition / call action
 > 都在生成的代码中有对应的实现，覆盖率必须达到 100%。
 
+#### R5. 逻辑步骤覆盖（增强版）
+
+**自动化分析**：
+1. 首先运行 `logic-coverage-auto.cjs` 获取自动化覆盖率报告
+2. 如果覆盖率 >= 90%，接受自动化结果
+3. 如果覆盖率 < 90%，进行人工复核
+
+**人工复核要点**：
+- 检查未匹配的 design step 是否在代码中有对应实现
+- 检查未匹配的 code block 是否是过度实现
+- 确认边界情况和异常处理是否覆盖
+
+**输出格式**：
+```yaml
+r5_coverage:
+  auto_coverage: 0.95
+  manual_review_required: false
+  unmapped_steps: []
+  unmapped_blocks: []
+  assessment: "PASS"
+```
+
 **校验内容**：
 ```yaml
 validation_rules:
@@ -421,14 +443,14 @@ validation:
 2. 分类失败类型
    | 失败类型 | 处理策略 |
    |----------|----------|
-   | 方法名不匹配 | 返回给develop-expert修复 |
-   | 参数类型不匹配 | 返回给develop-expert修复 |
-   | 缺少方法实现 | 返回给develop-expert补充 |
-   | 存在TODO | 返回给develop-expert完成 |
+   | 方法名不匹配 | 返回给 backend-develop-expert / frontend-develop-expert 修复 |
+   | 参数类型不匹配 | 返回给 backend-develop-expert / frontend-develop-expert 修复 |
+   | 缺少方法实现 | 返回给 backend-develop-expert / frontend-develop-expert 补充 |
+   | 存在TODO | 返回给 backend-develop-expert / frontend-develop-expert 完成 |
 
 3. 生成修复任务
    - 创建修复子任务
-   - 分配给develop-expert
+   - 分配给 backend-develop-expert / frontend-develop-expert
    - 重新验证
 
 4. 最多重试3次
@@ -462,3 +484,43 @@ workflow:
 **验证失败标准**：
 - 任一 required=true 的检查点失败
 - 或 failed 数量 > 0
+
+## 独立验证模式（Decoupled Validation）
+
+当作为独立验证 subagent 运行时：
+
+### 工作流程
+1. 读取 `.dev-flow/validation-results/{taskId}.yaml` 获取验证请求
+2. 执行 Layer 2 AI 验证（R1-R5）
+3. 将结果追加写入同一文件
+
+### 输入格式
+```yaml
+task_id: "T3"
+status: "IN_PROGRESS"
+file_path: "src/main/java/.../OrderService.java"
+contract_path: ".dev-flow/design-contract.yaml"
+layer_1:
+  passed: true
+  summary: "Static validation passed"
+```
+
+### 输出格式
+在原有文件中追加：
+```yaml
+layer_2:
+  passed: true/false
+  r1_structure: { passed: true, issues: [] }
+  r2_signature: { passed: true, issues: [] }
+  r3_type: { passed: true, issues: [] }
+  r4_annotation: { passed: true, issues: [] }
+  r5_coverage: { coverage: 0.95, passed: true }
+
+overall_assessment: "通过/有条件通过/不通过"
+recommendations: []
+```
+
+### 约束
+- 不占用主 Agent 上下文
+- 验证失败不阻断主 Agent 决策
+- 结果供主 Agent 参考

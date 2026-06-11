@@ -31,28 +31,37 @@ type: stage-instruction
 
 ---
 
-### 🔴 架构概述：pre-scanner + 文件级子代理
+### 🔴 架构概述：pre-scanner + 前后端分离扫描
 
-本阶段采用**双阶段多子代理架构**，从根本上解决微服务项目的上下文溢出和扫描不完整问题：
+本阶段采用**双阶段多子代理架构**，支持前后端分离扫描，从根本上解决微服务项目的上下文溢出和扫描不完整问题：
 
 ```
 主 Agent（纯调度器，零编辑）
   │
   ├── Phase 0: pre-scanner subagent × 1
-  │     └── 全局 Quick Scan + 模板文件初始化（mistakes.md/patterns.md）→ file-index.yaml
+  │     └── 全局 Quick Scan + 前后端检测 + 分域索引 + 模板文件初始化
+  │     └── 输出：backend-file-index.yaml 和/或 frontend-file-index.yaml + project-domains.yaml
   │
-  └── Phase 1: 文件级子代理 × 11（4 批次并行 + 串行）
-        ├── Batch 1 (基础层, 3): project-overview, service-registry, architecture
-        ├── Batch 2 (数据层, 3): common-modules, models, config
-        ├── Batch 3 (行为层, 3): apis, utils, conventions
-        └── Batch 4 (横切层, 2): dependency-graph, decisions
+  └── Phase 1: 分域扫描子代理
+        ├── 后端扫描组（后端域存在时启动，11 子代理，4 批次）
+        │     ├── Batch 1 (基础层, 3): project-overview, service-registry, architecture
+        │     ├── Batch 2 (数据层, 3): common-modules, models, config
+        │     ├── Batch 3 (行为层, 3): apis, utils, conventions
+        │     └── Batch 4 (横切层, 2): dependency-graph, decisions
+        │
+        └── 前端扫描组（前端域存在时启动，9 子代理，3 批次）
+              ├── Batch 1 (基础层, 3): frontend-overview, frontend-structure, frontend-architecture
+              ├── Batch 2 (组件层, 3): components, routes-and-state, frontend-config
+              └── Batch 3 (行为层, 3): frontend-apis, frontend-utils, frontend-conventions
 ```
 
 **核心原理**：
-- **pre-scanner 做一次目录遍历 + 初始化模板文件**，11 个子代理不再重复扫描
-- **每个文件子代理获得 file-index.yaml**，精确知道要读哪些源文件
-- **每个子代理拥有独立上下文**（~25-40KB），Smart Sampling 可从容执行甚至全量读取
-- **无需聚合器**——每个子代理直接写入目标 memory 文件，互不依赖
+- **pre-scanner 做一次目录遍历 + 前后端检测**，分域输出索引文件
+- **后端扫描组**与现有 11 子代理完全一致，零削弱
+- **前端扫描组**为新增，9 个专用子代理覆盖前端项目特征
+- **纯后端项目**：仅启动后端扫描组
+- **纯前端项目**：仅启动前端扫描组
+- **全栈项目**：两组并行，互不依赖
 - **模板文件（mistakes.md/patterns.md）由 pre-scanner 创建初始模板，后续在 Fix/Develop 阶段持续积累**
 
 ---
@@ -145,7 +154,50 @@ type: stage-instruction
 - [ ] 如果是微服务：读取父 `pom.xml` 的 `<modules>`，列出所有子服务
 - [ ] 对每个子服务读取其 `pom.xml`（仅 `<groupId>`/`<artifactId>`/依赖列表），识别角色和依赖
 
-#### Step P2: 全局 Quick Scan（文件路径索引）
+#### Step P1.5: 前后端存在性检测（🔴 新增）
+
+> **目的**：检测项目包含前端域、后端域还是两者都有，决定启动哪些扫描组。
+
+**检测后端存在**（满足任一即判定为后端域存在）：
+- 根目录或子目录含 `pom.xml` / `build.gradle`
+- 根目录或子目录含 `go.mod`
+- 根目录或子目录含 `pyproject.toml` / `requirements.txt` / `setup.py`
+- 根目录或子目录含 `Cargo.toml`
+- 根目录或子目录含 `package.json` + 无前端特征（NestJS/Express/Fastify 等后端框架）
+
+**检测前端存在**（满足任一即判定为前端域存在）：
+- 根目录或子目录含 `package.json` + `src/` 下有 `.tsx/.jsx/.vue/.svelte` 文件
+- 根目录或子目录含 `next.config.*` / `nuxt.config.*` / `vite.config.*` / `angular.json`
+- 根目录或子目录含 `pages/` 或 `app/` 目录（Next.js/Nuxt 约定路由）
+- 根目录或子目录含 `src/components/` 或 `src/views/` 或 `src/pages/`
+
+**Monorepo 路径识别**：
+- 检测根目录子目录结构
+- 识别前端目录路径（如 `frontend/`、`web/`、`client/`、`ui/`、`app/`）
+- 识别后端目录路径（如 `backend/`、`server/`、`api/`、`service/`）
+- 无明显分隔时：根目录即为项目目录，前后端代码混合在同一目录
+
+**输出结果**（写入 `project-domains.yaml`）：
+```yaml
+domains:
+  - domain: "backend"
+    detected: true/false
+    root_path: "." 或 "backend/"
+    project_type: "java-microservice" | "java-single" | "node-backend" | "python" | "go" | "rust"
+  - domain: "frontend"
+    detected: true/false
+    root_path: "." 或 "frontend/"
+    project_type: "react" | "vue" | "angular" | "svelte" | "nextjs" | "nuxtjs"
+is_fullstack: true/false  # 前后端都存在
+monorepo: true/false      # 是否为 Monorepo
+```
+
+#### Step P2: 分域 Quick Scan（文件路径索引）
+
+**🔴 分域扫描规则**：
+- 后端域存在 → 生成 `backend-file-index.yaml`（结构与现有 file-index.yaml 完全一致）
+- 前端域存在 → 生成 `frontend-file-index.yaml`（前端专用索引结构）
+- 两个域都存在 → 同时生成两个索引文件
 
 **对每个服务/模块，扫描以下模式**：
 
@@ -163,15 +215,35 @@ type: stage-instruction
 | 配置文件 | `**/application*.yml`、`**/bootstrap*.yml`、`**/pom.xml` | 路径 |
 | 中间件/框架 | pom.xml 中的依赖：PowerJob/XXL-Job/RabbitMQ/Kafka/Redis/ES/MinIO | 依赖名 |
 
+**前端域扫描模式**：
+
+| 扫描类别 | Glob 模式 | 记录内容 |
+|----------|-----------|----------|
+| 页面组件 | `src/pages/**/*.{tsx,jsx,vue}`、`src/views/**/*.{tsx,jsx,vue}`、`app/**/*.{tsx,jsx}` | 路径、组件名 |
+| 通用组件 | `src/components/**/*.{tsx,jsx,vue}` | 路径、组件名、分类(common/business/layout) |
+| 布局组件 | `src/layouts/**/*.{tsx,jsx,vue}` | 路径、组件名 |
+| Hooks/Composables | `src/hooks/**/*.{ts,tsx}`、`src/composables/**/*.{ts,js}` | 路径、名称 |
+| 状态管理 | `src/stores/**/*.{ts,js}`、`src/store/**/*.{ts,js}` | 路径、名称 |
+| API 封装 | `src/api/**/*.{ts,js}`、`src/services/**/*.{ts,js}` | 路径、名称 |
+| 工具函数 | `src/utils/**/*.{ts,js}`、`src/helpers/**/*.{ts,js}` | 路径、名称 |
+| 配置文件 | `vite.config.*`、`next.config.*`、`nuxt.config.*`、`.env*`、`tsconfig.json` | 路径 |
+| 类型定义 | `src/types/**/*.{ts,d.ts}`、`src/interfaces/**/*.{ts,d.ts}` | 路径、名称 |
+| 路由配置 | `src/router/**/*.{ts,tsx,js,jsx}` | 路径 |
+| 全局样式 | `src/styles/**/*.{css,scss,less}` | 路径 |
+| 中间件 | `src/middleware/**/*.{ts,js}` | 路径、名称 |
+
 **🔴 pre-scanner 行为约束**：
 - **只 Glob，不 Read**——文件路径列表，不读取内容
 - **核心类仍要 Glob**：含 `Base`、`Abstract`、`Core`、`Common` 关键字的类必须 Glob 到
 - **公共模块全量 Glob**：common-bean、common-core 等模块的 Entity/Enum/DTO 全量 Glob
 - **时间戳**：每个文件 Glob 时记录文件修改时间
 
-#### Step P3: 输出 file-index.yaml
+#### Step P3: 输出分域索引文件
 
-写入 `.dev-flow/memory/_index/file-index.yaml`，格式如下：
+写入 `.dev-flow/memory/_index/`：
+  ├── `backend-file-index.yaml`（后端域存在时，结构与现有 file-index.yaml 完全一致）
+  ├── `frontend-file-index.yaml`（前端域存在时，前端专用索引结构）
+  └── `project-domains.yaml`（始终输出，记录项目域信息）
 
 ```yaml
 # file-index.yaml — 由 pre-scanner 输出，供所有文件级子代理使用
@@ -247,6 +319,86 @@ stats:
 
 generated_by: "pre-scanner subagent"
 timestamp: "2026-06-05T23:30:00"
+```
+
+**frontend-file-index.yaml 格式**：
+
+```yaml
+# frontend-file-index.yaml — 由 pre-scanner 输出
+project_root: "."
+frontend_root: "frontend/"  # 或 "." 如果前后端混合
+project_type: "react"  # react | vue | angular | svelte | nextjs | nuxtjs
+
+framework:
+  name: "React"
+  version: "18.2.0"
+  ui_library: "Ant Design"
+  state_management: "Redux Toolkit"
+  css_solution: "CSS Modules"
+
+pages:
+  - path: "src/pages/Dashboard.tsx"
+    name: "Dashboard"
+
+components:
+  - path: "src/components/Button/Button.tsx"
+    name: "Button"
+    category: "common"  # common | business | layout
+
+layouts:
+  - path: "src/layouts/MainLayout.tsx"
+    name: "MainLayout"
+
+hooks:
+  - path: "src/hooks/useAuth.ts"
+    name: "useAuth"
+
+stores:
+  - path: "src/stores/userStore.ts"
+    name: "userStore"
+
+api:
+  - path: "src/api/userApi.ts"
+    name: "userApi"
+  - path: "src/api/request.ts"
+    name: "request"
+
+utils:
+  - path: "src/utils/format.ts"
+    name: "format"
+
+config:
+  - path: "vite.config.ts"
+  - path: ".env.development"
+  - path: "tsconfig.json"
+
+types:
+  - path: "src/types/api.d.ts"
+    name: "api"
+
+router:
+  - path: "src/router/index.tsx"
+
+styles:
+  - path: "src/styles/global.css"
+
+middleware:
+  - path: "src/middleware/auth.ts"
+    name: "auth"
+
+stats:
+  total_tsx_files: 0
+  total_ts_files: 0
+  total_vue_files: 0
+  total_css_files: 0
+  page_count: 0
+  component_count: 0
+  hook_count: 0
+  store_count: 0
+  api_module_count: 0
+
+generated_by: "pre-scanner subagent"
+timestamp: ""
 ```
 
 > **⚠️ 目录自动创建**：pre-scanner 写入前必须检查并创建 `.dev-flow/memory/_index/` 目录。

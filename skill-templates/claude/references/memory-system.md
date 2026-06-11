@@ -17,6 +17,29 @@
 ├── mistakes.md                            # 常见错误及修复
 ├── preferences.md                         # 用户偏好
 └── decisions.md                           # 架构决策记录
+│
+├── backend/                              # 后端专用记忆
+│   ├── service-registry.md               # 服务注册表
+│   ├── architecture.md                   # 后端架构
+│   ├── common-modules.md                 # 公共模块
+│   ├── models.md                         # 数据模型
+│   ├── apis.md                           # API 列表
+│   ├── utils.md                          # 工具类
+│   ├── config.md                         # 配置信息
+│   ├── conventions.md                    # 后端编码规范详细版
+│   └── dependency-graph.md               # 依赖图谱
+│
+├── frontend/                             # 前端专用记忆
+│   ├── overview.md                       # 前端概览
+│   ├── structure.md                      # 前端目录结构
+│   ├── architecture.md                   # 前端架构
+│   ├── components.md                     # 组件清单
+│   ├── routes-and-state.md               # 路由和状态管理
+│   ├── config.md                         # 前端配置
+│   ├── apis.md                           # 前端 API 封装
+│   ├── utils.md                          # 工具函数
+│   ├── conventions.md                    # 前端编码规范详细版
+│   └── dependency-graph.md               # 前端依赖图谱
 
 service-a/.dev-flow/memory/                # 服务 A 专属记忆
 ├── modules.md                             # 服务 A 的模块清单（Entity/Mapper/Service/Controller/DTO/Enum）
@@ -54,6 +77,14 @@ service-b/.dev-flow/memory/                # 服务 B 专属记忆
 ├── mistakes.md            # 常见错误及修复
 ├── preferences.md         # 用户偏好
 └── decisions.md           # 历史架构决策
+│
+├── backend/                              # 后端专用记忆
+│   ├── models.md                         # 数据模型
+│   ├── apis.md                           # API 列表
+│   ├── utils.md                          # 工具类
+│   ├── config.md                         # 配置信息
+│   ├── architecture.md                   # 架构决策
+│   └── conventions.md                    # 后端编码规范详细版
 ```
 
 **前端项目：**
@@ -61,11 +92,22 @@ service-b/.dev-flow/memory/                # 服务 B 专属记忆
 .dev-flow/memory/
 ├── project-overview.md    # 项目概览
 ├── conventions.md         # 编码规范
-├── components.md          # 已有组件
-├── apis.md                # 已有 API
-├── models.md              # 数据模型
-├── utils.md               # 工具函数
-└── architecture.md        # 架构决策
+├── patterns.md            # 常见代码模式
+├── mistakes.md            # 常见错误及修复
+├── preferences.md         # 用户偏好
+├── decisions.md           # 架构决策记录
+├── frontend/              # 前端专用记忆
+│   ├── overview.md        # 前端概览
+│   ├── structure.md       # 前端目录结构
+│   ├── architecture.md    # 前端架构
+│   ├── components.md      # 组件清单
+│   ├── routes-and-state.md # 路由和状态管理
+│   ├── config.md          # 前端配置
+│   ├── apis.md            # 前端 API 封装
+│   ├── utils.md           # 工具函数
+│   ├── conventions.md     # 前端编码规范详细版
+│   └── dependency-graph.md # 前端依赖图谱
+└── session/               # 会话级记忆
 ```
 
 ### 会话记忆与长期记忆（v2.0.0）
@@ -104,6 +146,10 @@ service-b/.dev-flow/memory/                # 服务 B 专属记忆
 
 **读取时机**：
 - Develop 前：必须读取 conventions、modules/components、apis、utils、patterns、mistakes
+- **前端域额外读取时机**：
+  - Develop 前端任务前：必须读取 frontend/conventions、frontend/components、frontend/apis、frontend/routes-and-state
+- **后端域额外读取时机**：
+  - Develop 后端任务前：必须读取 backend/conventions、backend/apis、backend/models
 - Design 前：必须读取 project-overview、architecture、decisions
 - Analyze 前：必须读取 modules/components、apis、models
 - **多服务模式额外读取时机**：

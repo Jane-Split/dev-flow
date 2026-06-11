@@ -66,7 +66,7 @@ error_patterns:
     prevention:
       strategy_id: "S005"
       name: "Import 路径强制验证"
-      target_agent: "develop-expert"
+      target_agent: "backend-develop-expert"
       location: "Step 2.5.2"
       rule: "禁止根据类名猜测包路径，必须通过 Grep 搜索确认"
     
@@ -136,7 +136,7 @@ error_patterns:
     prevention:
       strategy_id: "S009"
       name: "禁止日志占位替代业务逻辑"
-      target_agent: "develop-expert"
+      target_agent: "backend-develop-expert"
       location: "禁止事项表格"
       rule: "禁止用 log.info()/log.warn() 替代业务逻辑，必须实现完整的业务调用"
     
@@ -158,10 +158,10 @@ prevention_strategy:
   strategy_id: "S001"
   name: "Entity 方法名强制验证"
   target_pattern: "P001"
-  target_agent: "develop-expert"
-  
+  target_agent: "backend-develop-expert"
+
   strategy_type: "process_enhancement"
-  
+
   implementation:
     location: "Step 2.5.3 方法签名验证"
     enhancement: |
@@ -201,10 +201,10 @@ prevention_strategy:
   strategy_id: "S003"
   name: "Mapper 方法签名一致性检查"
   target_pattern: "P003"
-  target_agent: "develop-expert"
-  
+  target_agent: "backend-develop-expert"
+
   strategy_type: "checklist"
-  
+
   implementation:
     location: "Step 3 代码实现前"
     checklist: |
@@ -225,10 +225,10 @@ prevention_strategy:
   strategy_id: "S005"
   name: "Import 路径强制验证"
   target_pattern: "P005"
-  target_agent: "develop-expert"
-  
+  target_agent: "backend-develop-expert"
+
   strategy_type: "process_enhancement"
-  
+
   implementation:
     location: "Step 2.5.2 Import 路径验证"
     enhancement: |
@@ -292,7 +292,7 @@ auto_update_rules:
       occurrences: ">= 2"
       
     target_files:
-      - file: "develop-expert.md"
+      - file: "backend-develop-expert.md"
         location: "Step 2.5.1"
         action: "append_warning"
         content_template: |

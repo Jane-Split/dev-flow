@@ -1,6 +1,6 @@
 {
   "name": "dev-flow",
-  "version": "3.7.0",
+  "version": "4.0.0",
   "description": "AI开发全流程自动化Agent技能系统",
   "type": "module",
   "main": "scripts/install.js",
@@ -43,5 +43,8 @@
     "USER_GUIDE.md",
     "CHANGELOG.md",
     "LICENSE"
-  ]
+  ],
+  "dependencies": {
+    "js-yaml": "^4.2.0"
+  }
 }

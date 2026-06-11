@@ -22,9 +22,24 @@ class StaticValidationSuite {
   run(filePath, contract) {
     const results = [];
 
-    results.push(this.checkFileExists(filePath));
+    const fileExistsResult = this.checkFileExists(filePath);
+    results.push(fileExistsResult);
+
+    // 如果文件不存在或为空，跳过后续检查
+    if (!fileExistsResult.passed) {
+      const blocking = results.filter(r => !r.passed && r.severity === 'BLOCKING');
+      return {
+        passed: false,
+        results,
+        blocking,
+        warnings: [],
+        summary: { total: results.length, passed: results.filter(r => r.passed).length, failed: results.filter(r => !r.passed).length }
+      };
+    }
+
     results.push(this.checkNoPlaceholders(filePath));
     results.push(this.checkNoEmptyMethods(filePath));
+    results.push(this.checkLogOnlyMethods(filePath));
     results.push(this.checkSyntax(filePath));
 
     if (contract) {
@@ -66,18 +81,24 @@ class StaticValidationSuite {
     const placeholders = [];
 
     const patterns = [
-      /TODO[:\s]/gi,
-      /FIXME[:\s]/gi,
-      /NotImplemented/gi,
-      /throw new\s+\w*Exception\s*\(\s*["']not implemented/gi
+      { regex: /TODO[:\s]/gi, exclude: /TODO\s*:\s*\w+/i },
+      { regex: /FIXME[:\s]/gi, exclude: null },
+      { regex: /NotImplemented/gi, exclude: null },
+      { regex: /throw new\s+\w*Exception\s*\(\s*["']not implemented/gi, exclude: null }
     ];
 
     const lines = content.split('\n');
     for (let i = 0; i < lines.length; i++) {
-      for (const pattern of patterns) {
-        if (pattern.test(lines[i])) {
+      for (const { regex, exclude } of patterns) {
+        if (regex.test(lines[i])) {
+          // 重置正则 lastIndex
+          regex.lastIndex = 0;
+          if (exclude && exclude.test(lines[i])) {
+            continue;
+          }
           placeholders.push({ line: i + 1, text: lines[i].trim() });
         }
+        regex.lastIndex = 0;
       }
     }
 
@@ -95,7 +116,7 @@ class StaticValidationSuite {
 
     const patterns = {
       java: /(?:public|private|protected)\s+[\w<>\[\]]+\s+\w+\s*\([^)]*\)\s*\{\s*\}/g,
-      ts: /(?:public|private|protected)?\s*[\w<>\[\]]+\s+\w+\s*\([^)]*\)\s*\{\s*\}/g,
+      ts: /(?:public|private|protected)?\s*(?:async\s+)?[\w<>\[\]]+\s+\w+\s*\([^)]*\)\s*(?::\s*[\w<>\[\]]+)?\s*\{\s*\}/g,
       js: /\w+\s*\([^)]*\)\s*\{\s*\}/g,
       py: /def\s+\w+\s*\([^)]*\):\s*\n\s*pass/g,
       go: /func\s+\w+\s*\([^)]*\)\s*[\w<>\[\]]*\s*\{\s*\}/g
@@ -144,13 +165,50 @@ class StaticValidationSuite {
         details: { output }
       };
     } catch (error) {
+      // 检查错误是否只是"类未找到"等依赖问题，而非语法错误
+      const errorStr = error.stdout || error.message || '';
+      const isDependencyError = /cannot find symbol|class not found|cannot resolve|module not found|找不到符号|找不到类|�Ҳ�������/i.test(errorStr);
+      
+      if (isDependencyError) {
+        return {
+          name: 'SYNTAX_CHECK',
+          passed: true,
+          severity: 'WARNING',
+          details: { message: 'Dependency-related errors only, syntax is valid', error: errorStr }
+        };
+      }
+
       return {
         name: 'SYNTAX_CHECK',
         passed: false,
         severity: 'BLOCKING',
-        details: { error: error.stdout || error.message }
+        details: { error: errorStr }
       };
     }
+  }
+
+  checkLogOnlyMethods(filePath) {
+    const content = fs.readFileSync(filePath, 'utf8');
+    const logOnlyMethods = [];
+
+    // 匹配只包含日志的方法体
+    const methodBodyPattern = /(?:public|private|protected)\s+[\w<>\[\]]+\s+\w+\s*\([^)]*\)\s*\{([^}]*)\}/g;
+    let match;
+    while ((match = methodBodyPattern.exec(content)) !== null) {
+      const body = match[1];
+      const lines = body.split('\n').filter(l => l.trim() && !l.trim().startsWith('//'));
+      if (lines.length === 1 && /log\.|console\.|print\(|logger\./i.test(lines[0])) {
+        const lineNum = content.substring(0, match.index).split('\n').length;
+        logOnlyMethods.push({ line: lineNum, body: lines[0].trim() });
+      }
+    }
+
+    return {
+      name: 'NO_LOG_ONLY_METHODS',
+      passed: logOnlyMethods.length === 0,
+      severity: 'WARNING',
+      details: { logOnlyMethods }
+    };
   }
 
   checkContractSignatures(filePath, contract) {

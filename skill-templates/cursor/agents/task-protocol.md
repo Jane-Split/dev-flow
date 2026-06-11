@@ -54,11 +54,11 @@ task:
 | research | 项目研究 | research-expert |
 | analyze | 需求分析 | analyze-expert |
 | design | 详细设计 | design-expert |
-| develop-entity | 实体开发 | develop-expert |
-| develop-dto | DTO 开发 | develop-expert |
-| develop-mapper | Mapper 开发 | develop-expert |
-| develop-service | Service 开发 | develop-expert |
-| develop-controller | Controller 开发 | develop-expert |
+| develop-entity | 实体开发 | backend-develop-expert |
+| develop-dto | DTO 开发 | backend-develop-expert |
+| develop-mapper | Mapper 开发 | backend-develop-expert |
+| develop-service | Service 开发 | backend-develop-expert |
+| develop-controller | Controller 开发 | backend-develop-expert |
 | verify | 代码验证 | verify-expert |
 | service-orchestrate | 服务编排启动 | service-orchestrator |
 | e2e-ui-test | UI 层验证 | e2e-ui-tester |
@@ -380,7 +380,7 @@ validation_protocol:
 
   failure_handling:
     max_retries: 2
-    escalation: "返回 develop-expert 修复"
+    escalation: "返回对应的 develop-expert 修复"
 ```
 
 ## 5. 文件组织
@@ -438,24 +438,24 @@ tasks:
   
   - id: develop-entity
     type: develop-entity
-    agent: develop-expert
+    agent: backend-develop-expert
     dependencies: [design]
     parallel_group: "data-model"
     
   - id: develop-dto
     type: develop-dto
-    agent: develop-expert
+    agent: backend-develop-expert
     dependencies: [design, develop-entity]
     parallel_group: "data-model"
     
   - id: develop-service
     type: develop-service
-    agent: develop-expert
+    agent: backend-develop-expert
     dependencies: [develop-dto]
     
   - id: develop-controller
     type: develop-controller
-    agent: develop-expert
+    agent: backend-develop-expert
     dependencies: [develop-service]
     
   - id: verify
@@ -473,7 +473,7 @@ tasks:
   # Service A 开发（并行组 A）
   - id: develop-service-a
     type: develop-service
-    agent: develop-expert
+    agent: backend-develop-expert
     dependencies: [design]
     parallel_group: "service-a"
     metadata:
@@ -482,7 +482,7 @@ tasks:
   # Service B 开发（并行组 B）
   - id: develop-service-b
     type: develop-service
-    agent: develop-expert
+    agent: backend-develop-expert
     dependencies: [design]
     parallel_group: "service-b"
     metadata:

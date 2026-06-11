@@ -78,6 +78,15 @@ class LogicCoverageAnalyzer {
       .split(/\s+/)
       .filter(w => w.length >= 2);
 
+    // 如果没有空格分隔的中文，按字符分词（2字以上）
+    if (words.length === 1 && words[0].length > 4) {
+      const chars = [];
+      for (let i = 0; i < words[0].length - 1; i++) {
+        chars.push(words[0].substring(i, i + 2));
+      }
+      return [...new Set(chars)];
+    }
+
     return [...new Set(words)];
   }
 

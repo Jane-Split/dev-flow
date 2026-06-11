@@ -254,8 +254,8 @@ Step 4.0.4: 输出集成验证报告
 ## 3. Subagent 产出一致性
 | Subagent | 产出文件 | 依赖声明 | 校验结果 |
 |----------|---------|---------|---------|
-| develop-expert-1 | XxxMapper.java | 提供查询方法 | ✅ 已验证 |
-| develop-expert-2 | XxxService.java | 依赖 XxxMapper | ✅ 已验证 |
+| backend-develop-expert-1 | XxxMapper.java | 提供查询方法 | ✅ 已验证 |
+| backend-develop-expert-2 | XxxService.java | 依赖 XxxMapper | ✅ 已验证 |
 
 ## 4. 不一致项清单
 | # | 类型 | 描述 | 影响范围 | 修复建议 |

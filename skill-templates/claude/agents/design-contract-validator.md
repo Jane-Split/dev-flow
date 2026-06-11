@@ -225,9 +225,9 @@ detection_algorithm:
 ```yaml
 # orchestrator.md 工作流
 phase_5_develop:
-  step_5_1: "调用 develop-expert 生成代码"
+  step_5_1: "调用 backend-develop-expert / frontend-develop-expert 生成代码"
   step_5_2: "🔴 调用 design-contract-validator 验证契约一致性"
-  step_5_3: "如果验证失败，返回 develop-expert 修复"
+  step_5_3: "如果验证失败，返回 backend-develop-expert / frontend-develop-expert 修复"
   step_5_4: "调用 step-enforcer 验证输出文件"
   step_5_5: "调用 verify-expert 质量检查"
 ```
@@ -238,8 +238,8 @@ phase_5_develop:
 
 | Agent | 验证维度 | 执行时机 | 执行者 |
 |-------|---------|---------|--------|
-| design-contract-validator | 设计文档 call action 完整性 + 日志占位对比 | 开发过程中（可选） | develop-expert |
-| step-enforcer | 文件存在性、格式、禁止事项扫描、早期覆盖率预警 | 开发过程中（强制） | develop-expert |
+| design-contract-validator | 设计文档 call action 完整性 + 日志占位对比 | 开发过程中（可选） | backend-develop-expert / frontend-develop-expert |
+| step-enforcer | 文件存在性、格式、禁止事项扫描、早期覆盖率预警 | 开发过程中（强制） | backend-develop-expert / frontend-develop-expert |
 | contract-validator | 结构一致性 + 逻辑覆盖率最终验证 | 开发完成后（强制） | orchestrator |
 | verify-expert | 代码质量、编译验证、需求满足度 | 最终验证阶段（强制） | orchestrator |
 | bytecode-analyzer | 编译后字节码分析（深度检测） | 编译完成后（可选） | verify-expert |
@@ -255,7 +255,7 @@ phase_5_develop:
 
 1. **生成详细报告**：列出所有问题方法和修复建议
 2. **阻塞流程**：不允许进入下一阶段
-3. **返回修复**：要求 develop-expert 重新实现
+3. **返回修复**：要求 backend-develop-expert / frontend-develop-expert 重新实现
 4. **最多重试 3 次**：如果 3 次都失败，升级到 orchestrator 人工处理
 
 **修复指导**：

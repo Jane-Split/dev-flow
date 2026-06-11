@@ -1,6 +1,6 @@
 ---
 name: step-enforcer
-description: dev-flow 步骤强制执行验证器，确保关键步骤不被跳过。Use when enforcing critical steps in develop-expert and other agents.
+description: dev-flow 步骤强制执行验证器，确保关键步骤不被跳过。Use when enforcing critical steps in backend-develop-expert, frontend-develop-expert and other agents.
 tools: Read, Grep, Bash
 model: inherit
 readonly: false
@@ -33,7 +33,7 @@ is_background: false
 
 ## 关键步骤验证清单
 
-### Step 2.5: 强制读取验证（develop-expert）
+### Step 2.5: 强制读取验证（backend-develop-expert / frontend-develop-expert）
 
 **必须输出**：
 ```yaml
@@ -273,7 +273,7 @@ validation_rules:
     check_method: "logic_step_coverage_check"
     relation_to_contract_validator_R5: |
       此规则是开发过程中的早期预警，与 contract-validator R5 形成双层防御：
-      - R3-4-1：开发阶段即时检查（由 develop-expert 调用 step-enforcer 执行）
+      - R3-4-1：开发阶段即时检查（由 backend-develop-expert / frontend-develop-expert 调用 step-enforcer 执行）
       - R5：开发完成后独立验证（由 orchestrator 调用 contract-validator 执行）
       - 两者验证维度相同，但执行时机和执行者不同
       - 如果 R3-4-1 已通过，R5 通常也会通过
@@ -486,11 +486,11 @@ write_blocked_file:
 2. 向调用方返回阻塞消息
 3. 调用方必须返回重试，无法跳过
 
-## 与 develop-expert 集成
+## 与 backend-develop-expert / frontend-develop-expert 集成
 
 ### 集成方式
 
-在 develop-expert.md 的关键步骤后插入验证调用：
+在 backend-develop-expert.md / frontend-develop-expert.md 的关键步骤后插入验证调用：
 
 ```markdown
 ### Step 2.5: 强制读取验证（🔴 必须执行 - 方案2优化）

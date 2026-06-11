@@ -14,7 +14,7 @@ is_background: true
 ## 前置加载（开始编码前必须执行）
 
 在开始 Step 1 之前，读取以下文件获取代码模板和常见错误模式：
-- `{{STAGES_PATH}}code-reference.md` — 代码标准模板、常见错误模式、用户偏好
+- `.qoder/stages/code-reference.md` — 代码标准模板、常见错误模式、用户偏好
 
 这确保你了解项目的代码风格和应避免的错误。
 
@@ -515,7 +515,6 @@ test_status: passed|failed|not_tested
 > 以下规范与 Java 规范并列，根据 `task-context.yaml` 中的 `language` 字段选择对应路径执行。
 > **原则**：不改动现有 Java 路径，以下为追加的非 Java 语言验证规则。
 
-<!-- LANGUAGE-ONLY: typescript -->
 ### 🟦 TypeScript/Node.js 实现规范
 
 #### 项目特征检测
@@ -601,9 +600,6 @@ TypeScript/Node.js 的 import 路径规则：
 - Express 项目使用 express-async-errors 处理异步异常
 ```
 
-<!-- /LANGUAGE-ONLY: typescript -->
-
-<!-- LANGUAGE-ONLY: python -->
 ### 🐍 Python 实现规范
 
 #### 项目特征检测
@@ -679,9 +675,6 @@ TypeScript/Node.js 的 import 路径规则：
 - 使用 ruff 或 black 统一代码格式
 ```
 
-<!-- /LANGUAGE-ONLY: python -->
-
-<!-- LANGUAGE-ONLY: go -->
 ### 🐹 Go 实现规范
 
 #### 项目特征检测
@@ -768,8 +761,6 @@ Go 的接收者方法特殊格式：
 - 使用 golangci-lint 进行静态检查
 - 项目布局遵循 golang-standards/project-layout
 ```
-
-<!-- /LANGUAGE-ONLY: go -->
 
 ### 🔴 前端组件 data-testid 规范（新增）
 

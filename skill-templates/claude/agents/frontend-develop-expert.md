@@ -14,7 +14,7 @@ is_background: true
 ## 前置加载（开始编码前必须执行）
 
 在开始 Step 1 之前，读取以下文件获取代码模板和常见错误模式：
-- `{{STAGES_PATH}}code-reference.md` — 代码标准模板、常见错误模式、用户偏好
+- `.claude/stages/code-reference.md` — 代码标准模板、常见错误模式、用户偏好
 
 这确保你了解项目的代码风格和应避免的错误。
 
