@@ -1,0 +1,63 @@
+# Feature Flags for Context Reliability Optimization
+# All features default to enabled, can be disabled individually for rollback
+
+features:
+  completeness_gate:
+    enabled: true
+    description: "Block subagent dispatch if dependencies are truncated"
+    fallback: "Log warning but allow dispatch (pre-v3.8 behavior)"
+    
+  dynamic_budget:
+    enabled: true
+    description: "Calculate context budget based on AI model"
+    fallback: "Use fixed thresholds 120KB/30KB"
+    
+  static_validation:
+    enabled: true
+    description: "Layer 1 machine validation (syntax, placeholders, signatures)"
+    fallback: "Only basic file existence check"
+    
+  checkpoint_system:
+    enabled: true
+    description: "Save code generation checkpoints for recovery"
+    fallback: "No checkpoints, fail = restart from scratch"
+    
+  method_dependency_graph:
+    enabled: true
+    description: "Topological sort for method fill order"
+    fallback: "Sequential fill in declaration order"
+    
+  logic_coverage_auto:
+    enabled: true
+    description: "Automated R5 logic coverage analysis"
+    fallback: "Manual comment-based R5 check"
+    
+  dependency_resolver:
+    enabled: true
+    description: "Multi-candidate dependency resolution with confidence"
+    fallback: "First match from search results"
+    
+  on_demand_loader:
+    enabled: true
+    description: "Allow subagent to read large files on-demand"
+    fallback: "Skip large files entirely"
+    
+  partial_delivery:
+    enabled: true
+    description: "Allow delivery with partial task completion"
+    fallback: "Any failure blocks entire flow"
+    
+  validation_decoupling:
+    enabled: true
+    description: "Run validation in independent subagent"
+    fallback: "Main agent performs validation inline"
+    
+  compile_loop_cleanup:
+    enabled: true
+    description: "Clean up error logs between compile rounds"
+    fallback: "Accumulate all error logs"
+
+# 全局设置
+global:
+  log_feature_usage: true
+  auto_rollback_on_error: false
