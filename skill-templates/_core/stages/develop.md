@@ -331,13 +331,61 @@ Step 4.3.4: 处理未覆盖项
 4. **契约冲突** → 按 degradation-matrix 场景 4 执行（对齐→更新契约→部分实现→重新设计）
 5. **Session 不稳定** → 按 degradation-matrix 场景 5 执行（压缩→续跑→部分交付→紧急停止）
 
-### 编译验证循环（增强版）
+### 编译验证循环（上下文感知版）
+
+> 编译循环上下文管理由 `scripts/compile-loop-manager.cjs` 自动执行
 
 ```
-Round 1: 正常修复，保留完整错误日志
-Round 2: 修复前压缩 Round 1 日志（只保留错误类型和位置）
-Round 3: 修复前完全清理 Round 1-2 日志，只保留当前轮次
-Round 3 失败: 不再继续，触发 degradation-matrix 场景 2 的 L3/L4
+Round 1:
+  - 正常修复
+  - 保留完整错误日志（用于分析根本原因）
+  - 上下文占用: +~10KB
+
+Round 2:
+  PRE_ACTION: 压缩 Round 1 日志
+    - 只保留错误类型、位置、关键信息
+    - 去掉详细堆栈和重复信息
+    - 节省 ~60% 空间
+  - 基于压缩后的日志修复
+  - 上下文占用: +~4KB (vs +10KB)
+
+Round 3:
+  PRE_ACTION: 完全清理 Round 1-2 日志
+    - 只保留当前轮次的错误
+    - 历史错误已尝试修复，不再 relevant
+  - 基于当前错误修复
+  - 上下文占用: +~10KB (但历史已清理)
+
+Round 3 失败:
+  - 不再继续 Round 4
+  - 触发 degradation-matrix 场景 2 的 L3/L4
+  - L3: 回滚到 checkpoint，尝试替代实现
+  - L4: 标记为 NEEDS_HUMAN_FIX
+```
+
+### 编译循环上下文监控
+
+每个 Round 开始时，CompileLoopManager 自动执行：
+1. 检查当前轮次是否超过最大限制（默认 3 轮）
+2. 根据轮次选择清理策略（KEEP_FULL / COMPRESS_HISTORY / PURGE_HISTORY）
+3. 应用清理并返回清理后的上下文大小
+4. 如果上下文使用率 > 95%，触发紧急清理
+
+### 使用方式
+
+在 develop subagent 中，编译失败后：
+```javascript
+const { CompileLoopManager } = require('../../scripts/compile-loop-manager.cjs');
+const loop = new CompileLoopManager({ taskId: 'T3' });
+
+const result = loop.startRound(compilerErrorOutput);
+if (!result.canContinue) {
+  // 触发降级策略
+  return { action: 'ESCALATE', reason: result.reason };
+}
+
+// 使用 result.contextSize 监控上下文占用
+console.log(`Round ${result.round}: context ${result.contextSize}KB / ${result.contextLimit}KB`);
 ```
 
 ### 任务分类检查点
