@@ -366,6 +366,96 @@ next_tasks_hint: [建议的后续任务]
 | 超时 | 后台模式继续，或询问用户 |
 | 产出校验失败 | 返回对应的 develop-expert 修复，最多 2 轮 |
 
+## 上下文预算管理（Context Budget Pool）
+
+### 预算分配
+
+主 Agent 的上下文预算 = 模型上下文窗口 × 50%
+
+```
+固定开销（必须保留）:
+  skill_compressed: 5KB      # SKILL.md 压缩版
+  current_stage: 10KB        # 当前阶段指令
+  safety_margin: 10KB        # 安全边距
+
+可变开销（受预算约束）:
+  stage_summaries: 5KB       # 已完成阶段摘要（总预算）
+  task_dag: 10KB             # 任务 DAG 压缩表示
+  subagent_status: 5KB       # subagent 状态摘要
+  error_logs: 5KB            # 错误日志（滚动保留）
+```
+
+### 预算监控
+
+每个操作后估算上下文使用率：
+- 读取文件 → +文件大小
+- 接收 subagent 结果 → +结果摘要（最多 500 字）
+- 阶段切换 → 压缩前一阶段历史
+
+### 超限清理策略（按优先级）
+
+1. **压缩 error_logs**: 只保留最近 1 轮编译错误
+2. **归档 stage_summary**: 最旧阶段的摘要写入文件系统，内存中只保留路径
+3. **简化 task_dag**: 只保留未完成任务，已完成的任务归档
+4. **精简 subagent_status**: 只保留状态（success/failed/pending），去掉详细输出
+
+### 压缩版 SKILL.md
+
+当上下文使用率 >60% 时，主 Agent 应使用压缩版 SKILL：
+
+```markdown
+# SKILL.md (Compressed)
+
+## 阶段列表
+1. Research [COMPLETED] → .dev-flow/stage-summaries/research.yaml
+2. Clarify [COMPLETED] → .dev-flow/stage-summaries/clarify.yaml
+3. Analyze [COMPLETED] → .dev-flow/stage-summaries/analyze.yaml
+4. Design [COMPLETED] → .dev-flow/stage-summaries/design.yaml
+5. TaskSplit [COMPLETED] → .dev-flow/stage-summaries/task-split.yaml
+6. Develop [IN_PROGRESS] → current
+7. Test [PENDING]
+8. Fix [PENDING]
+9. Delivery [PENDING]
+
+## 核心规则
+- 必须遵循 protocol.md 的 5 步工作法
+- 必须遵循 model-context-config.md 的上下文管理规则
+- 阶段切换必须更新 session-index.yaml
+- 任务完成必须更新 task-dag.yaml
+
+## 当前状态
+- 阶段: Develop
+- 批次: 2/5
+- 活跃 subagent: 3
+- 上下文使用率: 45%
+
+> 详细指令请加载当前阶段文件
+```
+
+### 阶段切换流程
+
+```
+1. 完成当前阶段最后一批 subagent
+2. 生成阶段摘要 → 写入 .dev-flow/stage-summaries/{stage}.yaml
+3. 更新 session-index.yaml: current_stage = next_stage
+4. 从内存中丢弃当前阶段指令
+5. 加载下一阶段指令（新的 Layer 3）
+6. 继续执行
+```
+
+### 状态外置规范
+
+主 Agent 内存中只保留：
+- `current_stage`: string
+- `next_action`: string（从 session-index.yaml 读取）
+- `active_subagents`: number
+
+所有其他状态从文件系统实时读取：
+- 任务列表 → `.dev-flow/task-dag.yaml`
+- 阶段历史 → `.dev-flow/stage-summaries/{stage}.yaml`
+- Subagent 结果 → `.dev-flow/task-results/`
+- 错误日志 → `.dev-flow/compilation-logs/`
+
 ## 上下文管理原则
 
 - **主 agent 只保留**：任务列表、依赖图、各 subagent 状态
