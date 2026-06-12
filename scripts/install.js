@@ -49,7 +49,10 @@ const AGENT_FILES = [
   'e2e-ui-tester.md',
   'context-manager.md',
   'error-pattern-learner.md',
+  'fix-expert.md',
   'task-split-expert.md',
+  'test-expert.md',
+  'delivery-expert.md',
 ];
 
 // 阶段指令文件（按需加载，不随 SKILL.md 一起注入上下文）
