@@ -9,7 +9,15 @@
 - 先读取 `.dev-flow/memory/` 中已有项目记忆；若缺失或过期，先执行 Research。
 - 除 hotfix 或用户明确要求直接修改外，全流程按 Research → Analyze → Design → Task Split → Develop → Test/Fix 推进，每个阶段完成后暂停并等待用户确认。
 - 生成代码前必须读取相关已有实现，保持项目原有架构、命名、风格和测试习惯。
-- 复杂任务、多服务任务、大规模扫描或并行开发时，可以显式使用 Codex subagents：`orchestrator`、`research-expert`、`analyze-expert`、`design-expert`、`develop-expert`、`verify-expert`、`smoke-test`、`integration-test`、`delivery`、`dependency-scanner`、`service-scanner`、`structure-analyzer`、`config-analyzer`。
+- 复杂任务、多服务任务、大规模扫描或并行开发时，可以显式使用 Codex subagents：
+  - **核心调度**：`orchestrator`
+  - **阶段专家**：`research-expert`、`clarify-expert`、`analyze-expert`、`design-expert`、`task-split-expert`、`backend-develop-expert`、`frontend-develop-expert`、`verify-expert`
+  - **测试验证**：`test-expert`（统一测试）、`smoke-test`、`integration-test`、`db-verifier`、`e2e-ui-tester`
+  - **扫描分析**：`dependency-scanner`、`service-scanner`、`structure-analyzer`、`config-analyzer`
+  - **防护 agents**：`step-enforcer`、`contract-validator`、`bytecode-analyzer`、`design-contract-validator`、`context-manager`、`error-pattern-learner`
+  - **修复交付**：`fix-expert`、`delivery-expert`
+  - **支撑服务**：`on-demand-loader`、`runtime-state-manager`、`service-orchestrator`
+  - **内部协议**：`task-protocol`（上下文注入与校验）
 - 阶段性产物写入 `.dev-flow/sessions/`；长期项目知识写入 `.dev-flow/memory/`（根目录）；会话快照写入 `.dev-flow/memory/session/`（每次 Research 重建）。
 - 清理命令：`/dev-flow -cleanup` 清理会话记忆保留长期记忆；`/dev-flow -cleanup --all` 重置全部。
 - 不要生成 TODO 占位代码、空壳实现或无效测试。

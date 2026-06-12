@@ -7,3 +7,164 @@
 approval_policy = "on-request"
 sandbox_mode = "workspace-write"
 model_reasoning_effort = "high"
+
+# Multi-Agent configuration for dev-flow parallel execution
+[agents]
+max_threads = 6
+
+# Register dev-flow subagents for parallel execution
+# Each agent is defined in .codex/agents/*.toml
+[[agents.register]]
+name = "orchestrator"
+description = "Task decomposition and result consolidation for dev-flow"
+config_file = ".codex/agents/orchestrator.toml"
+
+[[agents.register]]
+name = "research-expert"
+description = "Project scanning and memory building"
+config_file = ".codex/agents/research-expert.toml"
+
+[[agents.register]]
+name = "analyze-expert"
+description = "Requirement analysis and impact assessment"
+config_file = ".codex/agents/analyze-expert.toml"
+
+[[agents.register]]
+name = "design-expert"
+description = "Design documents and implementation plans"
+config_file = ".codex/agents/design-expert.toml"
+
+[[agents.register]]
+name = "backend-develop-expert"
+description = "Backend code implementation based on design documents"
+config_file = ".codex/agents/backend-develop-expert.toml"
+
+[[agents.register]]
+name = "frontend-develop-expert"
+description = "Frontend code implementation based on design documents"
+config_file = ".codex/agents/frontend-develop-expert.toml"
+
+[[agents.register]]
+name = "verify-expert"
+description = "Review, tests, and quality checks"
+config_file = ".codex/agents/verify-expert.toml"
+
+[[agents.register]]
+name = "clarify-expert"
+description = "Requirement clarification through iterative Q&A"
+config_file = ".codex/agents/clarify-expert.toml"
+
+[[agents.register]]
+name = "task-split-expert"
+description = "Task decomposition and DAG generation"
+config_file = ".codex/agents/task-split-expert.toml"
+
+[[agents.register]]
+name = "service-orchestrator"
+description = "Service startup orchestration and health checks"
+config_file = ".codex/agents/service-orchestrator.toml"
+
+[[agents.register]]
+name = "db-verifier"
+description = "Database verification and assertion"
+config_file = ".codex/agents/db-verifier.toml"
+
+[[agents.register]]
+name = "e2e-ui-tester"
+description = "Browser-based E2E UI testing"
+config_file = ".codex/agents/e2e-ui-tester.toml"
+
+[[agents.register]]
+name = "smoke-test"
+description = "Smoke test execution for quick validation"
+config_file = ".codex/agents/smoke-test.toml"
+
+[[agents.register]]
+name = "integration-test"
+description = "Integration test execution across services"
+config_file = ".codex/agents/integration-test.toml"
+
+[[agents.register]]
+name = "delivery"
+description = "Generate delivery report and final summary"
+config_file = ".codex/agents/delivery.toml"
+
+[[agents.register]]
+name = "dependency-scanner"
+description = "Scan internal dependencies and shared modules"
+config_file = ".codex/agents/dependency-scanner.toml"
+
+[[agents.register]]
+name = "service-scanner"
+description = "Scan service source, models, APIs, and layers"
+config_file = ".codex/agents/service-scanner.toml"
+
+[[agents.register]]
+name = "structure-analyzer"
+description = "Analyze project structure and dependency graph"
+config_file = ".codex/agents/structure-analyzer.toml"
+
+[[agents.register]]
+name = "config-analyzer"
+description = "Analyze configuration, conventions, and patterns"
+config_file = ".codex/agents/config-analyzer.toml"
+
+[[agents.register]]
+name = "on-demand-loader"
+description = "Load additional context on demand during development"
+config_file = ".codex/agents/on-demand-loader.toml"
+
+[[agents.register]]
+name = "runtime-state-manager"
+description = "Manage runtime state and checkpoint persistence"
+config_file = ".codex/agents/runtime-state-manager.toml"
+
+[[agents.register]]
+name = "step-enforcer"
+description = "Enforce step compliance and validation rules"
+config_file = ".codex/agents/step-enforcer.toml"
+
+[[agents.register]]
+name = "contract-validator"
+description = "Validate design contracts and interface compliance"
+config_file = ".codex/agents/contract-validator.toml"
+
+[[agents.register]]
+name = "bytecode-analyzer"
+description = "Analyze bytecode for quality and compliance"
+config_file = ".codex/agents/bytecode-analyzer.toml"
+
+[[agents.register]]
+name = "design-contract-validator"
+description = "Validate design contract completeness and consistency"
+config_file = ".codex/agents/design-contract-validator.toml"
+
+[[agents.register]]
+name = "context-manager"
+description = "Manage context budget and loading strategy"
+config_file = ".codex/agents/context-manager.toml"
+
+[[agents.register]]
+name = "error-pattern-learner"
+description = "Learn from errors and update prevention patterns"
+config_file = ".codex/agents/error-pattern-learner.toml"
+
+[[agents.register]]
+name = "task-protocol"
+description = "Internal task protocol and context injection"
+config_file = ".codex/agents/task-protocol.toml"
+
+[[agents.register]]
+name = "test-expert"
+description = "Unified test execution (unit + smoke + E2E + integration)"
+config_file = ".codex/agents/test-expert.toml"
+
+[[agents.register]]
+name = "fix-expert"
+description = "Bug classification and repair with regression testing"
+config_file = ".codex/agents/fix-expert.toml"
+
+[[agents.register]]
+name = "delivery-expert"
+description = "Generate delivery report and summarize all stage outputs"
+config_file = ".codex/agents/delivery-expert.toml"

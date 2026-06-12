@@ -26,6 +26,49 @@ dev-flow is a structured development workflow for Codex. Use it when the user as
 5. Write stage artifacts to `.dev-flow/sessions/` and durable project knowledge to `.dev-flow/memory/`.
 6. Protect user work: do not overwrite unrelated changes, generated memory, or existing project decisions without a reason.
 
+### 🔴🔴 Zero-Edit Principle (Codex Adapted)
+
+> **Core principle**: The main agent acts as a **pure scheduler**. All file edits (Write/Edit) should be delegated to stage subagents when available.
+>
+> **Codex adaptation**: Unlike Trae's strict hard constraint, Codex uses a **practical zero-edit approach**:
+> - Simple tasks (≤5 files): Main agent may execute directly for efficiency
+> - Complex tasks (>5 files or multi-service): **Must** use subagents (`run agent: backend-develop-expert`, `run agent: frontend-develop-expert`)
+> - All stage transitions must go through user confirmation
+
+**Stage Gate Check (Mandatory before each stage)**:
+
+| Stage | Gate Check | Confirmation File |
+|-------|-----------|-------------------|
+| Research | None (entry point) | N/A |
+| Clarify | Check `.dev-flow/stage-confirmations/{req}/research.confirmed` (optional) | `{req}/clarify.confirmed` |
+| Analyze | Check `{req}/research.confirmed` | `{req}/analyze.confirmed` |
+| Design | Check `{req}/analyze.confirmed` | `{req}/design.confirmed` |
+| Task Split | Check `{req}/design.confirmed` | `{req}/task-split.confirmed` |
+| Develop | Check `{req}/task-split.confirmed` (full flow) / None (direct dev) | `{req}/develop.confirmed` |
+| Test | Check `{req}/develop.confirmed` | `{req}/test.confirmed` |
+| Fix | None (bug triggered) | `{req}/fix.confirmed` |
+| Delivery | Check `{req}/test.confirmed` | `{req}/delivery.confirmed` |
+
+**Confirmation Checklist Template** (output after each stage):
+```markdown
+## Stage Confirmation Checklist
+
+- [ ] All deliverables have been reviewed
+- [ ] No critical issues remain unresolved
+- [ ] Ready to proceed to next stage
+
+Confirmed by: (user)
+```
+
+Write `.confirmed` file after user approval:
+```yaml
+stage: "analyze"
+confirmed_at: "2026-06-12T10:00:00"
+confirmed_by: "user"
+deliverables:
+  - ".dev-flow/deliverables/{req}/03-analyze-report.md"
+```
+
 ## Project Detection
 
 Detect the project type from root files:
@@ -261,7 +304,7 @@ For each field assignment:
 2. Do not claim "development complete"
 3. Do not proceed to next file
 
-When a task is independent and large, use `develop-expert` subagents in parallel only after boundaries are clear and shared-file conflicts are avoided.
+When a task is independent and large, use `backend-develop-expert` or `frontend-develop-expert` subagents in parallel (`run agent: backend-develop-expert` / `run agent: frontend-develop-expert`) only after boundaries are clear and shared-file conflicts are avoided.
 
 After editing:
 
@@ -287,7 +330,8 @@ Codex custom agents live in `.codex/agents/*.toml`. Spawn them only when useful:
 - `research-expert`: project scanning and memory building.
 - `analyze-expert`: requirement analysis and impact assessment.
 - `design-expert`: design documents and implementation plans.
-- `develop-expert`: implementation of isolated tasks.
+- `backend-develop-expert`: implementation of backend code based on design documents.
+- `frontend-develop-expert`: implementation of frontend code based on design documents.
 - `verify-expert`: review, tests, and quality checks.
 - scanner agents: narrow read-heavy Research work.
 

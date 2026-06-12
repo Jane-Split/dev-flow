@@ -54,6 +54,9 @@ const AGENT_FILES = [
   'service-orchestrator.md',
   'db-verifier.md',
   'e2e-ui-tester.md',
+  'test-expert.md',
+  'fix-expert.md',
+  'delivery-expert.md',
 ];
 
 // 阶段指令文件（按需加载，不随 SKILL.md 一起注入上下文）
