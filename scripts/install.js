@@ -27,7 +27,8 @@ const AGENT_FILES = [
   'research-expert.md',
   'analyze-expert.md',
   'design-expert.md',
-  'develop-expert.md',
+  'backend-develop-expert.md',
+  'frontend-develop-expert.md',
   'verify-expert.md',
   'task-protocol.md',
   'dependency-scanner.md',
@@ -47,6 +48,12 @@ const AGENT_FILES = [
   'context-manager.md',
   'error-pattern-learner.md',
   'task-split-expert.md',
+  // v3.6.0+ 新增
+  'clarify-expert.md',
+  // 额外专家
+  'service-orchestrator.md',
+  'db-verifier.md',
+  'e2e-ui-tester.md',
 ];
 
 // 阶段指令文件（按需加载，不随 SKILL.md 一起注入上下文）
@@ -56,13 +63,12 @@ const STAGE_FILES = [
   'design.md',
   'task-split.md',
   'develop.md',
-  'unit-test.md',
+  'test.md',
   'fix.md',
   'hotfix.md',
-  'smoke-test.md',
-  'integration-test.md',
   'delivery.md',
   'code-reference.md',
+  'clarify.md',
 ];
 
 const CODEX_AGENT_FILES = AGENT_FILES.map((file) => file.replace(/\.md$/, '.toml'));
