@@ -1,4 +1,4 @@
-# dev-flow for Codex
+﻿# dev-flow for Codex
 
 <!-- dev-flow:start -->
 
@@ -13,6 +13,21 @@
 - 阶段性产物写入 `.dev-flow/sessions/`；长期项目知识写入 `.dev-flow/memory/`（根目录）；会话快照写入 `.dev-flow/memory/session/`（每次 Research 重建）。
 - 清理命令：`/dev-flow -cleanup` 清理会话记忆保留长期记忆；`/dev-flow -cleanup --all` 重置全部。
 - 不要生成 TODO 占位代码、空壳实现或无效测试。
+
+
+## 项目类型自动适配（v3.7.0）
+
+Research 阶段根据根目录特征文件自动判定项目类型，后续各阶段按类型调整策略。无需手动配置。
+
+| project_type | 说明 | 后端语言 | 扫描策略 | 编译命令 |
+|---|---|---|---|---|
+| `frontend` | 纯前端 | 无 | 组件/页面/Store | `npm run build` |
+| `backend` | 纯后端 | go/python/typescript | handler/model/service | 按语言 |
+| `java-microservice` | Java 微服务 | java | Entity/DTO/Mapper/Service/Controller/Feign | `mvn compile -q` |
+| `fullstack` | 前端+非Java后端 | go/python/typescript | 全量 | 前后端分别 |
+| `java-fullstack` | 前端+Java微服务 | java | 全量 | npm + mvn |
+
+各阶段差异详见 `.agents/skills/dev-flow/SKILL.md` 中 Project Detection 章节。
 
 更多细节见 `.agents/skills/dev-flow/SKILL.md`。
 

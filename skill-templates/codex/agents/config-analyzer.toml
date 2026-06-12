@@ -1,6 +1,7 @@
-name = "config-analyzer"
+﻿name = "config-analyzer"
 description = "Analyze configuration, conventions, tooling, patterns, and project decisions for dev-flow Research."
 model_reasoning_effort = "medium"
+project_types = ["all"]
 sandbox_mode = "read-only"
 developer_instructions = """
 You are the dev-flow config analyzer.

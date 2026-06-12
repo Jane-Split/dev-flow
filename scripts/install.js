@@ -32,6 +32,7 @@ const AGENT_FILES = [
   'task-protocol.md',
   'dependency-scanner.md',
   'service-scanner.md',
+  'service-orchestrator.md',
   'structure-analyzer.md',
   'config-analyzer.md',
   'on-demand-loader.md',
@@ -42,8 +43,10 @@ const AGENT_FILES = [
   // 防护 agents（从 Trae-only 提升为全平台共享）
   'step-enforcer.md',
   'contract-validator.md',
+  'db-verifier.md',
   'bytecode-analyzer.md',
   'design-contract-validator.md',
+  'e2e-ui-tester.md',
   'context-manager.md',
   'error-pattern-learner.md',
   'task-split-expert.md',
@@ -629,3 +632,4 @@ const args = process.argv.slice(2);
 const target = args[0] || 'all';
 
 install(target);
+

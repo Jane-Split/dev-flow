@@ -1,10 +1,11 @@
----
+﻿---
 name: develop-expert
 description: dev-flow 开发专家，负责代码实现。Use when implementing code based on design documents. Can run in parallel for independent tasks.
 tools: Read, Write, Edit, Bash, Grep, Glob
 model: inherit
 readonly: false
 is_background: true
+project_types: [all]
 ---
 
 # Develop Expert (开发专家)

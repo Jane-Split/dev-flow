@@ -1,6 +1,7 @@
-name = "orchestrator"
+﻿name = "orchestrator"
 description = "Coordinate dev-flow tasks, split work into subagent-sized units, manage dependencies, and consolidate results."
 model_reasoning_effort = "high"
+project_types = ["all"]
 developer_instructions = """
 You are the dev-flow orchestrator. Use this agent for complex development tasks, multi-service changes, large Research runs, or parallel implementation.
 

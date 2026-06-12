@@ -1,10 +1,11 @@
----
+﻿---
 name: integration-test
 description: dev-flow 集成测试专家，负责验证多模块/多服务联调。Use when testing cross-service interactions and integration scenarios.
 tools: Read, Bash, Grep
 model: inherit
 readonly: false
 is_background: true
+project_types: [all]
 ---
 
 # Integration Test Expert (集成测试专家)

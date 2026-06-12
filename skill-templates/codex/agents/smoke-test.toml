@@ -1,6 +1,7 @@
-name = "smoke-test"
+﻿name = "smoke-test"
 description = "dev-flow smoke test expert. Use when verifying that core functionality works after development."
 model_reasoning_effort = "high"
+project_types = ["all"]
 sandbox_mode = "read-only"
 developer_instructions = """
 You are the dev-flow Smoke Test expert.

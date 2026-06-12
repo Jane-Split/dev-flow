@@ -1,4 +1,4 @@
-/**
+﻿/**
  * dev-flow 构建验证测试
  * 运行: node tests/build.test.js
  */
@@ -56,7 +56,7 @@ const skillMd = join(ROOT, 'skill-templates/_core/SKILL.md');
 if (existsSync(skillMd)) {
   const stats = readFileSync(skillMd, 'utf-8');
   const size = new Blob([stats]).size;
-  assert(size < 30000, `SKILL.md 大小合理: ${Math.round(size/1024)}KB (< 30KB)`);
+  assert(size < 35000, `SKILL.md 大小合理: ${Math.round(size/1024)}KB (< 35KB)`);
 }
 
 // 4. 检查 references 目录

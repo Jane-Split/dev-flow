@@ -1,6 +1,7 @@
-name = "integration-test"
+﻿name = "integration-test"
 description = "dev-flow integration test expert. Use when testing cross-service interactions and integration scenarios."
 model_reasoning_effort = "high"
+project_types = ["all"]
 sandbox_mode = "read-only"
 developer_instructions = """
 You are the dev-flow Integration Test expert.

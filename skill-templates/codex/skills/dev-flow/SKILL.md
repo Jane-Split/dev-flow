@@ -1,4 +1,4 @@
----
+﻿---
 name: dev-flow
 description: Use when the user asks to run dev-flow, a staged development workflow, project research, requirement analysis, design, implementation, testing, bug fixing, memory updates, or coordinated subagent development.
 ---
@@ -26,22 +26,61 @@ dev-flow is a structured development workflow for Codex. Use it when the user as
 5. Write stage artifacts to `.dev-flow/sessions/` and durable project knowledge to `.dev-flow/memory/`.
 6. Protect user work: do not overwrite unrelated changes, generated memory, or existing project decisions without a reason.
 
-## Project Detection
+## Project Detection（v3.7.0 增强 — 五种复合类型）
 
-Detect the project type from root files:
+Research 阶段第一步自动检测项目类型，后续所有阶段以此为决策依据。
 
-| Signal | Project type |
-| --- | --- |
-| `pom.xml` or `build.gradle` | Java backend / Spring Boot |
-| `package.json` plus `src` with `.tsx`, `.jsx`, or `.vue` | Frontend |
-| `package.json` plus `.ts` or `.js` without JSX/Vue | Node.js backend |
-| `pyproject.toml` or `requirements.txt` | Python |
-| `go.mod` | Go |
-| `Cargo.toml` | Rust |
+### Step 1: 扫描特征文件
 
-Priority: Java, frontend, Node.js, Python, Go, Rust.
+```
+├── pom.xml / build.gradle / build.gradle.kts → has_java = true, backend_language = "java"
+├── go.mod → has_go = true, backend_language = "go"
+├── pyproject.toml / requirements.txt / setup.py → has_python = true, backend_language = "python"
+└── package.json → 读取 dependencies/devDependencies:
+    ├── 含 react/vue/@angular/core/next/nuxt/svelte → has_frontend = true
+    └── 不含前端框架 → has_node_backend = true, backend_language = "typescript"
+```
 
-For Java projects, detect microservices by a parent `pom.xml` with `packaging=pom` and `modules`; otherwise treat a directory with `src/main/java` as a single service.
+### Step 2: 组合判定 project_type
+
+| 条件 | project_type |
+|---|---|
+| has_frontend && backend_language = "java" | `java-fullstack` |
+| has_frontend && has_backend | `fullstack` |
+| has_frontend && !has_backend | `frontend` |
+| !has_frontend && backend_language = "java" | `java-microservice` |
+| !has_frontend && has_backend | `backend` |
+| 以上均不匹配 | `fullstack`（默认） |
+
+### Step 3: 写入 file-index.yaml
+
+项目类型写入 `.dev-flow/memory/_index/file-index.yaml` → `project_metadata` 字段，包含：
+`project_type`, `languages`, `has_frontend`, `has_backend`, `backend_language`, `frontend_framework`, `backend_framework`, `has_microservices`, `build_tool`
+
+### 各阶段行为差异
+
+| 阶段 | frontend | backend | java-microservice | fullstack | java-fullstack |
+|---|---|---|---|---|---|
+| Research | src/components/,src/pages/ | handler/,model/,service/ | Entity/DTO/Mapper/Service/Controller + 子服务 | 全部 | 全部 |
+| Analyze | PRD无后端字段 | PRD无前端字段 | PRD含Feign/跨服务 | PRD完整 | PRD完整 |
+| Design | 组件interface+API | Entity/Service/API | Java全分层+Feign | 前端+后端 | 前端+Java全分层 |
+| Task Split | 按组件拆分 | 按代码层拆分 | 按层或功能 | 按功能 | 按功能 |
+| Develop | npm run build | 按语言编译 | mvn compile+bytecode | 分别编译 | 分别编译 |
+| Test | 组件单测+E2E-UI | 单测+API+DB | JUnit5+API+DB | 全部 | 全部 |
+| Delivery | 无DB/Feign章节 | 无前端章节 | 含Feign+DB表 | 完整 | 完整 |
+
+### Agent 可用性
+
+| Agent | frontend | backend | java-microservice | fullstack | java-fullstack |
+|---|---|---|---|---|---|
+| service-scanner | ❌ | ✅ | ✅ | ✅ | ✅ |
+| service-orchestrator | ❌ | ✅ | ✅ | ✅ | ✅ |
+| db-verifier | ❌ | ✅ | ✅ | ✅ | ✅ |
+| bytecode-analyzer | ❌ | ❌ | ✅ | ❌ | ✅ |
+| e2e-ui-tester | ✅ | ❌ | ❌ | ✅ | ✅ |
+| dependency-scanner | ❌ | ✅ | ✅ | ✅ | ✅ |
+| runtime-state-manager | ❌ | ✅ | ✅ | ✅ | ✅ |
+| 其余Agent | ✅ | ✅ | ✅ | ✅ | ✅ |
 
 ## Research
 

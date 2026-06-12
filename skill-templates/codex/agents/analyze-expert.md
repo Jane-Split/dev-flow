@@ -1,10 +1,11 @@
----
+﻿---
 name: analyze-expert
 description: dev-flow 需求分析专家，负责分析需求、评估影响、识别风险。Use when a new requirement needs to be analyzed or when impact assessment is required.
 tools: Read, Grep, Glob
 model: inherit
 readonly: false
 is_background: false
+project_types: [all]
 ---
 
 # Analyze Expert (需求分析专家)

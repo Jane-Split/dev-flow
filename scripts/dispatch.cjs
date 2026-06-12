@@ -27,6 +27,12 @@ const DOCS_DIR = path.join(ROOT, '.dev-flow', 'docs');
 
 // 平台并发上限（防止大批次同时启动过多 subagent 导致系统卡顿）
 const MAX_CONCURRENT = {
+  cursor: 3,
+  trae: 5,
+  claude: 4,
+  codex: 3,
+  qoder: 2,
+};
 
 // v3.7.0: 按项目类型调整并发数（Java编译较重，适当降低）
 const TYPE_CONCURRENT_ADJUST = {
@@ -35,12 +41,6 @@ const TYPE_CONCURRENT_ADJUST = {
   'java-microservice': -1,
   fullstack: 0,
   'java-fullstack': -1,
-};
-  cursor: 3,
-  trae: 5,
-  claude: 4,
-  codex: 3,
-  qoder: 2,
 };
 
 // ============================================================

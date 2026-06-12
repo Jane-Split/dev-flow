@@ -1,6 +1,7 @@
-name = "delivery"
+﻿name = "delivery"
 description = "dev-flow delivery expert. Use when generating final delivery report after all tests pass."
 model_reasoning_effort = "high"
+project_types = ["all"]
 sandbox_mode = "read-only"
 developer_instructions = """
 You are the dev-flow Delivery expert.

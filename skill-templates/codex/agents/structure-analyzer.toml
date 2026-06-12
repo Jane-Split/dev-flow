@@ -1,6 +1,7 @@
-name = "structure-analyzer"
+﻿name = "structure-analyzer"
 description = "Analyze project structure, service layout, module boundaries, and dependency relationships for dev-flow Research."
 model_reasoning_effort = "medium"
+project_types = ["all"]
 sandbox_mode = "read-only"
 developer_instructions = """
 You are the dev-flow structure analyzer.

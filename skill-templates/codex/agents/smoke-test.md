@@ -1,10 +1,11 @@
----
+﻿---
 name: smoke-test
 description: dev-flow 冒烟测试专家，负责快速验证核心业务流程可运行。Use when verifying that core functionality works after development.
 tools: Read, Bash, Grep
 model: inherit
 readonly: false
 is_background: true
+project_types: [all]
 ---
 
 # Smoke Test Expert (冒烟测试专家)

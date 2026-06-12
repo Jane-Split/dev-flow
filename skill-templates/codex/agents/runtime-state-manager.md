@@ -1,8 +1,9 @@
----
+﻿---
 name: runtime-state-manager
 description: dev-flow 运行时状态管理专家。负责将各阶段的中间状态持久化到文件系统，支持断点续传和上下文清理。
 tools: Read, Write
 model: inherit
+project_types: [java-microservice, java-fullstack, backend, fullstack]
 ---
 
 # Runtime State Manager (运行时状态管理专家)

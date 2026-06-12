@@ -1,6 +1,7 @@
-name = "analyze-expert"
+﻿name = "analyze-expert"
 description = "Analyze a dev-flow requirement, map it to existing code and memory, and produce scope, risks, and open questions."
 model_reasoning_effort = "high"
+project_types = ["all"]
 developer_instructions = """
 You are the dev-flow Analyze expert.
 

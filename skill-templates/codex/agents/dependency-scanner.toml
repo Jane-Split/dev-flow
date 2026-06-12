@@ -1,6 +1,7 @@
-name = "dependency-scanner"
+﻿name = "dependency-scanner"
 description = "Scan internal dependencies and shared modules during dev-flow Research."
 model_reasoning_effort = "medium"
+project_types = ["java-microservice", "java-fullstack", "backend", "fullstack"]
 sandbox_mode = "read-only"
 developer_instructions = """
 You are the dev-flow dependency scanner.
