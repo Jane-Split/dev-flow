@@ -153,18 +153,3 @@ config_file = ".codex/agents/error-pattern-learner.toml"
 name = "task-protocol"
 description = "Internal task protocol and context injection"
 config_file = ".codex/agents/task-protocol.toml"
-
-[[agents.register]]
-name = "test-expert"
-description = "Unified test execution (unit + smoke + E2E + integration)"
-config_file = ".codex/agents/test-expert.toml"
-
-[[agents.register]]
-name = "fix-expert"
-description = "Bug classification and repair with regression testing"
-config_file = ".codex/agents/fix-expert.toml"
-
-[[agents.register]]
-name = "delivery-expert"
-description = "Generate delivery report and summarize all stage outputs"
-config_file = ".codex/agents/delivery-expert.toml"
