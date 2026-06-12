@@ -1,8 +1,15 @@
-# dev-flow Codex project defaults
+﻿# dev-flow Codex project defaults
 #
-# This file is intentionally conservative. Codex only loads project-scoped
-# .codex/config.toml after the project is trusted, and user/global settings
-# still take precedence where appropriate.
+# Installed directory layout (by `npx dev-flow install`):
+#   AGENTS.md                        → project root (router)
+#   .agents/skills/dev-flow/SKILL.md → skill body
+#   .codex/agents/*.toml             → agent definitions (30 agents)
+#   .codex/stages/*.md               → stage instructions (11 stages)
+#   .codex/references/*.md           → reference files (9 files)
+#   .codex/config.toml               → this file
+#
+# Codex only loads project-scoped .codex/config.toml after the project
+# is trusted. User/global settings still take precedence when set.
 
 approval_policy = "on-request"
 sandbox_mode = "workspace-write"

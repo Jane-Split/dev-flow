@@ -1,4 +1,4 @@
-﻿---
+---
 stage: Develop
 type: stage-instruction
 ---
@@ -258,6 +258,8 @@ Step 4.2.3: 分析结果
 > 前置测试（QuickTest）是"快速筛查"：范围仅本次开发代码，深度正向+边界。
 > 正式 Test 阶段做全面验证：全部代码+回归测试，深度包含并发/性能/集成。
 > **前置测试不能替代正式 Test 阶段。**
+
+**输出文件**：.dev-flow/runtime/pre-test-result.yaml（供 Fix 阶段回归测试使用）
 
 ### 🔴 Step 4.3: 设计逻辑回溯验证（🔴 编译通过+前置测试通过后必须执行）
 

@@ -1,17 +1,17 @@
-﻿# dev-flow for Codex
+﻿﻿# dev-flow for Codex
 
 <!-- dev-flow:start -->
 
-当用户要求执行 `dev-flow`、`dev-flow research`、`dev-flow analyze`、`dev-flow design`、`dev-flow develop`、`dev-flow test`、`dev-flow fix` 或类似开发流程时，优先使用仓库级 Codex skill：`$dev-flow`。
+当用户要求执行 "dev-flow"、"dev-flow research"、"dev-flow analyze"、"dev-flow design"、"dev-flow develop"、"dev-flow test"、"dev-flow fix" 或类似开发流程时，优先使用仓库级 Codex skill："$dev-flow"。
 
 ## 工作约定
 
-- 先读取 `.dev-flow/memory/` 中已有项目记忆；若缺失或过期，先执行 Research。
-- 除 hotfix 或用户明确要求直接修改外，全流程按 Research → Analyze → Design → Task Split → Develop → Test/Fix 推进，每个阶段完成后暂停并等待用户确认。
+- 先读取 ".dev-flow/memory/" 中已有项目记忆；若缺失或过期，先执行 Research。
+- 除 hotfix 或用户明确要求直接修改外，全流程按 Research → Clarify（可选）→ Analyze → Design → Task Split → Develop → Test → Fix → Delivery 推进，每个阶段完成后暂停并等待用户确认。
 - 生成代码前必须读取相关已有实现，保持项目原有架构、命名、风格和测试习惯。
-- 复杂任务、多服务任务、大规模扫描或并行开发时，可以显式使用 Codex subagents：`orchestrator`、`research-expert`、`analyze-expert`、`design-expert`、`develop-expert`、`verify-expert`、`smoke-test`、`integration-test`、`delivery`、`dependency-scanner`、`service-scanner`、`structure-analyzer`、`config-analyzer`。
-- 阶段性产物写入 `.dev-flow/sessions/`；长期项目知识写入 `.dev-flow/memory/`（根目录）；会话快照写入 `.dev-flow/memory/session/`（每次 Research 重建）。
-- 清理命令：`/dev-flow -cleanup` 清理会话记忆保留长期记忆；`/dev-flow -cleanup --all` 重置全部。
+- 复杂任务、多服务任务、大规模扫描或并行开发时，可以显式使用 Codex subagents："orchestrator"、"research-expert"、"clarify-expert"、"analyze-expert"、"design-expert"、"task-split-expert"、"develop-expert"、"test-expert"、"fix-expert"、"delivery-expert"、"verify-expert"、"db-verifier"、"e2e-ui-tester"、"service-orchestrator"、"dependency-scanner"、"service-scanner"、"structure-analyzer"、"config-analyzer"、"contract-validator"、"design-contract-validator"、"bytecode-analyzer"、"step-enforcer"、"error-pattern-learner"。
+- 阶段性产物写入 ".dev-flow/sessions/"；长期项目知识写入 ".dev-flow/memory/"（根目录）；会话快照写入 ".dev-flow/memory/session/"（每次 Research 重建）。
+- 清理命令："/dev-flow -cleanup" 清理会话记忆保留长期记忆；"/dev-flow -cleanup --all" 重置全部。
 - 不要生成 TODO 占位代码、空壳实现或无效测试。
 
 
@@ -21,15 +21,27 @@ Research 阶段根据根目录特征文件自动判定项目类型，后续各�
 
 | project_type | 说明 | 后端语言 | 扫描策略 | 编译命令 |
 |---|---|---|---|---|
-| `frontend` | 纯前端 | 无 | 组件/页面/Store | `npm run build` |
-| `backend` | 纯后端 | go/python/typescript | handler/model/service | 按语言 |
-| `java-microservice` | Java 微服务 | java | Entity/DTO/Mapper/Service/Controller/Feign | `mvn compile -q` |
-| `fullstack` | 前端+非Java后端 | go/python/typescript | 全量 | 前后端分别 |
-| `java-fullstack` | 前端+Java微服务 | java | 全量 | npm + mvn |
+| "frontend" | 纯前端 | 无 | 组件/页面/Store | "npm run build" |
+| "backend" | 纯后端 | go/python/typescript | handler/model/service | 按语言 |
+| "java-microservice" | Java 微服务 | java | Entity/DTO/Mapper/Service/Controller/Feign | "mvn compile -q" |
+| "fullstack" | 前端+非Java后端 | go/python/typescript | 全量 | 前后端分别 |
+| "java-fullstack" | 前端+Java微服务 | java | 全量 | npm + mvn |
 
-各阶段差异详见 `.agents/skills/dev-flow/SKILL.md` 中 Project Detection 章节。
+各阶段差异详见 ".agents/skills/dev-flow/SKILL.md" 中 Project Detection 章节。
 
-更多细节见 `.agents/skills/dev-flow/SKILL.md`。
+
+## Clarify 阶段（可选）
+
+当需求存在歧义或需要项目技术关联确认时，使用 "clarify-expert" subagent 执行迭代问答。
+
+- 触发："/dev-flow -clarify <需求>" 或 Research 确认后自动触发
+- 输入：需求描述 + ".dev-flow/memory/" 项目记忆
+- 分析维度：Entity 复用、Service 复用、API 冲突、枚举复用、跨服务调用、公共模块变更、数据模型冲突、编码规范、配置影响、安全影响（10 维度）
+- 输出："clarification-result.yaml" + "demand-draft.yaml" + "02-clarification-report.md"
+- 收敛：自动检测无新问题后终止，最多 10 轮
+- 跳过：用户可直接回复 跳过 Clarify 进入 Analyze 阶段
+
+更多细节见 ".agents/skills/dev-flow/SKILL.md"。
 
 ## ⚠️ Codex 上下文管理（关键！）
 
@@ -51,7 +63,7 @@ Codex 有上下文限制，超出限制会导致：
 
 #### 策略1：分段执行
 
-```
+"""
 当预估上下文使用 > 70% 时：
 
 1. 将任务拆分为多个阶段
@@ -60,11 +72,11 @@ Codex 有上下文限制，超出限制会导致：
    - 清理上下文，只保留关键摘要
    - 标记检查点
 3. 下一阶段从检查点继续
-```
+"""
 
 #### 策略2：按需加载
 
-```
+"""
 只读取当前阶段需要的文件：
 
 Research 阶段：
@@ -82,18 +94,18 @@ Design 阶段：
 Develop 阶段：
 - 读取：design-contract.yaml, 相关已有代码
 - 不读取：无关模块
-```
+"""
 
 #### 策略3：结果外置
 
-```
+"""
 所有详细内容写入文件，上下文只保留摘要：
 
 - 设计文档 → design-result.md
 - 代码文件 → 直接写入磁盘
 - 测试报告 → test-report.md
 - 上下文只保留：文件路径 + 关键类名/方法名
-```
+"""
 
 ### Subagent 调用策略
 
@@ -109,20 +121,20 @@ Develop 阶段：
 
 #### Subagent 上下文隔离
 
-```
+"""
 每个 subagent 独立上下文：
 
 1. 主 agent 只传递必要的输入文件
 2. Subagent 执行完成后返回摘要
 3. 详细结果写入文件，不返回给主 agent
 4. 主 agent 只保留：任务状态 + 结果文件路径
-```
+"""
 
 ### 会话持久化
 
 #### 检查点机制
 
-```yaml
+"""yaml
 # .dev-flow/sessions/{session-id}/checkpoint.yaml
 session_id: "session-20260529-001"
 created_at: "2026-05-29 14:00:00"
@@ -165,18 +177,18 @@ phase_results:
 
 context_usage: 65%
 warnings: []
-```
+"""
 
 #### 恢复机制
 
-```
+"""
 当会话中断后恢复：
 
 1. 读取 checkpoint.yaml
 2. 确认当前阶段和进度
 3. 从上次中断处继续执行
 4. 恢复必要的上下文（从文件读取）
-```
+"""
 
 ### 错误恢复
 

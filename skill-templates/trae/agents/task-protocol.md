@@ -1,6 +1,7 @@
-﻿---
+---
 name: task-protocol
 description: dev-flow 任务拆分与依赖管理协议定义。This is a protocol definition, not an executable agent.
+model: inherit
 project_types: [all]
 ---
 

@@ -26,6 +26,23 @@ dev-flow is a structured development workflow for Codex. Use it when the user as
 5. Write stage artifacts to `.dev-flow/sessions/` and durable project knowledge to `.dev-flow/memory/`.
 6. Protect user work: do not overwrite unrelated changes, generated memory, or existing project decisions without a reason.
 
+## Platform Capabilities
+
+> **dev-flow supports five AI coding platforms with different subagent capabilities.**
+
+| Platform | Subagent Support | Parallel Capacity | Recommended Max | Scheduling Strategy |
+|----------|-----------------|-------------------|-----------------|---------------------|
+| **Trae** | /agent-name slash command | Native parallel | 5 | Full parallel mode |
+| **Cursor** | .cursor/agents/*.md YAML frontmatter | Multi-Task parallel + background + nesting | 3 | Cursor parallel mode |
+| **Claude Code** | Dynamic Workflows JS orchestration + .claude/agents/*.md | 16 concurrent + 1000 total + adversarial verification | 4 | Claude parallel mode |
+| **Qoder** | Quest Mode master-worker architecture | Frontend/Backend/Test/Deploy directional parallelism | 2 | Qoder master-worker mode |
+| **Codex** | .codex/agents/*.toml + AGENTS.md | 6 threads + CSV batching | 3 | Codex limited parallel mode |
+
+> **All five platforms support subagent parallel execution.** The Orchestrator auto-selects the optimal scheduling strategy for the current platform.
+
+**Intra-batch concurrency control**: When a DAG batch exceeds the platform's recommended concurrency limit, the scheduler auto-splits large batches into sub-batches (Chunks) with sliding-window scheduling. At any moment, active subagents ≤ max_concurrent.
+
+
 ## Project Detection（v3.7.0 增强 — 五种复合类型）
 
 Research 阶段第一步自动检测项目类型，后续所有阶段以此为决策依据。
@@ -81,6 +98,35 @@ Research 阶段第一步自动检测项目类型，后续所有阶段以此为�
 | dependency-scanner | ❌ | ✅ | ✅ | ✅ | ✅ |
 | runtime-state-manager | ❌ | ✅ | ✅ | ✅ | ✅ |
 | 其余Agent | ✅ | ✅ | ✅ | ✅ | ✅ |
+
+## Pipeline
+
+> **When the user runs dev-flow, the main agent follows this scheduling flow. Each stage follows the same pattern: gate check → subagent execution → read deliverables → open doc → confirm checklist → write .confirmed.**
+
+`
+Step 1: Create pre-scanner subagent → Phase 0 Quick Scan → file-index.yaml
+Step 2: Wait for completion → dispatch 11 file-level sub-agents in 4 parallel batches
+Step 3: All complete → self-check → generate deliverable → 01-research-report.md → confirm → research.confirmed
+  ↓ user confirms
+Step 3.5: Gate check → clarify-expert → Clarify stage (iterative Q&A, optional, user can skip) → clarify.confirmed
+  ↓ user confirms (or skips Clarify)
+Step 4: Gate check → analyze-expert → Analyze stage → analyze.confirmed
+Step 5: Gate check → design-expert → Design stage → design.confirmed
+Step 6: Gate check → task-split-expert → Task Split → task-split.confirmed
+  ┌──────────────────────────────────────────────────────┐
+  │ Dynamic mode reassessment gateway (auto after Task Split) │
+  └──────────────────────────────────────────────────────┘
+Step 7: Reassessment passed → develop-expert (serial or parallel) → develop.confirmed
+Step 8: Gate check → test-expert → Unified Test (unit+smoke+E2E+integration) → test.confirmed
+Step 9: Gate check → fix-expert → Fix (on-demand, only when tests fail) → fix.confirmed
+Step 10: Gate check → delivery-expert → Delivery → delivery.confirmed
+`
+
+**Key rules**:
+- **Every stage is executed by a dedicated subagent. The main agent does not directly edit files.**
+- **After each stage completes, pause and wait for user confirmation before dispatching the next stage.**
+- **After Task Split confirmation, auto-execute dynamic mode reassessment based on actual task data.**
+
 
 ## Research
 

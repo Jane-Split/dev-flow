@@ -762,7 +762,7 @@ Batch 4 (横切层): 并行启动 2 个子代理 → 等待全部完成
 | 7 | 中间件配置（DB/Redis/Nacos 等）已提取 | ⬜ 待确认 |
 | 8 | 所有 memory 文件 completeness_level ≥ B | ⬜ 待确认 |
 
-**用户操作**：确认无误 → 回复 "确认" 进入 Analyze 阶段；需要重新扫描 → 指出遗漏项
+**用户操作**：确认无误 → 回复 "确认" 进入 Analyze 阶段（系统自动写入 esearch.confirmed）；需要重新扫描 → 指出遗漏项
 
 > **阶段确认机制和交付物协议详见 `references/protocol.md`。**
 

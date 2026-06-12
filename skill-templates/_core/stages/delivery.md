@@ -39,6 +39,7 @@ type: stage-instruction
 
 **Step 1: 汇总各阶段文档**
 - 读取 `.dev-flow/deliverables/` 下所有交付物文档
+- 读取 .dev-flow/contracts/{需求简称}/develop-result.yaml — 开发结果报告
 - 提取关键信息：需求概述、设计要点、开发清单、测试结果
 
 **Step 2: 生成交付清单**
@@ -185,7 +186,7 @@ type: stage-instruction
 | 5 | 已知问题已记录且优先级合理 | ⬜ 待确认 |
 | 6 | 相关文档链接完整可访问 | ⬜ 待确认 |
 
-**用户操作**：确认交付 → 签收完成；需要补充 → 指出遗漏项
+**用户操作**：确认交付 → 签收完成（系统自动写入 delivery.confirmed）；需要补充 → 指出遗漏项
 
 > **阶段确认机制和交付物协议详见 `{{REFERENCES_PATH}}protocol.md`。**
 

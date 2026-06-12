@@ -47,6 +47,8 @@ type: stage-instruction
 - 读取 `.dev-flow/contracts/{需求简称}/runtime-contract.yaml` — 运行时环境契约（新增）
 - 读取 `.dev-flow/contracts/{需求简称}/prd-contract.yaml` — PRD 契约（追溯用，新增）
 - 读取 `.dev-flow/contracts/{需求简称}/design-contract.yaml` — 设计契约（UI 选择器，新增）
+- 读取 .dev-flow/contracts/{需求简称}/develop-result.yaml — Develop 阶段实际产出（新增）
+- 读取 .dev-flow/contracts/{需求简称}/interface-registry.yaml — 接口注册表（新增）
 
 ---
 

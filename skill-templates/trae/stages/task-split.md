@@ -11,7 +11,7 @@ type: stage-instruction
 ▶ Task Split（任务拆分）
 ════════════════════════════════════
 目标：将设计方案拆分为可执行任务，建立 DAG 依赖图
-输出：task-breakdown.yaml
+输出：task-breakdown.yaml, task-dag.yaml
 模式：L2 / L3
 预计：3-8 分钟
 ════════════════════════════════════

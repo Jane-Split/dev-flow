@@ -26,6 +26,7 @@ const AGENT_FILES = [
   'orchestrator.md',
   'research-expert.md',
   'analyze-expert.md',
+  'clarify-expert.md',
   'design-expert.md',
   'develop-expert.md',
   'verify-expert.md',
@@ -37,8 +38,6 @@ const AGENT_FILES = [
   'config-analyzer.md',
   'on-demand-loader.md',
   'runtime-state-manager.md',
-  'smoke-test.md',
-  'integration-test.md',
   'delivery.md',
   // 防护 agents（从 Trae-only 提升为全平台共享）
   'step-enforcer.md',
@@ -53,20 +52,21 @@ const AGENT_FILES = [
   'task-split-expert.md',
   'test-expert.md',
   'delivery-expert.md',
+  'integration-test.md',
+  'smoke-test.md',
 ];
 
 // 阶段指令文件（按需加载，不随 SKILL.md 一起注入上下文）
 const STAGE_FILES = [
   'research.md',
   'analyze.md',
+  'clarify.md',
   'design.md',
   'task-split.md',
   'develop.md',
-  'unit-test.md',
+  'test.md',
   'fix.md',
   'hotfix.md',
-  'smoke-test.md',
-  'integration-test.md',
   'delivery.md',
   'code-reference.md',
 ];

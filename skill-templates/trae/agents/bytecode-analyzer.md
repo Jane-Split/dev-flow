@@ -1,7 +1,8 @@
-﻿---
+---
 name: bytecode-analyzer
 description: 编译时字节码分析器，通过静态分析检测"仅日志无业务"模式，验证方法体是否包含实质性业务操作。
 tools: Read, Write, Bash, Grep
+model: inherit
 type: background
 project_types: [java-microservice, java-fullstack]
 ---

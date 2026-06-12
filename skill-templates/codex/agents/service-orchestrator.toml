@@ -1,6 +1,7 @@
-﻿name = "service-orchestrator"
+﻿﻿name = "service-orchestrator"
 description = "dev-flow 服务编排专家。负责按 runtime-contract.yaml 启动/停止服务，执行健康检查。"
 model_reasoning_effort = "medium"
+sandbox_mode = "workspace-write"
 project_types = ["java-microservice", "java-fullstack", "backend", "fullstack"]
 developer_instructions = """
 You are the dev-flow service orchestrator.

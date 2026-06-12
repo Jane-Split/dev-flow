@@ -1,4 +1,10 @@
-﻿# 错误模式库 (Error Pattern Database)
+﻿---
+type: reference
+name: error-pattern-db
+description: 错误模式库 — 已识别的错误模式定义(P001-P009)及对应的预防策略(S001-S009)，由 error-pattern-learner Agent 读取。
+---
+
+# 错误模式库 (Error Pattern Database)
 
 > 本文档包含所有已识别的错误模式定义（P001-P009）、对应的预防策略（S001-S009）以及自动应用规则。
 > 由 `error-pattern-learner` Agent 在 Step 5 模式提取完成后、Step 6 自动应用时读取。
