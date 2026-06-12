@@ -447,6 +447,121 @@ Task Split 阶段输出（极端模式）：
   - 如果新 agent 加入，重新平衡负载
 ```
 
+**Step 6.5: 写入结构化任务文件（供 Develop 阶段使用）**
+
+> **目的**：生成机器可读的结构化任务文件，供 Develop 阶段的 Orchestrator 读取和调度。
+
+**写入路径**：`.dev-flow/contracts/{需求简称}/task-split/task-breakdown.yaml`
+
+```yaml
+# task-breakdown.yaml — 任务拆分结构化文件
+# 路径: .dev-flow/contracts/{需求简称}/task-split/task-breakdown.yaml
+# 生成者: task-split-expert subagent
+# 使用者: Develop 阶段的 Orchestrator、backend-develop-expert、frontend-develop-expert
+
+meta:
+  version: "1.0"
+  generated_by: "task-split-expert"
+  timestamp: "2026-06-12T10:00:00"
+  requirement_name: "{需求标题}"
+  requirement_id: "{需求简称}"
+
+summary:
+  total_tasks: 8
+  total_batches: 4
+  parallel_tasks: 6
+  sequential_tasks: 2
+  split_dimension: "功能维度"  # 代码层维度 / 功能维度
+  development_mode: "subagent"  # subagent / serial
+
+# 任务清单
+tasks:
+  - id: "Task-1"
+    name: "新增 UserEntity"
+    domain: "backend"
+    type: "EntityTask"
+    files:
+      - "src/main/java/com/xxx/entity/User.java"
+    dependencies: []
+    batch: 1
+    complexity: "低"
+    assigned_agent: "backend-develop-expert"
+
+  - id: "Task-2"
+    name: "新增 UserMapper"
+    domain: "backend"
+    type: "MapperTask"
+    files:
+      - "src/main/java/com/xxx/mapper/UserMapper.java"
+      - "src/main/resources/mapper/UserMapper.xml"
+    dependencies: ["Task-1"]
+    batch: 2
+    complexity: "低"
+    assigned_agent: "backend-develop-expert"
+
+# 共享文件清单
+shared_files:
+  - path: "common-bean/src/main/java/com/common/BaseEntity.java"
+    type: "shared-entity"
+    referenced_by: ["Task-1", "Task-5"]
+    modified_by: []
+
+# 冲突检测结果
+conflicts:
+  - task_a: "Task-5"
+    task_b: "Task-6"
+    conflict_type: "write-write"
+    file: "XxxMapper"
+    resolution: "Task-5 先于 Task-6"
+
+# 批次划分
+batches:
+  - batch: 1
+    tasks: ["Task-1", "Task-2", "Task-3", "Task-4"]
+  - batch: 2
+    tasks: ["Task-5", "Task-6"]
+```
+
+**写入路径**：`.dev-flow/contracts/{需求简称}/task-split/task-dag.yaml`
+
+```yaml
+# task-dag.yaml — 任务依赖 DAG
+# 路径: .dev-flow/contracts/{需求简称}/task-split/task-dag.yaml
+# 生成者: task-split-expert subagent
+# 使用者: Develop 阶段的 Orchestrator（开发模式判定、批次调度）
+
+meta:
+  version: "1.0"
+  generated_by: "task-split-expert"
+  timestamp: "2026-06-12T10:00:00"
+
+dag:
+  nodes:
+    - id: "Task-1"
+      name: "UserEntity"
+      type: "EntityTask"
+      domain: "backend"
+    - id: "Task-2"
+      name: "UserMapper"
+      type: "MapperTask"
+      domain: "backend"
+      dependencies: ["Task-1"]
+
+  batches:
+    - batch: 1
+      tasks: ["Task-1"]
+    - batch: 2
+      tasks: ["Task-2"]
+
+  metrics:
+    total_tasks: 8
+    write_conflicts: 2
+    dag_depth: 4
+    batch_count: 4
+```
+
+---
+
 **Step 7: 🔴 生成阶段交付物（v3.1 新增）**
 
 > **目的**：生成独立的阶段交付物文档，供主 Agent 打开给用户审阅。

@@ -26,11 +26,11 @@ type: stage-instruction
 > **⚠️ 最高优先级**：主 Agent 在本阶段的唯一角色是**调度器**。
 > **主 Agent 绝对禁止直接使用 Edit/Write 工具编辑本阶段的任何产出文件。**
 > **所有文件编辑必须由 task-split-expert subagent 执行。**
-> **完整零编辑铁律、失败硬阻断规则、交付物协议见 `.qoder/references/protocol.md`。**
+> **完整零编辑铁律、失败硬阻断规则、交付物协议见 `references/protocol.md`。**
 
 ### 入口前检查：阶段门禁
 
-> **完整门禁检查流程见 `.qoder/references/protocol.md` — 阶段门禁检查章节。**
+> **完整门禁检查流程见 `references/protocol.md` — 阶段门禁检查章节。**
 > **快速检查**：`.dev-flow/stage-confirmations/{需求简称}/design.confirmed` 必须存在。
 
 ### 目的
@@ -176,44 +176,44 @@ Step 2.5.0: 识别跨服务共享文件（🔴 必须先执行）
 
 Step 2.5.1: 声明每个任务的文件操作集合
 
-对每个任务，声明：
-  read_files: [该任务需要读取的文件列表]
-  write_files: [该任务需要创建或修改的文件列表]
+ 对每个任务，声明：
+   read_files: [该任务需要读取的文件列表]
+   write_files: [该任务需要创建或修改的文件列表]
 
-  🔴 强制声明规则（跨服务共享文件）：
-  ├── 如果任务需要修改任何 shared_files 中的文件 → 必须显式列入 write_files
-  ├── 如果任务新增的类继承了公共模块的类（如 extends BaseEntity） → BaseEntity 模块路径列入 read_files
-  ├── 如果任务新增的 DTO 引用了公共枚举 → 公共枚举模块路径列入 read_files
-  └── 未声明的共享文件修改将被视为遗漏，Step 2.5.2 会自动扫描补充
+   🔴 强制声明规则（跨服务共享文件）：
+   ├── 如果任务需要修改任何 shared_files 中的文件 → 必须显式列入 write_files
+   ├── 如果任务新增的类继承了公共模块的类（如 extends BaseEntity） → BaseEntity 模块路径列入 read_files
+   ├── 如果任务新增的 DTO 引用了公共枚举 → 公共枚举模块路径列入 read_files
+   └── 未声明的共享文件修改将被视为遗漏，Step 2.5.2 会自动扫描补充
 
 Step 2.5.2: 构建文件冲突矩阵
 
-对同一批次内所有任务对 (Ti, Tj) 执行冲突检测：
+ 对同一批次内所有任务对 (Ti, Tj) 执行冲突检测：
 
-  冲突检测规则：
-  ├── Ti.write ∩ Tj.write ≠ ∅  → 🔴 写写冲突 → 必须串行（Ti 先于 Tj）
-  ├── Ti.write ∩ shared_files 且 Tj.write ∩ shared_files ≠ ∅
-  │     → 🔴 跨服务写写冲突 → 两个任务必须串行，且共享文件归并到一个任务
-  ├── Ti.write ∩ Tj.read ≠ ∅  → 🟡 写读约束 → Ti 先于 Tj
-  ├── Ti.read ∩ Tj.write ≠ ∅  → 🟡 读写约束 → Tj 先于 Ti
-  └── Ti.read ∩ Tj.read ≠ ∅   → 🟢 无冲突   → 可并行
+   冲突检测规则：
+   ├── Ti.write ∩ Tj.write ≠ ∅  → 🔴 写写冲突 → 必须串行（Ti 先于 Tj）
+   ├── Ti.write ∩ shared_files 且 Tj.write ∩ shared_files ≠ ∅
+   │     → 🔴 跨服务写写冲突 → 两个任务必须串行，且共享文件归并到一个任务
+   ├── Ti.write ∩ Tj.read ≠ ∅  → 🟡 写读约束 → Ti 先于 Tj
+   ├── Ti.read ∩ Tj.write ≠ ∅  → 🟡 读写约束 → Tj 先于 Ti
+   └── Ti.read ∩ Tj.read ≠ ∅   → 🟢 无冲突   → 可并行
 
-  🔴 跨服务冲突自动扫描：
-  如果 task-split-expert 声明的 write_files 中未包含 shared_files 中的任何条目，
-  但 design-contract.yaml 中有跨服务引用 → 自动将共享文件追加到相关任务的 write_files，
-  并在冲突报告中标注 "自动补充"。
+   🔴 跨服务冲突自动扫描：
+   如果 task-split-expert 声明的 write_files 中未包含 shared_files 中的任何条目，
+   但 design-contract.yaml 中有跨服务引用 → 自动将共享文件追加到相关任务的 write_files，
+   并在冲突报告中标注 "自动补充"。
 
 Step 2.5.3: 修正 DAG 依赖图
 
-  将冲突检测结果转化为额外依赖边：
-  - 写写冲突：Ti → Tj（Ti 必须在 Tj 之前完成）
-  - 写读约束：Ti → Tj（Ti 必须在 Tj 之前完成）
-  - 读写约束：Tj → Ti（Tj 必须在 Ti 之前完成）
-  - 跨服务写写冲突：Ti → Tj，且将共享文件写入合并到先执行的任务中
+   将冲突检测结果转化为额外依赖边：
+   - 写写冲突：Ti → Tj（Ti 必须在 Tj 之前完成）
+   - 写读约束：Ti → Tj（Ti 必须在 Tj 之前完成）
+   - 读写约束：Tj → Ti（Tj 必须在 Ti 之前完成）
+   - 跨服务写写冲突：Ti → Tj，且将共享文件写入合并到先执行的任务中
 
 Step 2.5.4: 重新拓扑排序
 
-  在修正后的 DAG 上重新执行拓扑排序，生成最终的批次划分
+   在修正后的 DAG 上重新执行拓扑排序，生成最终的批次划分
 ```
 
 **冲突检测输出**：
@@ -447,6 +447,121 @@ Task Split 阶段输出（极端模式）：
   - 如果新 agent 加入，重新平衡负载
 ```
 
+**Step 6.5: 写入结构化任务文件（供 Develop 阶段使用）**
+
+> **目的**：生成机器可读的结构化任务文件，供 Develop 阶段的 Orchestrator 读取和调度。
+
+**写入路径**：`.dev-flow/contracts/{需求简称}/task-split/task-breakdown.yaml`
+
+```yaml
+# task-breakdown.yaml — 任务拆分结构化文件
+# 路径: .dev-flow/contracts/{需求简称}/task-split/task-breakdown.yaml
+# 生成者: task-split-expert subagent
+# 使用者: Develop 阶段的 Orchestrator、backend-develop-expert、frontend-develop-expert
+
+meta:
+  version: "1.0"
+  generated_by: "task-split-expert"
+  timestamp: "2026-06-12T10:00:00"
+  requirement_name: "{需求标题}"
+  requirement_id: "{需求简称}"
+
+summary:
+  total_tasks: 8
+  total_batches: 4
+  parallel_tasks: 6
+  sequential_tasks: 2
+  split_dimension: "功能维度"  # 代码层维度 / 功能维度
+  development_mode: "subagent"  # subagent / serial
+
+# 任务清单
+tasks:
+  - id: "Task-1"
+    name: "新增 UserEntity"
+    domain: "backend"
+    type: "EntityTask"
+    files:
+      - "src/main/java/com/xxx/entity/User.java"
+    dependencies: []
+    batch: 1
+    complexity: "低"
+    assigned_agent: "backend-develop-expert"
+
+  - id: "Task-2"
+    name: "新增 UserMapper"
+    domain: "backend"
+    type: "MapperTask"
+    files:
+      - "src/main/java/com/xxx/mapper/UserMapper.java"
+      - "src/main/resources/mapper/UserMapper.xml"
+    dependencies: ["Task-1"]
+    batch: 2
+    complexity: "低"
+    assigned_agent: "backend-develop-expert"
+
+# 共享文件清单
+shared_files:
+  - path: "common-bean/src/main/java/com/common/BaseEntity.java"
+    type: "shared-entity"
+    referenced_by: ["Task-1", "Task-5"]
+    modified_by: []
+
+# 冲突检测结果
+conflicts:
+  - task_a: "Task-5"
+    task_b: "Task-6"
+    conflict_type: "write-write"
+    file: "XxxMapper"
+    resolution: "Task-5 先于 Task-6"
+
+# 批次划分
+batches:
+  - batch: 1
+    tasks: ["Task-1", "Task-2", "Task-3", "Task-4"]
+  - batch: 2
+    tasks: ["Task-5", "Task-6"]
+```
+
+**写入路径**：`.dev-flow/contracts/{需求简称}/task-split/task-dag.yaml`
+
+```yaml
+# task-dag.yaml — 任务依赖 DAG
+# 路径: .dev-flow/contracts/{需求简称}/task-split/task-dag.yaml
+# 生成者: task-split-expert subagent
+# 使用者: Develop 阶段的 Orchestrator（开发模式判定、批次调度）
+
+meta:
+  version: "1.0"
+  generated_by: "task-split-expert"
+  timestamp: "2026-06-12T10:00:00"
+
+dag:
+  nodes:
+    - id: "Task-1"
+      name: "UserEntity"
+      type: "EntityTask"
+      domain: "backend"
+    - id: "Task-2"
+      name: "UserMapper"
+      type: "MapperTask"
+      domain: "backend"
+      dependencies: ["Task-1"]
+
+  batches:
+    - batch: 1
+      tasks: ["Task-1"]
+    - batch: 2
+      tasks: ["Task-2"]
+
+  metrics:
+    total_tasks: 8
+    write_conflicts: 2
+    dag_depth: 4
+    batch_count: 4
+```
+
+---
+
 **Step 7: 🔴 生成阶段交付物（v3.1 新增）**
 
 > **目的**：生成独立的阶段交付物文档，供主 Agent 打开给用户审阅。
@@ -556,4 +671,4 @@ graph TD
 
 **用户操作**：确认无误 → 回复 "确认" 进入 Develop 阶段；需要修改 → 指出具体问题
 
-> **阶段确认机制和交付物协议详见 `.qoder/references/protocol.md`。**
+> **阶段确认机制和交付物协议详见 `references/protocol.md`。**

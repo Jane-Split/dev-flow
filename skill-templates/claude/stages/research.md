@@ -11,8 +11,8 @@ type: stage-instruction
 ▶ Research（项目调研）
 ════════════════════════════════════
 目标：扫描项目结构，建立项目记忆
-输出：.dev-flow/memory/（13 个文件）
-架构：pre-scanner + 文件级子代理 × 11（4 批次）
+输出：.dev-flow/memory/（根目录6 + backend9 + frontend9 = 25 个文件，全栈时）
+架构：pre-scanner + 文件级子代理 × N（后端9/前端9/全栈18，4批次）
 预计：2-4 分钟
 批次：4 批并行
 ════════════════════════════════════
@@ -26,7 +26,7 @@ type: stage-instruction
 
 > **⚠️ 最高优先级**：主 Agent 在本阶段的唯一角色是**调度器**。
 > **主 Agent 绝对禁止直接使用 Edit/Write 工具编辑本阶段的任何产出文件。**
-> **所有文件编辑必须由专用 subagent 执行——pre-scanner 或 11 个文件级子代理。**
+> **所有文件编辑必须由专用 subagent 执行——pre-scanner 或文件级子代理（后端9/前端9）。**
 > **完整零编辑铁律见 `.claude/references/protocol.md`。**
 
 ---
@@ -43,11 +43,11 @@ type: stage-instruction
   │     └── 输出：backend-file-index.yaml 和/或 frontend-file-index.yaml + project-domains.yaml
   │
   └── Phase 1: 分域扫描子代理
-        ├── 后端扫描组（后端域存在时启动，11 子代理，4 批次）
+        ├── 后端扫描组（后端域存在时启动，9 子代理，4 批次）
         │     ├── Batch 1 (基础层, 3): project-overview, service-registry, architecture
         │     ├── Batch 2 (数据层, 3): common-modules, models, config
-        │     ├── Batch 3 (行为层, 3): apis, utils, conventions
-        │     └── Batch 4 (横切层, 2): dependency-graph, decisions
+        │     ├── Batch 3 (行为层, 2): apis, utils
+        │     └── Batch 4 (横切层, 2): dependency-graph, conventions
         │
         └── 前端扫描组（前端域存在时启动，9 子代理，3 批次）
               ├── Batch 1 (基础层, 3): frontend-overview, frontend-structure, frontend-architecture
@@ -82,9 +82,9 @@ type: stage-instruction
 | 项目类型 | 必须存在的文件 |
 |----------|---------------|
 | 所有项目 | `project-overview.md`、`conventions.md` |
-| Java 微服务 | `common-modules.md`、`dependency-graph.md`、`models.md` |
-| Java 单服务 | `models.md`、`apis.md` |
-| 前端/Node.js | `components.md`、`apis.md` |
+| Java 微服务 | `backend/common-modules.md`、`backend/dependency-graph.md`、`backend/models.md` |
+| Java 单服务 | `backend/models.md`、`backend/apis.md` |
+| 前端/Node.js | `frontend/components.md`、`frontend/apis.md` |
 
 - [ ] 所有关键文件都存在且内容 > 100 字符？
   - **否**（有文件缺失或为空）→ 执行完整 Research
@@ -139,7 +139,7 @@ type: stage-instruction
 
 ### 📦 Phase 0: pre-scanner subagent（全局 Quick Scan）
 
-> **🎯 目标**：执行一次全局 Quick Scan，输出结构化的 `file-index.yaml`，供后续 11 个文件子代理直接使用。
+> **🎯 目标**：执行一次全局 Quick Scan，输出结构化的分域索引文件，供后续文件级子代理直接使用。
 > **🔴 关键**：pre-scanner **不读取任何源文件内容**，只 Glob 路径和统计文件类型，上下文消耗极低（~15KB）。
 
 **pre-scanner 执行步骤**：
@@ -438,31 +438,34 @@ pre-scanner 输出汇总：
 ```
 📊 Quick Scan 完成
    - 项目类型: Java 微服务
+   - 前后端域: 后端 ✅ / 前端 ✅ (全栈项目)
    - 服务数量: 3
    - 公共模块: 2
    - Java 文件: 487
    - 配置文件: 12
-   - file-index.yaml 已写入 (XX KB)
+   - project-domains.yaml 已写入
+   - backend-file-index.yaml 已写入 (XX KB)
+   - frontend-file-index.yaml 已写入 (XX KB)
 ```
 
-**主 Agent 角色**：等待 pre-scanner 完成 → 读取 file-index.yaml → 确认文件有效 → 进入 Phase 1 分批调度。
+**主 Agent 角色**：等待 pre-scanner 完成 → 读取 project-domains.yaml 确认前后端域 → 读取对应域的 file-index.yaml → 确认文件有效 → 进入 Phase 1 分批调度。
 
 ---
 
 ### 📦 Phase 1: 文件级子代理分批执行
 
-> **🎯 目标**：11 个文件子代理分 4 批执行，每个子代理负责写入一个 memory 文件。
+> **🎯 目标**：文件级子代理分批次执行，每个子代理负责写入一个 memory 文件。
 > 模板文件（mistakes.md/patterns.md）由 pre-scanner 在 Phase 0 创建，不单独占用子代理。
-> **核心原则**：每个子代理获得 `file-index.yaml` → 从中找到目标文件路径 → 读取源文件内容 → 提取信息 → 直接写入目标 memory 文件。
+> **核心原则**：每个子代理获得对应域的 file-index.yaml → 从中找到目标文件路径 → **全量读取源文件内容** → 提取信息 → 直接写入目标 memory 文件。
 > **独立性**：同一批次内的子代理**互不依赖**，可并行执行；不同批次间**无数据依赖**（所有信息来自 file-index.yaml + 源文件）。
 
 #### 🔴 所有文件子代理通用指令
 
 每个文件子代理必须遵循以下规则：
 
-1. **输入**：读取 `file-index.yaml`，定位本文件所需的源码路径
+1. **输入**：读取对应域的 `file-index.yaml`（后端读 `backend-file-index.yaml`，前端读 `frontend-file-index.yaml`），定位本文件所需的源码路径
 2. **读取策略**：根据 `file-index.yaml` 中的路径精确读取源文件，**不做自己的 Glob**
-3. **完整性**：`is_core: true` 标记的类**必须全量读取**；普通类的读取数量不应超过 `file-index.yaml` 中该类别的 80%
+3. **完整性**：**所有文件全量读取，禁止采样**。`is_core: true` 标记的类必须全量读取；非核心类也必须全量读取
 4. **输出**：直接写入目标 memory 文件，首行必须包含时间戳标记
 5. **评级**：文件末尾追加 completeness_level（A/B/C/D）
 6. **空值处理**：如果该类目无数据（如无 Feign Client），写入"暂无"而非留空
@@ -489,26 +492,26 @@ completeness: 基于 file-index 全局统计 → 通常为 A
 
 ##### 1b: service-registry-subagent
 ```
-目标文件: .dev-flow/memory/service-registry.md
-输入: file-index.yaml 的 services 列表 + 各服务 pom
-需读源码: 每个服务的 pom.xml + application.yml（仅端口/服务名）
+目标文件: .dev-flow/memory/backend/service-registry.md
+输入: backend-file-index.yaml 的 services 列表 + 各服务 pom
+需读源码: 每个服务的 pom.xml + application.yml（全量读取）
 产出内容:
   - 服务列表表格（服务名/目录/端口/角色/子模块/启动类）
   - 跨服务调用关系表格（从 Feign Client 路径推断）
-completeness: 所有服务已注册 → 通常为 A
+completeness: 所有服务已注册 → A
 ```
 
 ##### 1c: architecture-subagent
 ```
-目标文件: .dev-flow/memory/session/architecture.md
-输入: file-index.yaml 的 services + common_modules
-需读源码: 每个服务的 pom.xml（父 POM） + application.yml
+目标文件: .dev-flow/memory/backend/architecture.md
+输入: backend-file-index.yaml 的 services + common_modules
+需读源码: 每个服务的 pom.xml（父 POM，全量读取） + application.yml（全量读取）
 产出内容:
   - 架构模式（微服务/单体）
   - 服务角色说明
   - 分层架构（Controller/Service/Mapper 等）
   - 技术选型理由
-completeness: 架构信息完整 → 通常为 A
+completeness: 架构信息完整 → A
 ```
 
 ---
@@ -519,13 +522,13 @@ completeness: 架构信息完整 → 通常为 A
 
 ##### 2a: common-modules-subagent
 ```
-目标文件: .dev-flow/memory/common-modules.md
-输入: file-index.yaml 的 common_modules 部分
+目标文件: .dev-flow/memory/backend/common-modules.md
+输入: backend-file-index.yaml 的 common_modules 部分
 需读源码:
-  - 所有 common_modules 的 Entity（is_core: true → 全量读取）
-  - 所有 common_modules 的 DTO
+  - 所有 common_modules 的 Entity（全量读取）
+  - 所有 common_modules 的 DTO（全量读取）
   - 所有 common_modules 的 Enum（全量读取）
-  - 所有 common_modules 的 Feign Client API（如有）
+  - 所有 common_modules 的 Feign Client API（全量读取）
 产出内容:
   - 每个公共模块的 Entity/DTO/Enum/Util/Feign 表格
   - 含完整类路径、字段、方法签名
@@ -534,25 +537,25 @@ completeness: 公共模块强制全量 → A
 
 ##### 2b: models-subagent
 ```
-目标文件: .dev-flow/memory/session/models.md
-输入: file-index.yaml 的所有 services.entities + services.dtos
+目标文件: .dev-flow/memory/backend/models.md
+输入: backend-file-index.yaml 的所有 services.entities + services.dtos
 需读源码:
-  - 所有服务的 Entity 类（core 标记全量，普通类采样 ≤80%）
-  - 所有服务的 DTO 类（采样策略同上）
+  - 所有服务的 Entity 类（全量读取）
+  - 所有服务的 DTO 类（全量读取）
   - common-modules Entity/DTO（已在 2a 产出，此处可选引用）
 产出内容:
   - 每个服务的 Entity 表格（类名/路径/表名/字段/注解）
   - 每个服务的 DTO 表格（类名/路径/字段）
-completeness: 服务级采样 → A（文件少时）或 B
+completeness: 服务级全量 → A
 ```
 
 ##### 2c: config-subagent
 ```
-目标文件: .dev-flow/memory/session/config.md
-输入: file-index.yaml 的 services.configs + 中间件依赖
+目标文件: .dev-flow/memory/backend/config.md
+输入: backend-file-index.yaml 的 services.configs + 中间件依赖
 需读源码:
-  - 所有 application*.yml / bootstrap*.yml
-  - 所有 *Config.java（@Configuration 类）
+  - 所有 application*.yml / bootstrap*.yml（全量读取）
+  - 所有 *Config.java（@Configuration 类，全量读取）
 产出内容:
   - 数据库配置（URL/用户名/连接池）
   - Redis/Nacos 配置
@@ -563,17 +566,17 @@ completeness: 配置文件全量读取 → A
 
 ---
 
-#### Batch 3：行为层（3 子代理，并行）
+#### Batch 3：行为层（2 子代理，并行）
 
-> **批次说明**：这三个文件聚焦"行为定义"——API接口、工具类、编码规范。需要从 Controller/Service/Util 源码提取。
+> **批次说明**：这两个文件聚焦"行为定义"——API接口、工具类。需要从 Controller/Service/Util 源码提取。
 
 ##### 3a: apis-subagent
 ```
-目标文件: .dev-flow/memory/session/apis.md
-输入: file-index.yaml 的 services.controllers + services.feign_clients
+目标文件: .dev-flow/memory/backend/apis.md
+输入: backend-file-index.yaml 的 services.controllers + services.feign_clients
 需读源码:
-  - 所有服务的 Controller 类（提取 @RequestMapping 路径和方法签名）
-  - 所有服务的 Feign Client 接口
+  - 所有服务的 Controller 类（全量读取）
+  - 所有服务的 Feign Client 接口（全量读取）
 产出内容:
   - 每个服务的 Controller API 表格（方法/路径/参数/返回）
   - 跨服务 Feign Client API 表格
@@ -582,32 +585,14 @@ completeness: 全部读取 → A
 
 ##### 3b: utils-subagent
 ```
-目标文件: .dev-flow/memory/session/utils.md
-输入: file-index.yaml 的 services.utils + common_modules 的 utils
+目标文件: .dev-flow/memory/backend/utils.md
+输入: backend-file-index.yaml 的 services.utils + common_modules 的 utils
 需读源码:
-  - 所有 utils 类（提取类名、方法签名）
-  - 核心 Util（含 Base/Core/Common 关键字）→ 全量读取详细方法
+  - 所有 utils 类（全量读取）
 产出内容:
   - 工具类表格（类名/路径/方法列表）
   - 标注来源（当前服务 vs 公共模块）
 completeness: Util 全量 → A
-```
-
-##### 3c: conventions-subagent
-```
-目标文件: .dev-flow/memory/conventions.md
-输入: file-index.yaml 所有类的注解特征（从路径推断）+ 公共模块核心类
-需读源码:
-  - common_modules 的核心类（BaseEntity/ResultDTO 等）→ 推断命名风格/注解/Lombok
-  - 3-5 个代表性 Controller/Service/Entity 类 → 验证模式
-  - pom.xml 中的 ORM 依赖（MyBatis-Plus vs JPA）
-产出内容:
-  - 命名规范（类名/方法/常量/包名）
-  - 注解使用（Lombok/Spring 注解习惯）
-  - ORM 框架 + 统一响应类 + 分页封装
-  - DTO 转换方式（MapStruct/BeanUtils）
-  - 异常处理模式
-completeness: 基于采样推断 → B（因非全量）
 ```
 
 ---
@@ -618,11 +603,11 @@ completeness: 基于采样推断 → B（因非全量）
 
 ##### 4a: dependency-graph-subagent
 ```
-目标文件: .dev-flow/memory/dependency-graph.md
-输入: file-index.yaml 的所有 services + services.dependencies
+目标文件: .dev-flow/memory/backend/dependency-graph.md
+输入: backend-file-index.yaml 的所有 services + services.dependencies
 需读源码:
-  - 每个服务的 feign_clients 列表 → 提取 @FeignClient 目标服务
-  - 每个服务的 pom.xml 依赖列表
+  - 每个服务的 feign_clients 列表（全量读取）
+  - 每个服务的 pom.xml 依赖列表（全量读取）
 产出内容:
   - Maven 依赖关系表格
   - Feign 调用关系表格（调用方/被调方/接口）
@@ -630,15 +615,21 @@ completeness: 基于采样推断 → B（因非全量）
 completeness: 全部依赖记录 → A
 ```
 
-##### 4b: decisions-subagent
+##### 4b: backend-conventions-subagent
 ```
-目标文件: .dev-flow/memory/decisions.md
-输入: file-index.yaml + 已产出的 architecture.md（可从 memory 读取）
-需读源码: 无（基于架构和配置推断）
+目标文件: .dev-flow/memory/backend/conventions.md
+输入: backend-file-index.yaml 所有类的注解特征（从路径推断）+ 公共模块核心类
+需读源码:
+  - common_modules 的核心类（BaseEntity/ResultDTO 等，全量读取）
+  - 所有 Controller/Service/Entity 类（全量读取）
+  - pom.xml 中的 ORM 依赖（MyBatis-Plus vs JPA，全量读取）
 产出内容:
-  - 架构决策表格（已有决策/理由/日期）
-  - 如无已识别的决策 → "暂无已识别的架构决策，后续开发中持续记录"
-completeness: 初始化 → 默认为 B（待后续积累）
+  - 命名规范（类名/方法/常量/包名）
+  - 注解使用（Lombok/Spring 注解习惯）
+  - ORM 框架 + 统一响应类 + 分页封装
+  - DTO 转换方式（MapStruct/BeanUtils）
+  - 异常处理模式
+completeness: 全量读取 → A
 ```
 
 ---
@@ -647,6 +638,7 @@ completeness: 初始化 → 默认为 B（待后续积累）
 
 > **主 Agent 按以下批次顺序调度**，每批次内并行启动所有子代理。
 
+**后端扫描组调度**：
 ```
 Batch 1 (基础层): 并行启动 3 个子代理 → 等待全部完成
   ├── project-overview-subagent
@@ -658,38 +650,221 @@ Batch 2 (数据层): 并行启动 3 个子代理 → 等待全部完成
   ├── models-subagent
   └── config-subagent
 
-Batch 3 (行为层): 并行启动 3 个子代理 → 等待全部完成
+Batch 3 (行为层): 并行启动 2 个子代理 → 等待全部完成
   ├── apis-subagent
-  ├── utils-subagent
-  └── conventions-subagent
+  └── utils-subagent
 
 Batch 4 (横切层): 并行启动 2 个子代理 → 等待全部完成
   ├── dependency-graph-subagent
-  └── decisions-subagent
+  └── backend-conventions-subagent
+```
+
+**前端扫描组调度**：
+```
+Frontend Batch 1 (基础层): 并行启动 3 个子代理 → 等待全部完成
+  ├── frontend-overview-subagent
+  ├── frontend-structure-subagent
+  └── frontend-architecture-subagent
+
+Frontend Batch 2 (组件层): 并行启动 3 个子代理 → 等待全部完成
+  ├── components-subagent
+  ├── routes-and-state-subagent
+  └── frontend-config-subagent
+
+Frontend Batch 3 (行为层): 并行启动 3 个子代理 → 等待全部完成
+  ├── frontend-apis-subagent
+  ├── frontend-utils-subagent
+  └── frontend-conventions-subagent
+```
+
+---
+
+#### 🔴 前端扫描组详细定义
+
+> **🎯 目标**：9 个前端文件子代理分 3 批执行，输出到 `.dev-flow/memory/frontend/` 目录。
+> **核心原则**：每个子代理获得 `frontend-file-index.yaml` → 从中找到目标文件路径 → **全量读取源文件内容** → 提取信息 → 直接写入目标 memory 文件。
+
+**前端子代理通用指令**：
+1. **输入**：读取 `frontend-file-index.yaml`
+2. **读取策略**：根据索引路径精确读取，**不做自己的 Glob**
+3. **完整性**：**所有文件全量读取，禁止采样**
+4. **输出**：写入 `.dev-flow/memory/frontend/`，首行必须包含时间戳标记
+5. **评级**：文件末尾追加 completeness_level（A/B/C/D）
+6. **空值处理**：无数据时写入"暂无"而非留空
+
+---
+
+##### Frontend Batch 1：基础层（3 子代理，并行）
+
+###### F1a: frontend-overview-subagent
+```
+目标文件: .dev-flow/memory/frontend/overview.md
+输入: frontend-file-index.yaml 的 framework + stats
+需读源码: package.json（全文）、README.md（全文）
+产出内容:
+  - 前端技术栈（框架/版本/UI库/状态管理/构建工具）
+  - 项目目录结构概览
+  - 入口文件（main.tsx / main.js）
+  - 脚本命令（dev/build/test/lint）
+completeness: 基于 package.json → A
+```
+
+###### F1b: frontend-structure-subagent
+```
+目标文件: .dev-flow/memory/frontend/structure.md
+输入: frontend-file-index.yaml 的所有路径索引
+需读源码: 无（索引已含路径和名称）
+产出内容:
+  - 目录结构树
+  - 文件数量统计（页面/组件/布局/Hooks/Store/API/工具/类型/路由/样式/中间件）
+  - 核心目录说明
+completeness: 基于索引统计 → A
+```
+
+###### F1c: frontend-architecture-subagent
+```
+目标文件: .dev-flow/memory/frontend/architecture.md
+输入: frontend-file-index.yaml 的 framework + config
+需读源码:
+  - 主配置文件（vite.config.ts / next.config.js / nuxt.config.ts 等，全文）
+  - tsconfig.json（全文）
+  - 入口文件（main.tsx / App.tsx，全文）
+产出内容:
+  - 前端架构模式（SPA / SSR / SSG）
+  - 状态管理方案
+  - 路由方案
+  - API 请求封装架构
+  - 样式方案
+  - 构建和部署流程
+completeness: 配置文件全量读取 → A
+```
+
+---
+
+##### Frontend Batch 2：组件层（3 子代理，并行）
+
+###### F2a: components-subagent
+```
+目标文件: .dev-flow/memory/frontend/components.md
+输入: frontend-file-index.yaml 的 components + layouts
+需读源码:
+  - 所有组件文件（全量读取）
+  - 所有布局组件（全量读取）
+产出内容:
+  - 组件清单表格（名称/路径/类型/Props/用途）
+  - 布局组件清单
+  - 组件分类统计（common/business/layout）
+completeness: 全量读取 → A
+```
+
+###### F2b: routes-and-state-subagent
+```
+目标文件: .dev-flow/memory/frontend/routes-and-state.md
+输入: frontend-file-index.yaml 的 router + stores + pages
+需读源码:
+  - 路由配置文件（全量读取）
+  - 所有状态管理文件（全量读取）
+  - 所有页面组件（全量读取）
+产出内容:
+  - 路由表（路径/页面/懒加载/权限）
+  - 状态管理清单（Store名称/用途/关键状态）
+  - 页面清单（名称/路径/对应路由）
+completeness: 全量读取 → A
+```
+
+###### F2c: frontend-config-subagent
+```
+目标文件: .dev-flow/memory/frontend/config.md
+输入: frontend-file-index.yaml 的 config + framework
+需读源码:
+  - 构建配置文件（全文）
+  - 环境变量文件（全文）
+  - TypeScript 配置（全文）
+  - 代码规范配置（全文）
+产出内容:
+  - 构建配置详情
+  - 环境变量清单
+  - TypeScript 编译选项
+  - ESLint/Prettier 规则摘要
+  - 代理配置（devServer.proxy）
+completeness: 配置文件全量 → A
+```
+
+---
+
+##### Frontend Batch 3：行为层（3 子代理，并行）
+
+###### F3a: frontend-apis-subagent
+```
+目标文件: .dev-flow/memory/frontend/apis.md
+输入: frontend-file-index.yaml 的 api
+需读源码:
+  - 所有 API 封装文件（全量读取）
+  - 请求拦截器/响应拦截器文件（全量读取）
+产出内容:
+  - API 模块清单（名称/路径/封装方式）
+  - 请求函数列表（方法/路径/参数）
+  - 拦截器逻辑摘要
+completeness: 全量读取 → A
+```
+
+###### F3b: frontend-utils-subagent
+```
+目标文件: .dev-flow/memory/frontend/utils.md
+输入: frontend-file-index.yaml 的 utils
+需读源码:
+  - 所有工具函数文件（全量读取）
+产出内容:
+  - 工具函数清单（名称/路径/功能/参数）
+  - 核心工具详细说明
+completeness: 全量读取 → A
+```
+
+###### F3c: frontend-conventions-subagent
+```
+目标文件: .dev-flow/memory/frontend/conventions.md
+输入: frontend-file-index.yaml 所有文件的路径特征 + 样本代码
+需读源码:
+  - 所有代表性组件文件（全量读取）
+  - 所有 API 文件（全量读取）
+  - ESLint/Prettier 配置（全文）
+产出内容:
+  - 命名规范（组件/函数/常量/文件）
+  - Props 定义风格（TypeScript接口/内联类型）
+  - 代码组织规范（目录约定/导出方式）
+  - 样式规范（CSS Modules/Styled Components/Tailwind等）
+  - 异步处理模式（async/await / Promise / useEffect）
+completeness: 全量读取 → A
 ```
 
 **平台适配**：
 
 | 平台 | 最大并行 | 批次策略 | 说明 |
 |------|---------|---------|------|
-| Claude | 16 | 全额并行（12 个一次性） | 16 并发上限足够 |
+| Claude | 16 | 全额并行 | 16 并发上限足够 |
 | Trae | 无限制 | 全额并行 | 无限制 |
 | Cursor | 多 Task | 全额并行 | 多 Task 调用 |
 | Qoder | 4 | 标准 4 批次 | 4 方向限制 |
 | Codex | 6 | 2 批次合并（6+6） | 6 线程限制 |
 
-> **Claude/Trae/Cursor**：可跳过批次限制，直接 12 个子代理一次性全并行（pre-scanner 完成后）。
+> **Claude/Trae/Cursor**：可跳过批次限制，所有子代理一次性全并行（pre-scanner 完成后）。
 
 **调度流程**：
 ```
 主 Agent:
-  1. 读取 file-index.yaml，验证完整性
-  2. 根据平台选择批次策略
-  3. 逐批启动子代理：
+  1. 读取 project-domains.yaml，确认前后端域存在性
+  2. 读取对应域的 file-index.yaml（backend-file-index.yaml / frontend-file-index.yaml），验证完整性
+  3. 根据项目类型选择调度策略：
+     
+     **纯后端项目**：仅调度后端扫描组（9 子代理，4 批次）
+     **纯前端项目**：仅调度前端扫描组（9 子代理，3 批次）
+     **全栈项目**：两组并行调度（后端4批 + 前端3批，可交错执行）
+     
+  4. 逐批启动子代理：
      - 当前批次的所有子代理同时启动
      - 等待当前批次全部完成（或失败触发硬阻断规则）
      - 进入下一批次
-  4. 全部批次完成后 → 进入 Step 7 自检
+  5. 全部批次完成后 → 进入 Step 7 自检
 ```
 
 ---
@@ -698,12 +873,25 @@ Batch 4 (横切层): 并行启动 2 个子代理 → 等待全部完成
 
 当记忆存在但配置有变更时，执行增量更新而非全量重扫：
 
-1. **执行 pre-scanner**（Phase 0）：生成新的 file-index.yaml
-2. **Diff file-index**：对比新旧 file-index，识别变更的服务/模块
+1. **执行 pre-scanner**（Phase 0）：生成新的 `project-domains.yaml` + `backend-file-index.yaml` + `frontend-file-index.yaml`
+2. **Diff file-index**：对比新旧 file-index，识别变更的服务/模块/前端文件
 3. **选择性重跑**：仅重新调度变更模块对应的文件子代理
+
+   **后端变更**：
    - 某服务的 Entity 新增 → 重跑 models-subagent
    - 新增 Feign Client → 重跑 dependency-graph-subagent + apis-subagent
    - 新增 Controller → 重跑 apis-subagent
+   - 新增公共模块类 → 重跑 common-modules-subagent
+   - 配置变更 → 重跑 config-subagent + architecture-subagent
+
+   **前端变更**：
+   - 新增组件 → 重跑 components-subagent
+   - 新增页面/路由 → 重跑 routes-and-state-subagent
+   - 新增 API 封装 → 重跑 frontend-apis-subagent
+   - 新增工具函数 → 重跑 frontend-utils-subagent
+   - 配置变更（package.json/vite.config）→ 重跑 frontend-config-subagent + frontend-overview-subagent
+   - 依赖变更 → 重跑 frontend-dependency-graph-subagent
+
 4. **合并更新**：保留未变更的 memory 文件，更新变更的文件
 5. 更新所有已修改文件的时间戳标记
 
@@ -711,19 +899,28 @@ Batch 4 (横切层): 并行启动 2 个子代理 → 等待全部完成
 
 #### ✅ Step 7：自检（全部文件子代理完成后执行）
 
-> **主 Agent 执行**：汇总检查所有 13 个文件的状态。
+> **主 Agent 执行**：汇总检查所有 memory 文件的状态。
 
-- [ ] 所有 13 个 memory 文件都已创建？（含 2 个由 pre-scanner 创建的模板文件）
+- [ ] 根目录 6 个全局 memory 文件已创建且非空？
+  - `project-overview.md`、`conventions.md`、`patterns.md`、`mistakes.md`、`preferences.md`、`decisions.md`
+- [ ] **后端域存在时**：`.dev-flow/memory/backend/` 目录存在且包含 9 个文件？
+  - `backend/service-registry.md`、`backend/dependency-graph.md`、`backend/common-modules.md`
+  - `backend/architecture.md`、`backend/models.md`、`backend/apis.md`
+  - `backend/utils.md`、`backend/config.md`、`backend/conventions.md`
+- [ ] **前端域存在时**：`.dev-flow/memory/frontend/` 目录存在且包含 9 个文件？
+  - `frontend/overview.md`、`frontend/structure.md`、`frontend/architecture.md`
+  - `frontend/components.md`、`frontend/routes-and-state.md`、`frontend/config.md`
+  - `frontend/apis.md`、`frontend/utils.md`、`frontend/conventions.md`
 - [ ] 每个文件大小 > 50 字节？（非空检查）
-- [ ] `common-modules.md` 包含依赖项目的类？（不能只有标题没有数据）
-- [ ] `dependency-graph.md` 包含 Maven 依赖 + Feign 调用？
-- [ ] `models.md` 包含当前服务和依赖服务的 Entity？
-- [ ] `utils.md` 包含依赖项目的工具类？
-- [ ] `apis.md` 包含 Feign Client API？
-- [ ] `config.md` 包含数据库/Redis/中间件配置？
+- [ ] `backend/common-modules.md` 包含依赖项目的类？（不能只有标题没有数据）
+- [ ] `backend/dependency-graph.md` 包含 Maven 依赖 + Feign 调用？
+- [ ] `backend/models.md` 包含当前服务和依赖服务的 Entity？
+- [ ] `backend/utils.md` 包含依赖项目的工具类？
+- [ ] `backend/apis.md` 包含 Feign Client API？
+- [ ] `backend/config.md` 包含数据库/Redis/中间件配置？
 - [ ] `decisions.md` 和 `mistakes.md` 和 `patterns.md` 至少有"暂无"文字？
-- [ ] 🔴 **每个 memory 文件的 completeness_level 均为 A 或 B？（公共模块必须为 A）**
-- [ ] 🔴 **无 completeness_level = D 的文件？（D = 不完整，必须重新调度对应子代理）**
+- [ ] 🔴 **所有 memory 文件的 completeness_level 均为 A？（全量读取，禁止采样）**
+- [ ] 🔴 **无 completeness_level = B/C/D 的文件？（不完整必须重新调度对应子代理）**
 
 **失败处理**：如果某个文件缺失或不完整 → 重新调度对应的文件子代理（最多重试 1 次）。
 
@@ -733,7 +930,19 @@ Batch 4 (横切层): 并行启动 2 个子代理 → 等待全部完成
 
 完成所有步骤后，输出以下汇总表：
 
-**Java 微服务（多服务模式）：**
+**全栈项目（Java微服务 + React前端）：**
+| 维度 | 结果 |
+|------|------|
+| 项目类型 | 全栈（Java微服务 + React前端） |
+| 后端服务数量 | X 个 |
+| 前端页面数量 | X 个 |
+| 前端组件数量 | X 个 |
+| **扫描架构** | pre-scanner + 后端9子代理（全量）+ 前端9子代理（全量） |
+| 读取策略 | **全量读取，无采样** |
+| memory 文件 | 根目录6/6 + 后端9/9 + 前端9/9 已写入 ✅ |
+| completeness | **全部 A 级** ✅ |
+
+**Java 微服务（纯后端）：**
 | 维度 | 结果 |
 |------|------|
 | 项目类型 | Java 微服务（多服务模式） |
@@ -744,32 +953,22 @@ Batch 4 (横切层): 并行启动 2 个子代理 → 等待全部完成
 | 服务数量 | X 个 |
 | 公共模块 | X 个 |
 | 跨服务调用 | X 个 Feign Client |
-| **扫描架构** | pre-scanner + 11 文件子代理（4 批次） |
+| **扫描架构** | pre-scanner + 后端9子代理（4批次/全量读取） |
 | 中间件 | 列出所有中间件 |
 | 编码规范 | 从公共模块推断 |
-| memory 文件 | 13/13 已写入 ✅ |
+| memory 文件 | 根目录6/6 + 后端9/9 已写入 ✅ |
+| completeness | **全部 A 级** ✅ |
 
-**Java 单服务项目：**
-| 维度 | 结果 |
-|------|------|
-| 项目类型 | Java 后端 |
-| 语言/版本 | Java XX |
-| 框架 | Spring Boot X.X.X |
-| ORM | MyBatis-Plus / JPA |
-| 分层架构 | Controller / Service / Mapper / Entity / DTO / Enum / Config |
-| Entity/Service/Controller 数量 | X / X / X |
-| **扫描架构** | pre-scanner + 11 文件子代理（4 批次/全额并行） |
-| memory 文件 | 13/13 已写入 ✅ |
-
-**前端项目：**
+**前端项目（纯前端）：**
 | 维度 | 结果 |
 |------|------|
 | 项目类型 | 前端 |
 | 语言 | TypeScript / JavaScript |
 | 框架 | React / Vue / Angular |
 | 组件/API 数量 | X / X |
-| **扫描架构** | pre-scanner + 11 文件子代理（4 批次/全额并行） |
-| memory 文件 | 13/13 已写入 ✅ |
+| **扫描架构** | pre-scanner + 前端9子代理（3批次/全量读取） |
+| memory 文件 | 根目录6/6 + 前端9/9 已写入 ✅ |
+| completeness | **全部 A 级** ✅ |
 
 **暂停，等待用户确认。**
 
@@ -798,15 +997,17 @@ Batch 4 (横切层): 并行启动 2 个子代理 → 等待全部完成
 
 | # | 确认项 | 状态 |
 |---|--------|------|
-| 0 | **执行者审计**：本阶段由 pre-scanner + 11 文件子代理执行，主 Agent 未直接编辑任何文件 | ⬜ 待确认 |
-| 1 | 项目类型和架构已正确识别 | ⬜ 待确认 |
-| 2 | pre-scanner 已生成 file-index.yaml | ⬜ 待确认 |
-| 3 | 所有 13 个 memory 文件已创建且非空 | ⬜ 待确认 |
-| 4 | 依赖项目的 Entity/DTO/Enum/Util 已完整记录 | ⬜ 待确认 |
-| 5 | 编码规范（命名/注解/统一响应/异常处理）已识别 | ⬜ 待确认 |
-| 6 | 跨服务依赖关系和 Feign 调用链已完整记录（多服务模式） | ⬜ 待确认 |
-| 7 | 中间件配置（DB/Redis/Nacos 等）已提取 | ⬜ 待确认 |
-| 8 | 所有 memory 文件 completeness_level ≥ B | ⬜ 待确认 |
+| 0 | **执行者审计**：本阶段由 pre-scanner + 文件级子代理执行，主 Agent 未直接编辑任何文件 | ⬜ 待确认 |
+| 1 | 项目类型和架构已正确识别（前后端域检测正确） | ⬜ 待确认 |
+| 2 | pre-scanner 已生成 project-domains.yaml + 分域 file-index.yaml | ⬜ 待确认 |
+| 3 | 根目录 6 个全局 memory 文件已创建且非空 | ⬜ 待确认 |
+| 4 | **后端域存在时**：backend/ 目录 9 个文件已创建且非空 | ⬜ 待确认 |
+| 5 | **前端域存在时**：frontend/ 目录 9 个文件已创建且非空 | ⬜ 待确认 |
+| 6 | 依赖项目的 Entity/DTO/Enum/Util 已完整记录 | ⬜ 待确认 |
+| 7 | 编码规范（命名/注解/统一响应/异常处理）已识别 | ⬜ 待确认 |
+| 8 | 跨服务依赖关系和 Feign 调用链已完整记录（多服务模式） | ⬜ 待确认 |
+| 9 | 中间件配置（DB/Redis/Nacos 等）已提取 | ⬜ 待确认 |
+| 10 | 所有 memory 文件 completeness_level = A（全量读取） | ⬜ 待确认 |
 
 **用户操作**：确认无误 → 回复 "确认" 进入 Analyze 阶段；需要重新扫描 → 指出遗漏项
 

@@ -18,7 +18,7 @@ type: stage-instruction
 ▶ Develop（开发执行）
 ════════════════════════════════════
 目标：按设计方案和任务拆分编写完整代码
-输出：代码文件 + develop-result.yaml
+**输出**：代码文件 + develop-result.yaml + task-result.yaml
 模式：L0 / L1 / L2 / L3（前后端域路由）
 预计：10-60 分钟（取决于规模）
 ════════════════════════════════════
@@ -401,6 +401,91 @@ console.log(`Round ${result.round}: context ${result.contextSize}KB / ${result.c
 2. **记录失败信息**：`develop-result.yaml` 中标记 `compilation_status: failed`
 3. **通知 Orchestrator**：通过 `task-result.yaml` 报告失败原因
 4. **不要静默跳过**：禁止跳过编译错误继续开发
+
+---
+
+### 🔴 结构化输出文件定义
+
+**develop-result.yaml**：
+- **写入路径**：`.dev-flow/contracts/{需求简称}/develop-result.yaml`
+- **生成者**：每个 develop-expert subagent（backend-develop-expert / frontend-develop-expert）
+- **使用者**：Develop 阶段 Orchestrator、Test 阶段、Fix 阶段
+- **内容**：
+  ```yaml
+  meta:
+    task_id: "Task-1"
+    agent: "backend-develop-expert"
+    status: "completed"  # completed / partial / failed
+    timestamp: "2026-06-12T10:00:00"
+  
+  files_generated:
+    - path: "src/main/java/com/xxx/entity/User.java"
+      status: "success"
+      completeness: "100%"
+    - path: "src/main/java/com/xxx/mapper/UserMapper.java"
+      status: "success"
+      completeness: "100%"
+  
+  compilation:
+    status: "success"  # success / failed / skipped
+    errors: []
+    warnings: []
+  
+  tests:
+    status: "passed"  # passed / failed / skipped
+    coverage: "85%"
+  
+  dependencies_provided:
+    - interface: "UserMapper.selectById"
+      file: "src/main/java/com/xxx/mapper/UserMapper.java"
+  
+  issues:
+    - type: "warning"
+      message: "某方法复杂度较高，建议重构"
+      severity: "low"
+  ```
+
+**task-result.yaml**：
+- **写入路径**：`.dev-flow/contracts/{需求简称}/task-result.yaml`
+- **生成者**：Develop 阶段 Orchestrator（汇总所有 develop-result.yaml）
+- **使用者**：Test 阶段、Fix 阶段、Delivery 阶段
+- **内容**：
+  ```yaml
+  meta:
+    version: "1.0"
+    generated_by: "orchestrator"
+    timestamp: "2026-06-12T10:00:00"
+    requirement_id: "{需求简称}"
+  
+  summary:
+    total_tasks: 8
+    completed: 7
+    partial: 0
+    failed: 1
+    compilation_status: "partial"  # success / partial / failed
+  
+  tasks:
+    - task_id: "Task-1"
+      status: "completed"
+      agent: "backend-develop-expert"
+      files_count: 3
+      issues: []
+    - task_id: "Task-8"
+      status: "failed"
+      agent: "frontend-develop-expert"
+      files_count: 0
+      issues:
+        - type: "error"
+          message: "编译失败：缺少依赖包"
+          severity: "high"
+  
+  # 全局依赖传递验证
+  dependency_verification:
+    - interface: "UserMapper.selectById"
+      provider: "Task-2"
+      consumers: ["Task-3", "Task-4"]
+      status: "verified"
+  ```
 
 ---
 

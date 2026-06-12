@@ -194,6 +194,101 @@ fixes:
 - 如果所有测试通过：流程结束，向用户展示总结
 - 如果仍有失败用例：回到 Fix 阶段继续修复（最多循环 3 次，超过则提示用户人工介入）
 
+---
+
+**Step 5: 写入结构化修复契约（供后续阶段使用）**
+
+> **目的**：生成机器可读的结构化修复记录，供 Test 阶段验证和 Delivery 阶段审计。
+
+**写入路径**：`.dev-flow/contracts/{需求简称}/fix-contract.yaml`
+
+```yaml
+# fix-contract.yaml — Bug 修复契约
+# 路径: .dev-flow/contracts/{需求简称}/fix-contract.yaml
+# 生成者: fix-expert subagent
+# 使用者: Test 阶段（验证修复）、Delivery 阶段（审计）
+
+meta:
+  version: "1.0"
+  generated_by: "fix-expert"
+  timestamp: "2026-06-12T10:00:00"
+  requirement_id: "{需求简称}"
+  fix_round: 1  # 第几轮修复
+
+summary:
+  total_bugs: 5
+  fixed: 4
+  remaining: 1
+  compilation_status: "success"  # success / failed
+  test_status: "partial"  # passed / partial / failed
+
+bugs:
+  - id: "BUG-001"
+    category: "编译错误"
+    severity: "high"
+    description: "缺少 import 语句"
+    root_cause: "Entity 字段类型变更后未更新 DTO"
+    affected_files:
+      - "src/main/java/com/xxx/dto/UserDTO.java"
+    fix:
+      type: "代码修改"
+      changes:
+        - file: "src/main/java/com/xxx/dto/UserDTO.java"
+          action: "add"
+          content: "import com.xxx.enums.UserStatus;"
+      verification: "编译通过"
+    status: "fixed"
+
+  - id: "BUG-002"
+    category: "运行时错误"
+    severity: "medium"
+    description: "NullPointerException in UserService"
+    root_cause: "未检查空值"
+    affected_files:
+      - "src/main/java/com/xxx/service/impl/UserServiceImpl.java"
+    fix:
+      type: "代码修改"
+      changes:
+        - file: "src/main/java/com/xxx/service/impl/UserServiceImpl.java"
+          action: "modify"
+          content: "添加空值检查逻辑"
+      verification: "单元测试通过"
+    status: "fixed"
+
+  - id: "BUG-003"
+    category: "逻辑错误"
+    severity: "low"
+    description: "分页参数计算错误"
+    root_cause: "pageNum 和 pageSize 未校验"
+    affected_files:
+      - "src/main/java/com/xxx/service/impl/UserServiceImpl.java"
+    fix:
+      type: "代码修改"
+      changes:
+        - file: "src/main/java/com/xxx/service/impl/UserServiceImpl.java"
+          action: "modify"
+          content: "添加分页参数校验"
+      verification: "待验证"
+    status: "pending"  # fixed / pending / wontfix
+
+# 修复影响分析
+impact_analysis:
+  modified_files:
+    - "src/main/java/com/xxx/dto/UserDTO.java"
+    - "src/main/java/com/xxx/service/impl/UserServiceImpl.java"
+  new_files: []
+  deleted_files: []
+  regression_risk: "low"  # low / medium / high
+
+# 与 mistakes.md 的联动
+knowledge_update:
+  - pattern: "DTO 字段类型变更后需同步更新 import"
+    added_to_mistakes: true
+    mistakes_file: ".dev-flow/memory/mistakes.md"
+```
+
+---
+
 **🔴 生成阶段交付物（v3.1 新增）**
 
 > **目的**：生成独立的阶段交付物文档，供主 Agent 打开给用户审阅。

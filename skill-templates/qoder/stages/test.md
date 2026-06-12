@@ -26,7 +26,7 @@ type: stage-instruction
 > **⚠️ 最高优先级**：主 Agent 在本阶段的唯一角色是**调度器**。
 > **主 Agent 绝对禁止直接使用 Edit/Write 工具编辑本阶段的任何产出文件。**
 > **所有文件编辑必须由 test-expert subagent 执行。**
-> **完整零编辑铁律、失败硬阻断规则、交付物协议见 `.qoder/references/protocol.md`。**
+> **完整零编辑铁律、失败硬阻断规则、交付物协议见 `references/protocol.md`。**
 
 ### 执行步骤
 
@@ -259,534 +259,112 @@ Step 4.0.4: 输出集成验证报告
 
 ## 4. 不一致项清单
 | # | 类型 | 描述 | 影响范围 | 修复建议 |
-|---|------|------|---------|---------|
-```
-
-**如果集成验证失败**：
-1. 不进入 E2E 测试
-2. 自动进入 Fix 阶段修复集成问题
-3. 修复后重新执行集成验证，通过后再执行 E2E
+|---
 
 ---
 
-**Step 4.1: 识别端到端测试场景**
+**verification-trace-report.yaml 结构**：
 
-> **🔴 基于需求验收标准生成测试场景**：读取 `.dev-flow/contracts/{需求简称}/prd-contract.yaml`，
-> 将 `requirements` 章节中每个 `test_level: "e2e"` 的验收标准（acceptance 项）自动转化为 E2E 测试用例。
-> 同时补充标准测试场景模板，确保覆盖完整。
+```yaml
+# verification-trace-report.yaml — 验证追溯报告
+# 路径: .dev-flow/evidence/{需求简称}/verification-trace-report.yaml
+# 生成者: test-expert subagent
+# 使用者: Delivery 阶段（审计）、Fix 阶段（定位失败）
 
-- 从需求分析文档中提取核心业务场景
-- 识别每个场景的完整调用链路（Controller → Service → Mapper/Feign → DB/外部服务）
-- 确定测试优先级（核心流程 > 边界场景 > 异常场景）
+meta:
+  version: "1.0"
+  generated_by: "test-expert"
+  timestamp: "2026-06-12T10:00:00"
+  requirement_id: "{需求简称}"
 
-**场景识别规则**：
+test_summary:
+  total_test_cases: 20
+  passed: 18
+  failed: 2
+  skipped: 0
+  pass_rate: "90%"
 
-| 场景类型 | 覆盖范围 | 示例 |
-|---------|---------|------|
-| **正向流程** | 完整 happy path | 创建订单 → 查询订单 → 更新状态 |
-| **业务分支** | 条件分支覆盖 | 创建时库存不足 → 触发库存预占失败 |
-| **异常处理** | 错误路径覆盖 | 重复创建 → 返回 409 Conflict |
-| **跨服务链路** | 多服务调用链 | 下单 → 库存扣减 → 消息通知 |
-| **数据一致性** | 读写一致性检查 | 写入后立即读取验证数据正确 |
+# 按需求追溯
+requirements:
+  - req_id: "REQ-001"
+    description: "用户登录功能"
+    test_cases:
+      - tc_id: "TC-001"
+        type: "api"
+        status: "passed"
+        evidence: "screenshots/login_success.png"
+      - tc_id: "TC-002"
+        type: "ui"
+        status: "passed"
+        evidence: "screenshots/login_ui.png"
+    coverage:
+      api: true
+      ui: true
+      db: true
+    status: "verified"
 
-**🔴 标准测试场景模板（根据需求类型自动应用）**：
+  - req_id: "REQ-002"
+    description: "订单创建功能"
+    test_cases:
+      - tc_id: "TC-003"
+        type: "api"
+        status: "failed"
+        error: "返回 500 错误"
+        evidence: "logs/order_create_error.log"
+    coverage:
+      api: true
+      ui: false
+      db: true
+    status: "tested_with_failures"
 
-| 需求类型 | 必须覆盖的 E2E 测试场景 |
-|---------|----------------------|
-| **CRUD 操作** | 创建→查询验证→更新→查询验证→删除→查询404 |
-| **CRUD 操作** | 重复创建→409、参数校验→400、不存在的ID查询→404 |
-| **列表查询** | 空列表→200、单条数据→正确分页、超过pageSize→总数正确 |
-| **列表查询** | 排序正确性、筛选条件组合、分页边界（第一页/最后一页） |
-| **状态变更** | 正常状态流转→成功、非法状态跳转→409/400、终态操作→409 |
-| **权限控制** | 无权限→403、有权限→200、过期Token→401 |
-| **文件上传** | 正常上传→200、空文件→400、超大文件→413、错误格式→415 |
-| **跨服务调用** | 目标服务正常→成功、目标服务超时→降级、目标服务不可用→fallback |
-| **并发操作** | 并发创建同一资源→唯一约束触发、并发更新→乐观锁生效 |
+# 测试类型汇总
+test_types:
+  unit:
+    total: 10
+    passed: 10
+    failed: 0
+    coverage: "92%"
+  smoke:
+    total: 3
+    passed: 3
+    failed: 0
+  e2e_api:
+    total: 4
+    passed: 3
+    failed: 1
+  e2e_ui:
+    total: 2
+    passed: 1
+    failed: 1
+  integration:
+    total: 1
+    passed: 1
+    failed: 0
 
-> **使用规则**：根据需求类型选择对应的模板行，确保每个需求至少覆盖该类型的所有必测场景。
-> 如果验收标准中已定义了同类型场景，则使用验收标准的描述（更精确）。
+# 失败用例详情
+failures:
+  - tc_id: "TC-003"
+    req_id: "REQ-002"
+    type: "api"
+    description: "订单创建失败"
+    error_message: "NullPointerException in OrderService.create"
+    stack_trace: "..."
+    affected_files:
+      - "src/main/java/com/xxx/service/impl/OrderServiceImpl.java"
+    status: "open"  # open / fixed / wontfix
 
-**Step 4.2: 生成自动化测试脚本**
-
-> **🔴 必须生成可执行的自动化测试脚本，禁止仅输出 curl 命令列表。**
-
-**后端项目（Java Spring Boot）**：
-
-```java
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-@AutoConfigureMockMvc
-@Transactional
-public class XxxE2ETest {
-
-    @Autowired
-    private MockMvc mockMvc;
-
-    @Autowired
-    private XxxMapper xxxMapper;
-
-    @Autowired
-    private ObjectMapper objectMapper;
-
-    /**
-     * 场景 1：完整创建 → 查询 → 更新 → 删除流程
-     */
-    @Test
-    @Order(1)
-    void testFullLifecycle() throws Exception {
-        // 1. 创建
-        String createRequest = """
-            {
-                "name": "测试数据",
-                "type": "NORMAL"
-            }
-            """;
-        MvcResult createResult = mockMvc.perform(post("/api/xxx")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(createRequest))
-            .andExpect(status().isOk())
-            .andExpect(jsonPath("$.code").value(0))
-            .andExpect(jsonPath("$.data.id").isNumber())
-            .andReturn();
-
-        Long id = JsonPath.read(createResult.getResponse().getContentAsString(), "$.data.id");
-
-        // 2. 查询验证
-        mockMvc.perform(get("/api/xxx/" + id))
-            .andExpect(status().isOk())
-            .andExpect(jsonPath("$.data.name").value("测试数据"))
-            .andExpect(jsonPath("$.data.type").value("NORMAL"));
-
-        // 3. 更新
-        String updateRequest = """
-            {
-                "id": %d,
-                "name": "更新后数据"
-            }
-            """.formatted(id);
-        mockMvc.perform(put("/api/xxx")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(updateRequest))
-            .andExpect(status().isOk());
-
-        // 4. 查询验证更新
-        mockMvc.perform(get("/api/xxx/" + id))
-            .andExpect(status().isOk())
-            .andExpect(jsonPath("$.data.name").value("更新后数据"));
-
-        // 5. 删除
-        mockMvc.perform(delete("/api/xxx/" + id))
-            .andExpect(status().isOk());
-
-        // 6. 验证删除
-        mockMvc.perform(get("/api/xxx/" + id))
-            .andExpect(status().isNotFound());
-    }
-
-    /**
-     * 场景 2：异常路径 - 重复创建
-     */
-    @Test
-    @Order(2)
-    void testDuplicateCreate() throws Exception {
-        // 创建第一个
-        // ...（同上）
-        // 重复创建
-        mockMvc.perform(post("/api/xxx")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(createRequest))
-            .andExpect(status().isConflict());
-    }
-
-    /**
-     * 场景 3：参数校验
-     */
-    @Test
-    @Order(3)
-    void testValidation() throws Exception {
-        String invalidRequest = """
-            {
-                "name": "",
-                "type": "INVALID"
-            }
-            """;
-        mockMvc.perform(post("/api/xxx")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(invalidRequest))
-            .andExpect(status().isBadRequest());
-    }
-}
+# 证据文件索引
+evidence:
+  screenshots:
+    - path: "evidence/{需求简称}/screenshots/login_success.png"
+      tc_id: "TC-001"
+      description: "登录成功页面"
+  logs:
+    - path: "evidence/{需求简称}/logs/order_create_error.log"
+      tc_id: "TC-003"
+      description: "订单创建错误日志"
+  db_asserts:
+    - path: "evidence/{需求简称}/db_asserts/user_created.sql"
+      tc_id: "TC-001"
+      description: "用户创建 DB 断言"
 ```
-
-**前端项目（TypeScript + Playwright）**：
-
-```typescript
-import { test, expect } from '@playwright/test';
-
-test.describe('用户管理 E2E 测试', () => {
-  test.beforeEach(async ({ page }) => {
-    await page.goto('/login');
-    await page.fill('[name="username"]', 'admin');
-    await page.fill('[name="password"]', 'admin123');
-    await page.click('button[type="submit"]');
-    await expect(page).toHaveURL('/dashboard');
-  });
-
-  test('完整创建用户流程', async ({ page }) => {
-    await page.goto('/users');
-    await page.click('text=新增用户');
-
-    // 填写表单
-    await page.fill('[name="username"]', 'testuser');
-    await page.fill('[name="email"]', 'test@example.com');
-    await page.selectOption('[name="role"]', 'editor');
-    await page.click('text=提交');
-
-    // 验证创建成功
-    await expect(page.locator('.success-message')).toBeVisible();
-    await expect(page.locator('table tbody tr')).toContainText('testuser');
-  });
-
-  test('用户列表搜索和筛选', async ({ page }) => {
-    await page.goto('/users');
-    await page.fill('[placeholder="搜索用户名"]', 'admin');
-    await page.click('text=搜索');
-    await expect(page.locator('table tbody tr')).toContainText('admin');
-  });
-});
-```
-
-**测试脚本放置规则**：
-
-| 项目类型 | 测试文件路径 |
-|---------|------------|
-| Java Spring Boot | `src/test/java/.../e2e/XxxE2ETest.java` |
-| 前端 React/Vue | `e2e/xxx.spec.ts`（Playwright） |
-| Node.js | `tests/e2e/xxx.test.ts` |
-
-**Step 4.3: 准备测试数据**
-
-每个 E2E 测试场景需要：
-
-```markdown
-### 测试数据准备
-
-| 数据项 | 准备方式 | 清理方式 |
-|--------|---------|---------|
-| 测试用户 | INSERT 预置数据 / 注册 API | DELETE 或 @Transactional 回滚 |
-| 测试配置 | 临时配置文件 | 恢复原配置 |
-| Mock 外部服务 | MockServer / WireMock | 关闭 Mock |
-| 测试队列 | 内存队列 / 测试 Profile | 清空队列 |
-```
-
-**数据准备原则**：
-- 每个测试独立准备数据，不依赖其他测试的副作用
-- 使用 `@Transactional` 或 `afterEach` 自动清理
-- 外部服务使用 Mock，确保测试可重复执行
-- 测试数据与生产数据隔离（使用测试数据库）
-
-**Step 4.4: 执行测试并收集结果**
-
-**执行命令**：
-
-| 项目类型 | 执行命令 |
-|---------|---------|
-| Java | `mvn test -Dtest=XxxE2ETest -pl {module}` |
-| 前端 | `npx playwright test e2e/xxx.spec.ts` |
-| Node.js | `npx jest tests/e2e/xxx.test.ts` |
-
-**Step 4.4.1: 服务编排启动（新增）**
-
-> **目的**：按 runtime-contract.yaml 自动启动所有服务，为 E2E 测试提供运行时环境。
-> **详细协议见 `.qoder/references/runtime-protocol.md`。**
-
-**执行流程**：
-
-```
-1. 创建 service-orchestrator subagent
-2. 读取 runtime-contract.yaml
-3. 按 startup_sequence 启动所有服务：
-   ├── Phase 1: 基础设施检查（MySQL/Redis/Nacos）
-   ├── Phase 2: 后端服务启动（按依赖顺序）
-   └── Phase 3: 前端服务启动
-4. 等待所有服务健康检查通过
-5. 输出 startup-report.yaml
-```
-
-> **⚠️ 降级兼容**：如果 runtime-contract.yaml 不存在，跳过本步骤，假设服务已手动启动。
-
-**Step 4.4.2: DB 数据核对（新增）**
-
-> **目的**：在 API 调用后，直接核对数据库数据与预期是否一致，验证数据持久化正确性。
-> **详细协议见 `.qoder/references/runtime-protocol.md` — DB 断言章节。**
-
-**核对方式**：
-
-```
-对 test-case-contract.yaml 中每个包含 db_assert 的测试步骤：
-1. API 请求执行完成后
-2. 创建 db-verifier subagent（或内联执行）
-3. 连接数据库，执行 SQL 查询
-4. 比对实际行数与 expected_rows
-5. 比对字段值与 expected_values
-6. 记录断言结果到 db-assertions-report.yaml
-```
-
-**Java E2E 测试中的 DB 核对示例**：
-
-```java
-// 在 E2E 测试方法中增加 DB 核对
-@Autowired
-private UserMapper userMapper;
-
-@Test
-void testCreateUser() throws Exception {
-    // 1. API 调用
-    MvcResult result = mockMvc.perform(post("/api/users")
-            .contentType(MediaType.APPLICATION_JSON)
-            .content("{\"name\":\"张三\"}"))
-        .andExpect(status().isOk())
-        .andReturn();
-
-    Long id = JsonPath.read(result.getResponse().getContentAsString(), "$.data.id");
-
-    // 2. DB 数据核对（新增）
-    User dbUser = userMapper.selectById(id);
-    assertNotNull(dbUser, "数据库中应存在该用户");
-    assertEquals("张三", dbUser.getName(), "数据库中用户名应正确");
-}
-```
-
-> **⚠️ 降级兼容**：如果 test-case-contract.yaml 不存在或无 db_assert 定义，跳过 DB 核对，行为与 v3.4.0 一致。
-
----
-
-### Step 5: 集成测试（Integration Test）
-
-**目的**：验证多模块/多服务联调，验证接口契约，验证数据一致性。
-
-**5.1: 识别集成点**
-- 读取 `.dev-flow/memory/dependency-graph.md`
-- 识别当前服务调用的其他服务（Feign Client）
-- 识别被其他服务调用的接口（Controller）
-
-**5.2: 准备测试环境**
-- 启动所有相关服务（或使用 Mock）
-- 准备测试数据
-- 配置测试数据库（使用独立数据库或 H2）
-
-**5.3: 执行集成测试**
-
-**跨服务调用测试**：
-```java
-@SpringBootTest
-class XxxIntegrationTest {
-
-    @Autowired
-    private XxxService xxxService;
-
-    @Test
-    void testCrossServiceCall() {
-        // 测试调用 basedata-service 获取产品信息
-        ProductDTO product = xxxService.getProductById(1L);
-        assertNotNull(product);
-    }
-}
-```
-
-**接口契约测试**：
-- 验证 Feign Client 接口与目标服务 Controller 匹配
-- 验证请求/响应 DTO 字段一致
-- 验证错误码处理一致
-
-**数据一致性测试**：
-- 验证跨服务事务（如有）
-- 验证数据同步（如有）
-
----
-
-### Step 5.5: E2E 测试 — UI 层验证（新增）
-
-> **目的**：通过浏览器自动化验证 UI 交互和数据展示正确性，实现前端页面的真实用户操作验证。
-> **详细协议见 `.qoder/references/runtime-protocol.md`。**
-
-**触发条件**：
-- 项目包含前端代码（Vue/React/Angular）
-- test-case-contract.yaml 中存在 type: "ui" 的测试用例
-- 前端服务已启动（startup-report.yaml 中状态为 healthy）
-
-**执行流程**：
-
-```
-Step 5.5.1: 创建 e2e-ui-tester subagent
-  ├── 传递 test-case-contract.yaml 的 ui_steps
-  ├── 传递 design-contract.yaml 的 ui_selectors
-  └── 传递 runtime-contract.yaml 的 frontend 配置
-
-Step 5.5.2: e2e-ui-tester 执行浏览器自动化测试
-  ├── 调用 agent-browser skill
-  ├── 按 ui_steps 逐步执行
-  ├── 每步截图存证
-  ├── 断言页面元素文本/可见性/状态
-  └── 核对 UI 展示数据与 DB 数据一致性
-
-Step 5.5.3: 收集 UI 测试结果
-  ├── 读取 ui-test-report.yaml
-  └── 截图保存到 evidence 目录
-```
-
-**降级处理**（如果 agent-browser 不可用）：
-- 仅生成 Playwright 测试脚本（现有行为）
-- 在测试报告中标注"UI 验证未执行，已生成 Playwright 脚本"
-- 提示用户手动执行 `npx playwright test`
-
-> **⚠️ 降级兼容**：如果项目无前端代码或 test-case-contract.yaml 不存在，跳过本步骤，行为与 v3.4.0 一致。
-
----
-
-### Step 5.6: 验证结果回写与追溯矩阵更新（新增）
-
-> **目的**：将所有测试结果自动回写到 prd-contract.yaml 的追溯矩阵，实现 PRD 状态自动流转，完成闭环。
-> **详细协议见 `.qoder/references/runtime-protocol.md` — 追溯矩阵回写协议章节。**
-
-**执行流程**：
-
-```
-Step 5.6.1: 汇总所有测试结果
-  ├── 单元测试结果（Step 2）
-  ├── 冒烟测试结果（Step 3）
-  ├── API + DB E2E 测试结果（Step 4）
-  ├── UI E2E 测试结果（Step 5.5）
-  └── 集成测试结果（Step 5）
-
-Step 5.6.2: 更新 prd-contract.yaml 的 traceability 章节
-  ├── 对每个 REQ-XXX：
-  │     ├── 收集关联的所有 TC 结果
-  │     ├── 计算覆盖率
-  │     └── 更新 status：
-  │           ├── 所有 TC PASS → status: "verified"
-  │           ├── 部分 TC FAIL → status: "tested_with_failures"
-  │           └── TC 未执行 → status: "tested"
-  └── 写入 verification 详情
-
-Step 5.6.3: 生成验证追溯报告
-  └── 写入 .dev-flow/evidence/{需求简称}/verification-trace-report.yaml
-```
-
-**PRD 状态流转**：
-
-```
-analyzed → designed → developed → tested → verified
-                                           ↘ tested_with_failures
-```
-
-> **⚠️ 降级兼容**：如果 prd-contract.yaml 不存在或无 traceability 章节，跳过回写，行为与 v3.4.0 一致。
-
----
-
-### Step 6: 生成阶段交付物
-
-> **🔴 必须输出正式文档**：将测试结果写入独立文档文件，方便用户追溯。
-
-**交付物路径**：`.dev-flow/deliverables/{需求简称}/06-test-report.md`
-
-**交付物内容**：
-```markdown
-<!-- @generated-by: test-expert subagent | session: {session-id} | stage: test -->
-
-# 统一测试报告：{需求标题}
-
-<!-- last-updated: YYYY-MM-DD HH:mm -->
-<!-- status: tested -->
-
-## 1. 测试概述
-| 项目 | 内容 |
-|------|------|
-| 需求标题 | {标题} |
-| 测试时间 | YYYY-MM-DD HH:mm |
-| 测试框架 | JUnit 5 + Mockito / Vitest / pytest |
-| 测试环境 | 本地开发环境 |
-
-## 2. 单元测试结果
-| 层级 | 测试类 | 测试数 | 通过 | 失败 | 覆盖率 |
-|------|--------|--------|------|------|--------|
-| Controller | XxxControllerTest | X | X | X | X% |
-| Service | XxxServiceTest | X | X | X | X% |
-| Mapper | XxxMapperTest | X | X | X | X% |
-
-## 3. 冒烟测试结果
-| # | 测试场景 | 接口/页面 | 预期结果 | 实际结果 | 状态 |
-|---|----------|----------|----------|----------|------|
-| 1 | 服务启动 | actuator/health | 返回 UP | 返回 UP | ✅ PASS |
-
-## 4. E2E 测试结果
-| # | 测试场景 | 涉及接口/页面 | 预期结果 | 实际结果 | 状态 |
-|---|----------|-------------|----------|----------|------|
-| 1 | 创建→查询→更新→删除 | POST/GET/PUT/DELETE /api/xxx | 完整流程通过 | 完整流程通过 | ✅ PASS |
-
-## 5. 集成测试结果
-| # | 集成点 | 调用方 | 被调用方 | 测试结果 |
-|---|--------|--------|----------|----------|
-| 1 | Feign Client | 服务A | 服务B | ✅/❌ |
-
-## 5.5 DB 数据核对结果（新增）
-| # | 测试用例 | 表 | 条件 | 期望行数 | 实际行数 | 字段比对 | 状态 |
-|---|---------|-----|------|---------|---------|---------|------|
-
-## 5.6 UI 层验证结果（新增）
-| # | 测试用例 | 步骤数 | 通过 | 失败 | 截图数 | 状态 |
-|---|---------|--------|------|------|--------|------|
-
-## 5.7 验证追溯矩阵（新增）
-| REQ-ID | 功能点 | 验收标准覆盖 | API 测试 | UI 测试 | DB 断言 | 综合状态 |
-|--------|--------|------------|---------|---------|---------|---------|
-
-## 6. 全流程测试汇总
-| 测试类型 | 用例数 | 通过 | 失败 | 通过率 |
-|---------|--------|------|------|--------|
-| 单元测试 | X | X | X | X% |
-| 冒烟测试 | X | X | X | X% |
-| E2E 测试 | X | X | X | X% |
-| 集成测试 | X | X | X | X% |
-| **合计** | **X** | **X** | **X** | **X%** |
-
-## 7. 覆盖率评估
-| 维度 | 覆盖率 | 阈值 | 状态 |
-|------|--------|------|------|
-| 行覆盖率 | X% | ≥90% | ✅/❌ |
-| 分支覆盖率 | X% | ≥85% | ✅/❌ |
-| 方法覆盖率 | X% | ≥95% | ✅/❌ |
-
-## 8. 失败用例分析（如有）
-| # | 测试方法 | 所属测试类型 | 失败原因 | 修复状态 |
-|---|----------|------------|----------|----------|
-```
-
-**自检**：
-- 交付物文件已生成且内容非空
-- 包含 `@generated-by: test-expert subagent` 溯源注释
-- 覆盖率和通过率数据完整
-- 失败用例已记录（如有）
-
-**暂停，等待用户确认。如果有失败用例，进入 Fix 阶段。**
-
----
-
-### ✅ 阶段确认清单
-
-| # | 确认项 | 状态 |
-|---|--------|------|
-| 0 | **执行者审计**：本阶段由 test-expert subagent 执行，主 Agent 未直接编辑任何文件 | ⬜ 待确认 |
-| 1 | **单元测试**：所有 Service 层 public 方法都有对应测试（getter/setter 除外），覆盖率达标（行≥90%、分支≥85%、方法≥95%） | ⬜ 待确认 |
-| 2 | **单元测试**：无无效测试（恒真断言/无断言/只测渲染），测试数据使用有意义模拟数据 | ⬜ 待确认 |
-| 3 | **冒烟测试**：服务启动成功，基础设施连接正常，核心 API 端点可访问且返回正确 | ⬜ 待确认 |
-| 4 | **E2E 测试**：所有核心业务场景已覆盖，测试脚本可执行（非 curl 命令列表），正向流程 + 异常路径 + 边界场景均通过 | ⬜ 待确认 |
-| 5 | **集成测试**：所有跨服务接口契约已验证，跨服务数据一致性测试通过 | ⬜ 待确认 |
-| 6 | **测试报告**：统一测试报告已输出，全流程测试结果汇总完整 | ⬜ 待确认 |
-| 7 | **DB 数据核对**：所有 E2E 测试步骤的 db_assert 已执行，数据库数据与预期一致 | ⬜ 待确认 |
-| 8 | **UI 层验证**：所有 UI 测试用例已执行（或已生成 Playwright 脚本），页面交互和数据展示正确 | ⬜ 待确认 |
-| 9 | **追溯矩阵**：prd-contract.yaml 的 traceability 已更新，每个 REQ 的验证状态已回写 | ⬜ 待确认 |
-| 10 | **验证证据**：截图、DB 断言报告、UI 测试报告已保存到 evidence 目录 | ⬜ 待确认 |
-
-> **阶段确认机制和交付物协议详见 `.qoder/references/protocol.md`。**
-
----

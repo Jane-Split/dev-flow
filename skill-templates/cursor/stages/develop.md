@@ -8,7 +8,7 @@ type: stage-instruction
 ### 🔴🔴 主 Agent 零编辑约束（本阶段入口铁律）
 
 > **⚠️ 最高优先级**：主 Agent 是纯调度器，绝对禁止 Edit/Write 代码文件。
-> **所有代码编辑必须由 develop-expert subagent 执行。** 完整规则见 `.cursor/references/protocol.md`。
+> **所有代码编辑必须由 develop-expert subagent 执行。** 完整规则见 `references/protocol.md`。
 
 ---
 
@@ -18,7 +18,7 @@ type: stage-instruction
 ▶ Develop（开发执行）
 ════════════════════════════════════
 目标：按设计方案和任务拆分编写完整代码
-输出：代码文件 + develop-result.yaml
+输出：代码文件 + develop-result.yaml + task-result.yaml
 模式：L0 / L1 / L2 / L3（前后端域路由）
 预计：10-60 分钟（取决于规模）
 ════════════════════════════════════
@@ -48,7 +48,7 @@ type: stage-instruction
 
 > **目的**：在开始编码前，预估目标代码量，决定是否启用"骨架 + 逐方法填充"分段模式。
 > **触发条件**：Subagent 模式下，或预估单个文件输出 > 20KB 时。
-> **详细分段执行规则见 `.cursor/agents/develop-expert.md` — 结构化代码分段生成协议章节。**
+> **详细分段执行规则见 `agents/develop-expert.md` — 结构化代码分段生成协议章节。**
 
 **决策流程**：
 
@@ -99,7 +99,7 @@ type: stage-instruction
 > **⚠️ 本节描述主 Agent 的调度步骤，不是 develop-expert 的执行步骤。**
 
 ```
-Step D1: 读取阶段指令 → Read .cursor/stages/develop.md（本文件）
+Step D1: 读取阶段指令 → Read stages/develop.md（本文件）
 Step D2: 读取任务拆分文档和 DAG
         ├── 读取 .dev-flow/deliverables/{需求简称}/04-task-breakdown.md
         └── 读取 .dev-flow/contracts/{需求简称}/task-dag.yaml
@@ -118,7 +118,7 @@ Step D5: 监控 subagent 执行
         ├── 接收进度汇报
         ├── 处理阻塞问题（协调依赖）
         └── 向用户展示进度看板
-Step D6: 收集所有 develop-result.yaml
+Step D6: 收集所有 develop-result.yaml 和 task-result.yaml
 Step D7: 运行 validate-result.cjs 验证产出
         ├── node scripts/validate-result.cjs --task {taskId}
         └── 如有失败项 → 标记需 Fix 阶段处理
@@ -168,7 +168,7 @@ Step 1.1.1: 检查上下文注入文件是否存在
 ### 代码开发步骤（由 develop-expert subagent 执行）
 
 > **⚠️ 以下所有步骤由 backend-develop-expert 或 frontend-develop-expert subagent 执行，主 Agent 仅负责调度。**
-> **完整执行规范见 `.cursor/agents/backend-develop-expert.md` 和 `.cursor/agents/frontend-develop-expert.md`。**
+> **完整执行规范见 `agents/backend-develop-expert.md` 和 `agents/frontend-develop-expert.md`。**
 
 | 步骤 | 内容 | 关键规则 |
 |------|------|---------|
@@ -430,7 +430,7 @@ console.log(`Round ${result.round}: context ${result.contextSize}KB / ${result.c
 
 ### 代码质量要求
 
-> **完整禁止事项和完整性铁律见 `.cursor/agents/backend-develop-expert.md` 和 `.cursor/agents/frontend-develop-expert.md`。**
+> **完整禁止事项和完整性铁律见 `agents/backend-develop-expert.md` 和 `agents/frontend-develop-expert.md`。**
 > develop-expert 必须确保：无 TODO/FIXME、无空壳占位、无 return null 空实现、每个方法体至少 3 行实质代码。
 
 ---
@@ -515,6 +515,93 @@ Task-9: Controller + Feign    ░░░░░░░░░░░░░░░░�
 总计: 4 个任务, 1 个完成, 2 个进行中, 1 个等待中
 ```
 
+---
+
+### 🔴 结构化输出文件定义
+
+**develop-result.yaml**：
+- **写入路径**：`.dev-flow/contracts/{需求简称}/develop-result.yaml`
+- **生成者**：每个 develop-expert subagent（backend-develop-expert / frontend-develop-expert）
+- **使用者**：Develop 阶段 Orchestrator、Test 阶段、Fix 阶段
+- **内容**：
+  ```yaml
+  meta:
+    task_id: "Task-1"
+    agent: "backend-develop-expert"
+    status: "completed"  # completed / partial / failed
+    timestamp: "2026-06-12T10:00:00"
+  
+  files_generated:
+    - path: "src/main/java/com/xxx/entity/User.java"
+      status: "success"
+      completeness: "100%"
+    - path: "src/main/java/com/xxx/mapper/UserMapper.java"
+      status: "success"
+      completeness: "100%"
+  
+  compilation:
+    status: "success"  # success / failed / skipped
+    errors: []
+    warnings: []
+  
+  tests:
+    status: "passed"  # passed / failed / skipped
+    coverage: "85%"
+  
+  dependencies_provided:
+    - interface: "UserMapper.selectById"
+      file: "src/main/java/com/xxx/mapper/UserMapper.java"
+  
+  issues:
+    - type: "warning"
+      message: "某方法复杂度较高，建议重构"
+      severity: "low"
+  ```
+
+**task-result.yaml**：
+- **写入路径**：`.dev-flow/contracts/{需求简称}/task-result.yaml`
+- **生成者**：Develop 阶段 Orchestrator（汇总所有 develop-result.yaml）
+- **使用者**：Test 阶段、Fix 阶段、Delivery 阶段
+- **内容**：
+  ```yaml
+  meta:
+    version: "1.0"
+    generated_by: "orchestrator"
+    timestamp: "2026-06-12T10:00:00"
+    requirement_id: "{需求简称}"
+  
+  summary:
+    total_tasks: 8
+    completed: 7
+    partial: 0
+    failed: 1
+    compilation_status: "partial"  # success / partial / failed
+  
+  tasks:
+    - task_id: "Task-1"
+      status: "completed"
+      agent: "backend-develop-expert"
+      files_count: 3
+      issues: []
+    - task_id: "Task-8"
+      status: "failed"
+      agent: "frontend-develop-expert"
+      files_count: 0
+      issues:
+        - type: "error"
+          message: "编译失败：缺少依赖包"
+          severity: "high"
+  
+  # 全局依赖传递验证
+  dependency_verification:
+    - interface: "UserMapper.selectById"
+      provider: "Task-2"
+      consumers: ["Task-3", "Task-4"]
+      status: "verified"
+  ```
+
+---
+
 **🔴🔴 Step 5.5: 生成阶段交付物（v3.1 新增，🔴 所有 Develop 任务完成后必须执行）**
 
 > **目的**：生成独立的阶段交付物文档，供主 Agent 打开给用户审阅。
@@ -568,4 +655,4 @@ Task-9: Controller + Feign    ░░░░░░░░░░░░░░░░�
 **暂停，等待用户确认。**
 **用户确认后，系统自动写入 `develop.confirmed` 确认文件。**
 
-> **阶段确认机制和交付物协议详见 `.cursor/references/protocol.md`。**
+> **阶段确认机制和交付物协议详见 `references/protocol.md`。**

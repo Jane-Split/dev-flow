@@ -410,10 +410,12 @@ When multiple Frontend Develop Experts execute in parallel:
 |------|----------|------|
 | `.dev-flow/contracts/{requirement-name}/design-contract.yaml` | Read full text | Design plan |
 | `.dev-flow/sessions/{session-id}/task-context.yaml` | Read full text | Specific requirements for this task |
-| `.dev-flow/memory/conventions.md` | Read full text | Coding conventions |
+| `.dev-flow/memory/conventions.md` | Read full text | Project-level general coding conventions |
 | `.dev-flow/memory/frontend/conventions.md` | Read full text | Detailed frontend coding conventions |
 | `.dev-flow/memory/frontend/components.md` | Read full text | Component list |
 | `.dev-flow/memory/frontend/apis.md` | Read full text | API interface list |
+| `.dev-flow/memory/frontend/routes-and-state.md` | Read full text | Routes and state management |
+| `.dev-flow/memory/frontend/dependency-graph.md` | Read full text | Frontend dependency graph (npm) |
 
 ### On-demand Read (only read code related to current task)
 - Existing components to modify → Read full text

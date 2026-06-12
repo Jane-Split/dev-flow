@@ -447,7 +447,156 @@ Task Split 阶段输出（极端模式）：
   - 如果新 agent 加入，重新平衡负载
 ```
 
-**Step 7: 🔴 生成阶段交付物（v3.1 新增）**
+### Step 6.5: 写入结构化任务文件（供 Develop 阶段使用）
+
+> **🔴 必须输出正式结构化文件**：将任务拆分结果写入 YAML 文件，供 Develop 阶段的 subagent 直接读取使用。
+
+#### 6.5.1: task-breakdown.yaml — 任务分解清单
+
+**写入路径**：`.dev-flow/contracts/{需求简称}/task-breakdown.yaml`
+
+**完整格式模板**：
+```yaml
+# 任务分解清单
+# 生成时间: {timestamp}
+# 需求简称: {需求简称}
+
+meta:
+  version: "1.0"
+  generated_by: "task-split-expert subagent"
+  session_id: "{session-id}"
+  requirement_title: "{需求标题}"
+  requirement_abbreviation: "{需求简称}"
+  created_at: "{YYYY-MM-DD HH:mm}"
+  total_tasks: {N}
+  estimated_complexity: "{low|medium|high}"
+  parallel_groups: {N}
+
+summary:
+  total_subtasks: {总数}
+  completed_subtasks: 0
+  pending_subtasks: {总数}
+  failed_subtasks: 0
+  overall_progress: "0%"
+  current_batch: 1
+  total_batches: {N}
+
+tasks:
+  - id: "task-001"
+    title: "{任务标题}"
+    description: "{详细描述}"
+    priority: "{high|medium|low}"
+    complexity: "{low|medium|high}"
+    estimated_files: {N}
+    dependencies: []  # 无依赖的任务先执行
+    batch: 1
+    status: "pending"
+    assignee: null  # Develop 阶段分配
+    output_files:
+      - path: "src/main/java/.../Xxx.java"
+        type: "{entity|dto|mapper|service|controller|config|util}"
+        description: "{文件说明}"
+
+  - id: "task-002"
+    title: "{任务标题}"
+    description: "{详细描述}"
+    priority: "{high|medium|low}"
+    complexity: "{low|medium|high}"
+    estimated_files: {N}
+    dependencies:
+      - "task-001"  # 依赖 task-001 完成后才能开始
+    batch: 2
+    status: "pending"
+    assignee: null
+    output_files:
+      - path: "src/main/java/.../Xxx.java"
+        type: "{entity|dto|mapper|service|controller|config|util}"
+        description: "{文件说明}"
+
+batches:
+  - batch_id: 1
+    tasks: ["task-001", "task-003"]  # 可并行
+    can_parallel: true
+    description: "{批次描述}"
+
+  - batch_id: 2
+    tasks: ["task-002", "task-004"]  # 可并行
+    can_parallel: true
+    depends_on_batches: [1]
+    description: "{批次描述}"
+```
+
+#### 6.5.2: task-dag.yaml — 任务依赖图（DAG）
+
+**写入路径**：`.dev-flow/contracts/{需求简称}/task-dag.yaml`
+
+**完整格式模板**：
+```yaml
+# 任务依赖图 (DAG)
+# 用于 Develop 阶段的智能调度和并行执行控制
+
+meta:
+  version: "1.0"
+  generated_by: "task-split-expert subagent"
+  session_id: "{session-id}"
+  requirement_abbreviation: "{需求简称}"
+  created_at: "{YYYY-MM-DD HH:mm}"
+
+graph:
+  nodes:
+    - id: "task-001"
+      label: "{任务简述}"
+      type: "{foundation|feature|integration|test}"
+      batch: 1
+      estimated_duration_minutes: {N}
+      can_parallel: true
+
+    - id: "task-002"
+      label: "{任务简述}"
+      type: "{foundation|feature|integration|test}"
+      batch: 2
+      estimated_duration_minutes: {N}
+      can_parallel: true
+
+  edges:
+    - from: "task-001"
+      to: "task-002"
+      reason: "{依赖原因说明}"
+
+    - from: "task-001"
+      to: "task-003"
+      reason: "{依赖原因说明}"
+
+execution_plan:
+  max_parallelism: {N}  # 最大并行数（建议 2-4）
+  batches:
+    - batch_number: 1
+      task_ids: ["task-001", "task-003"]
+      execution_mode: "parallel"  # parallel | sequential
+      estimated_total_minutes: {N}
+
+    - batch_number: 2
+      task_ids: ["task-002", "task-004"]
+      execution_mode: "parallel"
+      depends_on: [1]  # 依赖批次 1 完成
+      estimated_total_minutes: {N}
+
+critical_path:
+  - "task-001"
+  - "task-002"
+  - "task-005"
+  estimated_total_minutes: {N}
+
+risk_points:
+  - task_id: "task-002"
+    risk_type: "{dependency|complexity|integration}"
+    description: "{风险描述}"
+    mitigation: "{缓解措施}"
+```
+
+---
+
+### Step 7: 🔴 生成阶段交付物（v3.1 新增）
 
 > **目的**：生成独立的阶段交付物文档，供主 Agent 打开给用户审阅。
 

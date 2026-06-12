@@ -17,7 +17,13 @@ is_background: false
 2. **技术栈识别**：语言、框架、工具版本
 3. **编码规范分析**：命名风格、注解使用、设计模式
 4. **依赖关系映射**：服务间依赖、模块间依赖
-5. **记忆生成**：将研究结果写入 `.dev-flow/memory/`
+5. **前后端分离扫描**：
+   - 执行 pre-scanner 检测项目域（frontend/backend）
+   - 根据 project-domains.yaml 决定启动哪些扫描组
+   - 后端域存在时：调度 9 个后端文件子代理，输出到 `.dev-flow/memory/backend/`
+   - 前端域存在时：调度 9 个前端文件子代理，输出到 `.dev-flow/memory/frontend/`
+   - 全栈项目时：两组并行调度，互不阻塞
+6. **记忆生成**：将研究结果写入 `.dev-flow/memory/`
 
 ## 输入
 
@@ -27,12 +33,35 @@ is_background: false
 
 ## 输出
 
-写入 `.dev-flow/memory/`：
-- `project-overview.md` - 项目概览
-- `service-registry.md` - 服务注册表（多服务模式）
-- `dependency-graph.md` - 依赖图谱
-- `common-modules.md` - 公共模块清单
-- `conventions.md` - 编码规范
+写入 `.dev-flow/memory/`（根目录，全局共享）：
+- `project-overview.md` - 项目总览
+- `conventions.md` - 项目级通用编码规范
+- `patterns.md` - 代码模式
+- `mistakes.md` - 错误记录
+- `preferences.md` - 用户偏好
+- `decisions.md` - 架构决策
+
+写入 `.dev-flow/memory/backend/`（后端域存在时）：
+- `backend/service-registry.md` - 服务注册表
+- `backend/dependency-graph.md` - 后端依赖图谱
+- `backend/common-modules.md` - 公共模块清单
+- `backend/architecture.md` - 后端架构
+- `backend/models.md` - 数据模型
+- `backend/apis.md` - API 列表
+- `backend/utils.md` - 工具类
+- `backend/config.md` - 配置信息
+- `backend/conventions.md` - 后端编码规范详细版
+
+写入 `.dev-flow/memory/frontend/`（前端域存在时）：
+- `frontend/overview.md` - 前端概览
+- `frontend/structure.md` - 目录结构
+- `frontend/architecture.md` - 前端架构
+- `frontend/components.md` - 组件清单
+- `frontend/routes-and-state.md` - 路由和状态
+- `frontend/config.md` - 前端配置
+- `frontend/apis.md` - API 封装
+- `frontend/utils.md` - 工具函数
+- `frontend/conventions.md` - 前端编码规范详细版
 
 ## 工作流
 
@@ -107,19 +136,17 @@ is_background: false
 ### 按需扫描（根据项目类型选择）
 
 **Java 项目**：
-- `Glob "**/*.java"` 获取文件列表，但只 Read 每类 3-5 个样本：
-  - Entity: `Glob "**/entity/*.java"` 或 `Glob "**/domain/*.java"` → Read 3 个
-  - Service: `Glob "**/service/*.java"` → Read 3 个
-  - Controller: `Glob "**/controller/*.java"` → Read 3 个
-  - Mapper: `Glob "**/mapper/*.java"` → Read 2 个
-  - Config: `Glob "**/config/*.java"` → Read 2 个
+- `Glob "**/*.java"` 获取文件列表
+- 读取 `_index/backend-file-index.yaml` 定位目标文件路径
+- **全量读取**所有 Entity、Service、Controller、Mapper、Config 文件
 - `Grep "@FeignClient"` 全局搜索跨服务调用
 
 **前端项目**：
 - `Glob "src/**/*.{ts,tsx,vue}"` 获取文件列表
+- 读取 `_index/frontend-file-index.yaml` 定位目标文件路径
+- **全量读取**所有组件、页面、Store、API 封装、工具函数文件
 - Read `package.json` 的 dependencies
 - Read 路由配置文件
-- Read API 请求封装文件
 
 ### 不读取的文件
 - `node_modules/`、`target/`、`.git/`、`dist/`、`build/`
@@ -129,7 +156,7 @@ is_background: false
 
 ### 上下文控制
 - 每个文件只 Read 一次，结果写入 memory/ 后不再重复读取
-- Glob 获取列表后，只 Read 样本文件，不读取全部
+- **全量读取，禁止采样**
 - 扫描结果立即写入 `.dev-flow/memory/`，不在上下文中保留原始内容
 
 ## 输出格式

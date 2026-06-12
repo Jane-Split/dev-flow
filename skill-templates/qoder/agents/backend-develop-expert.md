@@ -472,9 +472,13 @@ test_status: passed|failed|not_tested
 |------|----------|------|
 | `.dev-flow/sessions/{session-id}/design-result.md` | Read 全文 | 详细设计方案 |
 | `.dev-flow/sessions/{session-id}/task-context.yaml` | Read 全文 | 本任务的具体要求 |
-| `.dev-flow/memory/conventions.md` | Read 全文 | 编码规范 |
+| `.dev-flow/memory/conventions.md` | Read 全文 | 项目级通用编码规范 |
 | `.dev-flow/memory/backend/conventions.md` | Read 全文 | 后端编码规范详细版 |
 | `.dev-flow/memory/backend/apis.md` | Read 全文 | 后端 API 接口清单 |
+| `.dev-flow/memory/backend/service-registry.md` | Read 全文 | 服务注册表（微服务元信息） |
+| `.dev-flow/memory/backend/common-modules.md` | Read 全文 | 公共模块清单（复用优先） |
+| `.dev-flow/memory/backend/dependency-graph.md` | Read 全文 | 后端依赖图谱（Maven/Feign） |
+| `.dev-flow/memory/backend/models.md` | Read 全文 | 数据模型（Entity/DTO） |
 
 ### 按需读取（仅读取当前任务相关的代码）
 - 要修改的已有文件 → Read 全文

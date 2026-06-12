@@ -412,10 +412,12 @@ test_status: passed|failed|not_tested
 |------|----------|------|
 | `.dev-flow/contracts/{需求简称}/design-contract.yaml` | Read 全文 | 设计方案 |
 | `.dev-flow/sessions/{session-id}/task-context.yaml` | Read 全文 | 本任务的具体要求 |
-| `.dev-flow/memory/conventions.md` | Read 全文 | 编码规范 |
+| `.dev-flow/memory/conventions.md` | Read 全文 | 项目级通用编码规范 |
 | `.dev-flow/memory/frontend/conventions.md` | Read 全文 | 前端编码规范详细版 |
 | `.dev-flow/memory/frontend/components.md` | Read 全文 | 组件清单 |
 | `.dev-flow/memory/frontend/apis.md` | Read 全文 | API 接口清单 |
+| `.dev-flow/memory/frontend/routes-and-state.md` | Read 全文 | 路由和状态管理 |
+| `.dev-flow/memory/frontend/dependency-graph.md` | Read 全文 | 前端依赖图谱（npm） |
 
 ### 按需读取（仅读取当前任务相关的代码）
 - 要修改的已有组件 → Read 全文

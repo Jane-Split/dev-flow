@@ -26,7 +26,7 @@ type: stage-instruction
 > **⚠️ 最高优先级**：主 Agent 在本阶段的唯一角色是**调度器**。
 > **主 Agent 绝对禁止直接使用 Edit/Write 工具编辑本阶段的任何产出文件。**
 > **所有文件编辑必须由 test-expert subagent 执行。**
-> **完整零编辑铁律、失败硬阻断规则、交付物协议见 `.cursor/references/protocol.md`。**
+> **完整零编辑铁律、失败硬阻断规则、交付物协议见 `references/protocol.md`。**
 
 ### 执行步骤
 
@@ -110,7 +110,7 @@ type: stage-instruction
 - API 测试：正常流程、参数验证、错误处理、权限检查
 - 工具函数测试：正常输入、边界值、异常输入
 
-**测试覆盖度要求（所有项目）**：
+**测试覆盖度要求（所有项目）：**
 
 **强制覆盖矩阵**：
 
@@ -497,7 +497,7 @@ test.describe('用户管理 E2E 测试', () => {
 **Step 4.4.1: 服务编排启动（新增）**
 
 > **目的**：按 runtime-contract.yaml 自动启动所有服务，为 E2E 测试提供运行时环境。
-> **详细协议见 `.cursor/references/runtime-protocol.md`。**
+> **详细协议见 `references/runtime-protocol.md`。**
 
 **执行流程**：
 
@@ -517,7 +517,7 @@ test.describe('用户管理 E2E 测试', () => {
 **Step 4.4.2: DB 数据核对（新增）**
 
 > **目的**：在 API 调用后，直接核对数据库数据与预期是否一致，验证数据持久化正确性。
-> **详细协议见 `.cursor/references/runtime-protocol.md` — DB 断言章节。**
+> **详细协议见 `references/runtime-protocol.md` — DB 断言章节。**
 
 **核对方式**：
 
@@ -607,7 +607,7 @@ class XxxIntegrationTest {
 ### Step 5.5: E2E 测试 — UI 层验证（新增）
 
 > **目的**：通过浏览器自动化验证 UI 交互和数据展示正确性，实现前端页面的真实用户操作验证。
-> **详细协议见 `.cursor/references/runtime-protocol.md`。**
+> **详细协议见 `references/runtime-protocol.md`。**
 
 **触发条件**：
 - 项目包含前端代码（Vue/React/Angular）
@@ -646,7 +646,7 @@ Step 5.5.3: 收集 UI 测试结果
 ### Step 5.6: 验证结果回写与追溯矩阵更新（新增）
 
 > **目的**：将所有测试结果自动回写到 prd-contract.yaml 的追溯矩阵，实现 PRD 状态自动流转，完成闭环。
-> **详细协议见 `.cursor/references/runtime-protocol.md` — 追溯矩阵回写协议章节。**
+> **详细协议见 `references/runtime-protocol.md` — 追溯矩阵回写协议章节。**
 
 **执行流程**：
 
@@ -670,6 +670,111 @@ Step 5.6.2: 更新 prd-contract.yaml 的 traceability 章节
 
 Step 5.6.3: 生成验证追溯报告
   └── 写入 .dev-flow/evidence/{需求简称}/verification-trace-report.yaml
+
+**verification-trace-report.yaml 结构**：
+
+```yaml
+# verification-trace-report.yaml — 验证追溯报告
+# 路径: .dev-flow/evidence/{需求简称}/verification-trace-report.yaml
+# 生成者: test-expert subagent
+# 使用者: Delivery 阶段（审计）、Fix 阶段（定位失败）
+
+meta:
+  version: "1.0"
+  generated_by: "test-expert"
+  timestamp: "2026-06-12T10:00:00"
+  requirement_id: "{需求简称}"
+
+test_summary:
+  total_test_cases: 20
+  passed: 18
+  failed: 2
+  skipped: 0
+  pass_rate: "90%"
+
+# 按需求追溯
+requirements:
+  - req_id: "REQ-001"
+    description: "用户登录功能"
+    test_cases:
+      - tc_id: "TC-001"
+        type: "api"
+        status: "passed"
+        evidence: "screenshots/login_success.png"
+      - tc_id: "TC-002"
+        type: "ui"
+        status: "passed"
+        evidence: "screenshots/login_ui.png"
+    coverage:
+      api: true
+      ui: true
+      db: true
+    status: "verified"
+
+  - req_id: "REQ-002"
+    description: "订单创建功能"
+    test_cases:
+      - tc_id: "TC-003"
+        type: "api"
+        status: "failed"
+        error: "返回 500 错误"
+        evidence: "logs/order_create_error.log"
+    coverage:
+      api: true
+      ui: false
+      db: true
+    status: "tested_with_failures"
+
+# 测试类型汇总
+test_types:
+  unit:
+    total: 10
+    passed: 10
+    failed: 0
+    coverage: "92%"
+  smoke:
+    total: 3
+    passed: 3
+    failed: 0
+  e2e_api:
+    total: 4
+    passed: 3
+    failed: 1
+  e2e_ui:
+    total: 2
+    passed: 1
+    failed: 1
+  integration:
+    total: 1
+    passed: 1
+    failed: 0
+
+# 失败用例详情
+failures:
+  - tc_id: "TC-003"
+    req_id: "REQ-002"
+    type: "api"
+    description: "订单创建失败"
+    error_message: "NullPointerException in OrderService.create"
+    stack_trace: "..."
+    affected_files:
+      - "src/main/java/com/xxx/service/impl/OrderServiceImpl.java"
+    status: "open"  # open / fixed / wontfix
+
+# 证据文件索引
+evidence:
+  screenshots:
+    - path: "evidence/{需求简称}/screenshots/login_success.png"
+      tc_id: "TC-001"
+      description: "登录成功页面"
+  logs:
+    - path: "evidence/{需求简称}/logs/order_create_error.log"
+      tc_id: "TC-003"
+      description: "订单创建错误日志"
+  db_asserts:
+    - path: "evidence/{需求简称}/db_asserts/user_created.sql"
+      tc_id: "TC-001"
+      description: "用户创建 DB 断言"
 ```
 
 **PRD 状态流转**：
@@ -771,6 +876,164 @@ analyzed → designed → developed → tested → verified
 
 ---
 
+### verification-trace-report.yaml 完整结构定义
+
+> **目的**：定义机器可读的验证追溯报告结构，供主 Agent 和后续流程解析。
+
+```yaml
+# .dev-flow/evidence/{需求简称}/verification-trace-report.yaml
+# @generated-by: test-expert subagent | stage: test
+
+project: "{需求简称}"
+generated_at: "YYYY-MM-DD HH:mm"
+report_version: "1.0"
+
+# 测试汇总
+summary:
+  total_test_cases: 25
+  passed: 23
+  failed: 2
+  skipped: 0
+  pass_rate: 0.92
+
+# 各维度测试结果
+results_by_type:
+  unit_test:
+    total: 12
+    passed: 12
+    failed: 0
+    coverage:
+      line: 0.92
+      branch: 0.88
+      method: 0.96
+  smoke_test:
+    total: 3
+    passed: 3
+    failed: 0
+  e2e_test:
+    total: 6
+    passed: 5
+    failed: 1
+  integration_test:
+    total: 4
+    passed: 3
+    failed: 1
+
+# 追溯矩阵：每个 REQ 的验证状态
+traceability:
+  - req_id: "REQ-001"
+    description: "用户注册功能"
+    acceptance_criteria:
+      - ac_id: "AC-001-1"
+        description: "正常注册流程"
+        test_cases:
+          - tc_id: "TC-001"
+            type: "unit"
+            status: "passed"
+          - tc_id: "TC-002"
+            type: "e2e"
+            status: "passed"
+        coverage: 1.0
+        status: "verified"
+      - ac_id: "AC-001-2"
+        description: "重复注册应返回错误"
+        test_cases:
+          - tc_id: "TC-003"
+            type: "unit"
+            status: "passed"
+          - tc_id: "TC-004"
+            type: "e2e"
+            status: "failed"
+            failure_reason: "未返回 409 Conflict，实际返回 200"
+        coverage: 0.5
+        status: "tested_with_failures"
+
+  - req_id: "REQ-002"
+    description: "用户登录功能"
+    acceptance_criteria:
+      - ac_id: "AC-002-1"
+        description: "正常登录流程"
+        test_cases:
+          - tc_id: "TC-005"
+            type: "e2e"
+            status: "passed"
+          - tc_id: "TC-006"
+            type: "integration"
+            status: "passed"
+        coverage: 1.0
+        status: "verified"
+
+# DB 断言结果
+db_assertions:
+  - tc_id: "TC-002"
+    table: "users"
+    condition: "username = 'testuser'"
+    expected_rows: 1
+    actual_rows: 1
+    field_checks:
+      - field: "status"
+        expected: "ACTIVE"
+        actual: "ACTIVE"
+        status: "passed"
+    status: "passed"
+
+# UI 验证结果
+ui_validations:
+  - tc_id: "TC-007"
+    page: "/users"
+    steps:
+      - step: 1
+        action: "click"
+        target: "button:has-text('新增用户')"
+        status: "passed"
+      - step: 2
+        action: "fill"
+        target: "[name='username']"
+        value: "testuser"
+        status: "passed"
+      - step: 3
+        action: "assert"
+        target: ".success-message"
+        expected: "visible"
+        status: "passed"
+    screenshots:
+      - path: "evidence/ui/TC-007-step-3.png"
+        step: 3
+    status: "passed"
+
+# 失败用例详情
+failures:
+  - tc_id: "TC-004"
+    type: "e2e"
+    description: "重复注册应返回 409"
+    expected: "HTTP 409 Conflict"
+    actual: "HTTP 200 OK"
+    root_cause: "UserService.register() 未检查用户名唯一性"
+    linked_bug: "BUG-001"
+    status: "open"
+
+  - tc_id: "TC-008"
+    type: "integration"
+    description: "跨服务调用超时降级"
+    expected: "返回 fallback 数据"
+    actual: "抛出 FeignException"
+    root_cause: "Feign Client 未配置 fallback"
+    linked_bug: "BUG-002"
+    status: "open"
+
+# 整体状态
+overall_status: "tested_with_failures"
+next_action: "进入 Fix 阶段修复失败用例"
+```
+
+**自检**：
+- verification-trace-report.yaml 已生成且内容非空
+- traceability 中每个 REQ 的 coverage 已计算
+- 失败用例已关联到 linked_bug
+- overall_status 准确反映测试结论
+
+---
+
 ### ✅ 阶段确认清单
 
 | # | 确认项 | 状态 |
@@ -787,6 +1050,6 @@ analyzed → designed → developed → tested → verified
 | 9 | **追溯矩阵**：prd-contract.yaml 的 traceability 已更新，每个 REQ 的验证状态已回写 | ⬜ 待确认 |
 | 10 | **验证证据**：截图、DB 断言报告、UI 测试报告已保存到 evidence 目录 | ⬜ 待确认 |
 
-> **阶段确认机制和交付物协议详见 `.cursor/references/protocol.md`。**
+> **阶段确认机制和交付物协议详见 `references/protocol.md`。**
 
 ---

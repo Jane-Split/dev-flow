@@ -11,7 +11,7 @@ type: stage-instruction
 ▶ Task Split（任务拆分）
 ════════════════════════════════════
 目标：将设计方案拆分为可执行任务，建立 DAG 依赖图
-输出：task-breakdown.yaml
+输出：task-breakdown.yaml + task-dag.yaml
 模式：L2 / L3
 预计：3-8 分钟
 ════════════════════════════════════
@@ -26,11 +26,11 @@ type: stage-instruction
 > **⚠️ 最高优先级**：主 Agent 在本阶段的唯一角色是**调度器**。
 > **主 Agent 绝对禁止直接使用 Edit/Write 工具编辑本阶段的任何产出文件。**
 > **所有文件编辑必须由 task-split-expert subagent 执行。**
-> **完整零编辑铁律、失败硬阻断规则、交付物协议见 `.cursor/references/protocol.md`。**
+> **完整零编辑铁律、失败硬阻断规则、交付物协议见 `references/protocol.md`。**
 
 ### 入口前检查：阶段门禁
 
-> **完整门禁检查流程见 `.cursor/references/protocol.md` — 阶段门禁检查章节。**
+> **完整门禁检查流程见 `references/protocol.md` — 阶段门禁检查章节。**
 > **快速检查**：`.dev-flow/stage-confirmations/{需求简称}/design.confirmed` 必须存在。
 
 ### 目的
@@ -176,9 +176,9 @@ Step 2.5.0: 识别跨服务共享文件（🔴 必须先执行）
 
 Step 2.5.1: 声明每个任务的文件操作集合
 
-对每个任务，声明：
-  read_files: [该任务需要读取的文件列表]
-  write_files: [该任务需要创建或修改的文件列表]
+  对每个任务，声明：
+    read_files: [该任务需要读取的文件列表]
+    write_files: [该任务需要创建或修改的文件列表]
 
   🔴 强制声明规则（跨服务共享文件）：
   ├── 如果任务需要修改任何 shared_files 中的文件 → 必须显式列入 write_files
@@ -188,20 +188,20 @@ Step 2.5.1: 声明每个任务的文件操作集合
 
 Step 2.5.2: 构建文件冲突矩阵
 
-对同一批次内所有任务对 (Ti, Tj) 执行冲突检测：
+  对同一批次内所有任务对 (Ti, Tj) 执行冲突检测：
 
-  冲突检测规则：
-  ├── Ti.write ∩ Tj.write ≠ ∅  → 🔴 写写冲突 → 必须串行（Ti 先于 Tj）
-  ├── Ti.write ∩ shared_files 且 Tj.write ∩ shared_files ≠ ∅
-  │     → 🔴 跨服务写写冲突 → 两个任务必须串行，且共享文件归并到一个任务
-  ├── Ti.write ∩ Tj.read ≠ ∅  → 🟡 写读约束 → Ti 先于 Tj
-  ├── Ti.read ∩ Tj.write ≠ ∅  → 🟡 读写约束 → Tj 先于 Ti
-  └── Ti.read ∩ Tj.read ≠ ∅   → 🟢 无冲突   → 可并行
+    冲突检测规则：
+    ├── Ti.write ∩ Tj.write ≠ ∅  → 🔴 写写冲突 → 必须串行（Ti 先于 Tj）
+    ├── Ti.write ∩ shared_files 且 Tj.write ∩ shared_files ≠ ∅
+    │     → 🔴 跨服务写写冲突 → 两个任务必须串行，且共享文件归并到一个任务
+    ├── Ti.write ∩ Tj.read ≠ ∅  → 🟡 写读约束 → Ti 先于 Tj
+    ├── Ti.read ∩ Tj.write ≠ ∅  → 🟡 读写约束 → Tj 先于 Ti
+    └── Ti.read ∩ Tj.read ≠ ∅   → 🟢 无冲突   → 可并行
 
-  🔴 跨服务冲突自动扫描：
-  如果 task-split-expert 声明的 write_files 中未包含 shared_files 中的任何条目，
-  但 design-contract.yaml 中有跨服务引用 → 自动将共享文件追加到相关任务的 write_files，
-  并在冲突报告中标注 "自动补充"。
+    🔴 跨服务冲突自动扫描：
+    如果 task-split-expert 声明的 write_files 中未包含 shared_files 中的任何条目，
+    但 design-contract.yaml 中有跨服务引用 → 自动将共享文件追加到相关任务的 write_files，
+    并在冲突报告中标注 "自动补充"。
 
 Step 2.5.3: 修正 DAG 依赖图
 
@@ -447,6 +447,155 @@ Task Split 阶段输出（极端模式）：
   - 如果新 agent 加入，重新平衡负载
 ```
 
+### Step 6.5: 写入结构化任务文件（供 Develop 阶段使用）
+
+> **🔴 必须输出正式结构化文件**：将任务拆分结果写入 YAML 文件，供 Develop 阶段的 subagent 直接读取使用。
+
+#### 6.5.1: task-breakdown.yaml — 任务分解清单
+
+**写入路径**：`.dev-flow/contracts/{需求简称}/task-breakdown.yaml`
+
+**完整格式模板**：
+```yaml
+# 任务分解清单
+# 生成时间: {timestamp}
+# 需求简称: {需求简称}
+
+meta:
+  version: "1.0"
+  generated_by: "task-split-expert subagent"
+  session_id: "{session-id}"
+  requirement_title: "{需求标题}"
+  requirement_abbreviation: "{需求简称}"
+  created_at: "{YYYY-MM-DD HH:mm}"
+  total_tasks: {N}
+  estimated_complexity: "{low|medium|high}"
+  parallel_groups: {N}
+
+summary:
+  total_subtasks: {总数}
+  completed_subtasks: 0
+  pending_subtasks: {总数}
+  failed_subtasks: 0
+  overall_progress: "0%"
+  current_batch: 1
+  total_batches: {N}
+
+tasks:
+  - id: "task-001"
+    title: "{任务标题}"
+    description: "{详细描述}"
+    priority: "{high|medium|low}"
+    complexity: "{low|medium|high}"
+    estimated_files: {N}
+    dependencies: []  # 无依赖的任务先执行
+    batch: 1
+    status: "pending"
+    assignee: null  # Develop 阶段分配
+    output_files:
+      - path: "src/main/java/.../Xxx.java"
+        type: "{entity|dto|mapper|service|controller|config|util}"
+        description: "{文件说明}"
+
+  - id: "task-002"
+    title: "{任务标题}"
+    description: "{详细描述}"
+    priority: "{high|medium|low}"
+    complexity: "{low|medium|high}"
+    estimated_files: {N}
+    dependencies:
+      - "task-001"  # 依赖 task-001 完成后才能开始
+    batch: 2
+    status: "pending"
+    assignee: null
+    output_files:
+      - path: "src/main/java/.../Xxx.java"
+        type: "{entity|dto|mapper|service|controller|config|util}"
+        description: "{文件说明}"
+
+batches:
+  - batch_id: 1
+    tasks: ["task-001", "task-003"]  # 可并行
+    can_parallel: true
+    description: "{批次描述}"
+
+  - batch_id: 2
+    tasks: ["task-002", "task-004"]  # 可并行
+    can_parallel: true
+    depends_on_batches: [1]
+    description: "{批次描述}"
+```
+
+#### 6.5.2: task-dag.yaml — 任务依赖图（DAG）
+
+**写入路径**：`.dev-flow/contracts/{需求简称}/task-dag.yaml`
+
+**完整格式模板**：
+```yaml
+# 任务依赖图 (DAG)
+# 用于 Develop 阶段的智能调度和并行执行控制
+
+meta:
+  version: "1.0"
+  generated_by: "task-split-expert subagent"
+  session_id: "{session-id}"
+  requirement_abbreviation: "{需求简称}"
+  created_at: "{YYYY-MM-DD HH:mm}"
+
+graph:
+  nodes:
+    - id: "task-001"
+      label: "{任务简述}"
+      type: "{foundation|feature|integration|test}"
+      batch: 1
+      estimated_duration_minutes: {N}
+      can_parallel: true
+
+    - id: "task-002"
+      label: "{任务简述}"
+      type: "{foundation|feature|integration|test}"
+      batch: 2
+      estimated_duration_minutes: {N}
+      can_parallel: true
+
+  edges:
+    - from: "task-001"
+      to: "task-002"
+      reason: "{依赖原因说明}"
+
+    - from: "task-001"
+      to: "task-003"
+      reason: "{依赖原因说明}"
+
+execution_plan:
+  max_parallelism: {N}  # 最大并行数（建议 2-4）
+  batches:
+    - batch_number: 1
+      task_ids: ["task-001", "task-003"]
+      execution_mode: "parallel"  # parallel | sequential
+      estimated_total_minutes: {N}
+
+    - batch_number: 2
+      task_ids: ["task-002", "task-004"]
+      execution_mode: "parallel"
+      depends_on: [1]  # 依赖批次 1 完成
+      estimated_total_minutes: {N}
+
+critical_path:
+  - "task-001"
+  - "task-002"
+  - "task-005"
+  estimated_total_minutes: {N}
+
+risk_points:
+  - task_id: "task-002"
+    risk_type: "{dependency|complexity|integration}"
+    description: "{风险描述}"
+    mitigation: "{缓解措施}"
+```
+
+---
+
 **Step 7: 🔴 生成阶段交付物（v3.1 新增）**
 
 > **目的**：生成独立的阶段交付物文档，供主 Agent 打开给用户审阅。
@@ -551,9 +700,9 @@ graph TD
 ```
 | 7 | 开发模式：Subagent 模式（推荐） | 任务数 22 > 5，存在写写冲突 |
   或
-| 7 | 开发模式：标准模式 | 任务数 3，无冲突，可直接开发 |
+| 7 | 开发模式：标准模式 | 任务数 3，无冲突，可直接开发
 ```
 
 **用户操作**：确认无误 → 回复 "确认" 进入 Develop 阶段；需要修改 → 指出具体问题
 
-> **阶段确认机制和交付物协议详见 `.cursor/references/protocol.md`。**
+> **阶段确认机制和交付物协议详见 `references/protocol.md`。**

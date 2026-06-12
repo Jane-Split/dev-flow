@@ -670,6 +670,112 @@ Step 5.6.2: 更新 prd-contract.yaml 的 traceability 章节
 
 Step 5.6.3: 生成验证追溯报告
   └── 写入 .dev-flow/evidence/{需求简称}/verification-trace-report.yaml
+
+**verification-trace-report.yaml 结构**：
+
+```yaml
+# verification-trace-report.yaml — 验证追溯报告
+# 路径: .dev-flow/evidence/{需求简称}/verification-trace-report.yaml
+# 生成者: test-expert subagent
+# 使用者: Delivery 阶段（审计）、Fix 阶段（定位失败）
+
+meta:
+  version: "1.0"
+  generated_by: "test-expert"
+  timestamp: "2026-06-12T10:00:00"
+  requirement_id: "{需求简称}"
+
+test_summary:
+  total_test_cases: 20
+  passed: 18
+  failed: 2
+  skipped: 0
+  pass_rate: "90%"
+
+# 按需求追溯
+requirements:
+  - req_id: "REQ-001"
+    description: "用户登录功能"
+    test_cases:
+      - tc_id: "TC-001"
+        type: "api"
+        status: "passed"
+        evidence: "screenshots/login_success.png"
+      - tc_id: "TC-002"
+        type: "ui"
+        status: "passed"
+        evidence: "screenshots/login_ui.png"
+    coverage:
+      api: true
+      ui: true
+      db: true
+    status: "verified"
+
+  - req_id: "REQ-002"
+    description: "订单创建功能"
+    test_cases:
+      - tc_id: "TC-003"
+        type: "api"
+        status: "failed"
+        error: "返回 500 错误"
+        evidence: "logs/order_create_error.log"
+    coverage:
+      api: true
+      ui: false
+      db: true
+    status: "tested_with_failures"
+
+# 测试类型汇总
+test_types:
+  unit:
+    total: 10
+    passed: 10
+    failed: 0
+    coverage: "92%"
+  smoke:
+    total: 3
+    passed: 3
+    failed: 0
+  e2e_api:
+    total: 4
+    passed: 3
+    failed: 1
+  e2e_ui:
+    total: 2
+    passed: 1
+    failed: 1
+  integration:
+    total: 1
+    passed: 1
+    failed: 0
+
+# 失败用例详情
+failures:
+  - tc_id: "TC-003"
+    req_id: "REQ-002"
+    type: "api"
+    description: "订单创建失败"
+    error_message: "NullPointerException in OrderService.create"
+    stack_trace: "..."
+    affected_files:
+      - "src/main/java/com/xxx/service/impl/OrderServiceImpl.java"
+    status: "open"  # open / fixed / wontfix
+
+# 证据文件索引
+evidence:
+  screenshots:
+    - path: "evidence/{需求简称}/screenshots/login_success.png"
+      tc_id: "TC-001"
+      description: "登录成功页面"
+  logs:
+    - path: "evidence/{需求简称}/logs/order_create_error.log"
+      tc_id: "TC-003"
+      description: "订单创建错误日志"
+  db_asserts:
+    - path: "evidence/{需求简称}/db_asserts/user_created.sql"
+      tc_id: "TC-001"
+      description: "用户创建 DB 断言"
+```
 ```
 
 **PRD 状态流转**：

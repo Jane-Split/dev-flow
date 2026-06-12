@@ -474,8 +474,8 @@ Step R4: 升级时通知用户
 > **每个阶段统一流程：门禁检查 → Subagent 执行 → 读取交付物 → 打开文档 → 确认 Checklist → 写入 .confirmed。**
 
 ```
-Step 1: 创建 pre-scanner subagent → Phase 0 Quick Scan → file-index.yaml
-Step 2: 等待完成 → 按批次并行调度 11 个文件子代理（4 批次）
+Step 1: 创建 pre-scanner subagent → Phase 0 Quick Scan → project-domains.yaml + backend-file-index.yaml + frontend-file-index.yaml
+Step 2: 等待完成 → 按批次并行调度文件子代理（后端9子代理/前端9子代理/全栈18子代理，4批次）
 Step 3: 全部完成 → 自检 → 生成交付物 → 打开 .dev-flow/deliverables/{需求简称}/01-research-report.md → 确认 Checklist → 写入 .dev-flow/stage-confirmations/{需求简称}/research.confirmed
   ↓ 用户确认
 Step 3.5: 🔴 门禁检查 → clarify-expert → Clarify 阶段（迭代问答，可选，用户可跳过）→ 确认 → clarify.confirmed

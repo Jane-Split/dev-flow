@@ -11,7 +11,7 @@ type: stage-instruction
 ▶ Fix（Bug 修复）
 ════════════════════════════════════
 目标：分析并修复测试/运行时发现的缺陷
-输出：fix-report.md + 修复代码
+输出：fix-report.md + fix-contract.yaml + 修复代码
 模式：L0 / L1 / L2 / L3
 预计：5-30 分钟
 ════════════════════════════════════
@@ -26,7 +26,7 @@ type: stage-instruction
 > **⚠️ 最高优先级**：主 Agent 在本阶段的唯一角色是**调度器**。
 > **主 Agent 绝对禁止直接使用 Edit/Write 工具编辑本阶段的任何产出文件。**
 > **所有文件编辑必须由 fix-expert subagent 执行。**
-> **完整零编辑铁律、失败硬阻断规则、交付物协议见 `.cursor/references/protocol.md`。**
+> **完整零编辑铁律、失败硬阻断规则、交付物协议见 `references/protocol.md`。**
 
 ### 执行步骤
 
@@ -136,24 +136,117 @@ Bug 严重程度判断：
 - 确保修复不引入新问题
 - 对每个修复记录修复策略选择理由
 
-**Step 5: 回归测试（🔴 必须执行）**
+**Step 5: 写入结构化修复契约（供后续阶段使用）**
+
+> **目的**：生成机器可读的结构化修复记录，供 Test 阶段验证和 Delivery 阶段审计。
+
+**写入路径**：`.dev-flow/contracts/{需求简称}/fix-contract.yaml`
+
+```yaml
+# fix-contract.yaml — Bug 修复契约
+# 路径: .dev-flow/contracts/{需求简称}/fix-contract.yaml
+# 生成者: fix-expert subagent
+# 使用者: Test 阶段（验证修复）、Delivery 阶段（审计）
+
+meta:
+  version: "1.0"
+  generated_by: "fix-expert"
+  timestamp: "2026-06-12T10:00:00"
+  requirement_id: "{需求简称}"
+  fix_round: 1  # 第几轮修复
+
+summary:
+  total_bugs: 5
+  fixed: 4
+  remaining: 1
+  compilation_status: "success"  # success / failed
+  test_status: "partial"  # passed / partial / failed
+
+bugs:
+  - id: "BUG-001"
+    category: "编译错误"
+    severity: "high"
+    description: "缺少 import 语句"
+    root_cause: "Entity 字段类型变更后未更新 DTO"
+    affected_files:
+      - "src/main/java/com/xxx/dto/UserDTO.java"
+    fix:
+      type: "代码修改"
+      changes:
+        - file: "src/main/java/com/xxx/dto/UserDTO.java"
+          action: "add"
+          content: "import com.xxx.enums.UserStatus;"
+      verification: "编译通过"
+    status: "fixed"
+
+  - id: "BUG-002"
+    category: "运行时错误"
+    severity: "medium"
+    description: "NullPointerException in UserService"
+    root_cause: "未检查空值"
+    affected_files:
+      - "src/main/java/com/xxx/service/impl/UserServiceImpl.java"
+    fix:
+      type: "代码修改"
+      changes:
+        - file: "src/main/java/com/xxx/service/impl/UserServiceImpl.java"
+          action: "modify"
+          content: "添加空值检查逻辑"
+      verification: "单元测试通过"
+    status: "fixed"
+
+  - id: "BUG-003"
+    category: "逻辑错误"
+    severity: "low"
+    description: "分页参数计算错误"
+    root_cause: "pageNum 和 pageSize 未校验"
+    affected_files:
+      - "src/main/java/com/xxx/service/impl/UserServiceImpl.java"
+    fix:
+      type: "代码修改"
+      changes:
+        - file: "src/main/java/com/xxx/service/impl/UserServiceImpl.java"
+          action: "modify"
+          content: "添加分页参数校验"
+      verification: "待验证"
+    status: "pending"  # fixed / pending / wontfix
+
+# 修复影响分析
+impact_analysis:
+  modified_files:
+    - "src/main/java/com/xxx/dto/UserDTO.java"
+    - "src/main/java/com/xxx/service/impl/UserServiceImpl.java"
+  new_files: []
+  deleted_files: []
+  regression_risk: "low"  # low / medium / high
+
+# 与 mistakes.md 的联动
+knowledge_update:
+  - pattern: "DTO 字段类型变更后需同步更新 import"
+    added_to_mistakes: true
+    mistakes_file: ".dev-flow/memory/mistakes.md"
+```
+
+---
+
+**Step 6: 回归测试（🔴 必须执行）**
 
 > **目的**：修复 Bug 可能引入新 Bug（回归）。修复完成后必须自动重新运行之前通过的测试用例，确保未引入回归。
 
 **回归测试流程**：
 
 ```
-Step 5.1: 收集之前通过的测试用例列表
+Step 6.1: 收集之前通过的测试用例列表
   ├── 读取 .dev-flow/deliverables/{需求简称}/06-test-report.md（E2E 测试通过列表）
   ├── 读取 .dev-flow/deliverables/{需求简称}/06-test-report.md（单元测试通过列表）
   └── 读取 .dev-flow/runtime/pre-test-result.yaml（前置测试通过列表）
 
-Step 5.2: 重新运行所有之前通过的测试
+Step 6.2: 重新运行所有之前通过的测试
   ├── Java 项目：mvn test -pl {module} -q（运行全量测试）
   ├── 前端项目：npx jest --passWithNoTests
   └── 对比本次运行结果与历史结果
 
-Step 5.3: 回归检测结果
+Step 6.3: 回归检测结果
   ├── 全部通过（无回归）→ 修复成功，继续
   ├── 新失败用例 → 分析是否由本次修复引入
   │   ├── 确认是回归 → 回滚修复，重新分析根因
@@ -161,7 +254,7 @@ Step 5.3: 回归检测结果
   │   └── 无法确认 → 标记为"可疑回归"，建议人工审查
   └── 原失败用例仍失败 → 修复未生效，重新分析
 
-Step 5.4: 回归测试报告
+Step 6.4: 回归测试报告
   └── 写入 .dev-flow/contracts/{需求简称}/回归测试报告.md
 ```
 
@@ -255,13 +348,13 @@ fixes:
 | 0 | **执行者审计**：本阶段由 fix-expert subagent 执行，主 Agent 未直接编辑任何文件 | ⬜ 待确认 |
 | 1 | 所有失败用例的根本原因已分析 | ⬜ 待确认 |
 | 2 | 修复代码已验证不引入新问题（回归测试通过） | ⬜ 待确认 |
-| 3 | 回归测试报告已输出（Step 5，含回归率统计） | ⬜ 待确认 |
+| 3 | 回归测试报告已输出（Step 6，含回归率统计） | ⬜ 待确认 |
 | 4 | 修复记录已写入 mistakes.md（防止同类错误复发） | ⬜ 待确认 |
 | 5 | 修复循环不超过 3 次（超过则需人工介入评估） | ⬜ 待确认 |
 | 6 | Fix 报告已输出 | ⬜ 待确认 |
 
 **用户操作**：确认修复完成 → 回复 "确认" 返回测试阶段重测（系统写入确认文件）；仍有问题 → 指出遗留问题
 
-> **阶段确认机制和交付物协议详见 `.cursor/references/protocol.md`。**
+> **阶段确认机制和交付物协议详见 `references/protocol.md`。**
 
 ---

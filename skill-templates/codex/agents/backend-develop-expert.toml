@@ -470,9 +470,13 @@ When multiple Develop Experts execute in parallel:
 |------|----------|------|
 | `.dev-flow/sessions/{session-id}/design-result.md` | Read full text | Detailed design plan |
 | `.dev-flow/sessions/{session-id}/task-context.yaml` | Read full text | Specific requirements for this task |
-| `.dev-flow/memory/conventions.md` | Read full text | Coding conventions |
+| `.dev-flow/memory/conventions.md` | Read full text | Project-level general coding conventions |
 | `.dev-flow/memory/backend/conventions.md` | Read full text | Detailed backend coding conventions |
 | `.dev-flow/memory/backend/apis.md` | Read full text | Backend API interface list |
+| `.dev-flow/memory/backend/service-registry.md` | Read full text | Service registry (microservice metadata) |
+| `.dev-flow/memory/backend/common-modules.md` | Read full text | Common module list (reuse priority) |
+| `.dev-flow/memory/backend/dependency-graph.md` | Read full text | Backend dependency graph (Maven/Feign) |
+| `.dev-flow/memory/backend/models.md` | Read full text | Data models (Entity/DTO) |
 
 ### On-demand Read (only read code related to current task)
 - Existing files to modify → Read full text

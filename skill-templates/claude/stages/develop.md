@@ -404,7 +404,90 @@ console.log(`Round ${result.round}: context ${result.contextSize}KB / ${result.c
 
 ---
 
-**Step 4.5: 上下文监控与保护（关键！）**
+### 🔴 结构化输出文件定义
+
+**develop-result.yaml**：
+- **写入路径**：`.dev-flow/contracts/{需求简称}/develop-result.yaml`
+- **生成者**：每个 develop-expert subagent（backend-develop-expert / frontend-develop-expert）
+- **使用者**：Develop 阶段 Orchestrator、Test 阶段、Fix 阶段
+- **内容**：
+  ```yaml
+  meta:
+    task_id: "Task-1"
+    agent: "backend-develop-expert"
+    status: "completed"  # completed / partial / failed
+    timestamp: "2026-06-12T10:00:00"
+
+  files_generated:
+    - path: "src/main/java/com/xxx/entity/User.java"
+      status: "success"
+      completeness: "100%"
+    - path: "src/main/java/com/xxx/mapper/UserMapper.java"
+      status: "success"
+      completeness: "100%"
+
+  compilation:
+    status: "success"  # success / failed / skipped
+    errors: []
+    warnings: []
+
+  tests:
+    status: "passed"  # passed / failed / skipped
+    coverage: "85%"
+
+  dependencies_provided:
+    - interface: "UserMapper.selectById"
+      file: "src/main/java/com/xxx/mapper/UserMapper.java"
+
+  issues:
+    - type: "warning"
+      message: "某方法复杂度较高，建议重构"
+      severity: "low"
+  ```
+
+**task-result.yaml**：
+- **写入路径**：`.dev-flow/contracts/{需求简称}/task-result.yaml`
+- **生成者**：Develop 阶段 Orchestrator（汇总所有 develop-result.yaml）
+- **使用者**：Test 阶段、Fix 阶段、Delivery 阶段
+- **内容**：
+  ```yaml
+  meta:
+    version: "1.0"
+    generated_by: "orchestrator"
+    timestamp: "2026-06-12T10:00:00"
+    requirement_id: "{需求简称}"
+
+  summary:
+    total_tasks: 8
+    completed: 7
+    partial: 0
+    failed: 1
+    compilation_status: "partial"  # success / partial / failed
+
+  tasks:
+    - task_id: "Task-1"
+      status: "completed"
+      agent: "backend-develop-expert"
+      files_count: 3
+      issues: []
+    - task_id: "Task-8"
+      status: "failed"
+      agent: "frontend-develop-expert"
+      files_count: 0
+      issues:
+        - type: "error"
+          message: "编译失败：缺少依赖包"
+          severity: "high"
+
+  # 全局依赖传递验证
+  dependency_verification:
+    - interface: "UserMapper.selectById"
+      provider: "Task-2"
+      consumers: ["Task-3", "Task-4"]
+      status: "verified"
+  ```
+
+---
 
 > **每批次文件生成后执行**：检查当前上下文使用情况，防止溢出导致后续代码生成失败。
 > 注意：如果使用了 prepare-context.cjs 注入模式，大部分上下文已在 task-brief.md 中预加载，
