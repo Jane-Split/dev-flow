@@ -11,7 +11,7 @@ type: stage-instruction
 ▶ Research（项目调研）
 ════════════════════════════════════
 目标：扫描项目结构，建立项目记忆
-输出：.dev-flow/memory/（根目录6 + backend9 + frontend9 = 25 个文件，全栈时）
+输出：.dev-flow/memory/（根目录6 + backend9 + frontend9 = 24个文件）+ _index/索引3个
 架构：pre-scanner + 文件级子代理 × N（后端9/前端9/全栈18，4批次）
 预计：2-4 分钟
 批次：4 批并行

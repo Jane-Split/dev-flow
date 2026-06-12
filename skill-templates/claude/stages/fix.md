@@ -116,25 +116,166 @@ Step 1.2: 自动分类
 2E.3 修复策略：修正配置或调整环境
 ```
 
-**Step 3: 修复策略选择树**
+**Step 3: 修复策略选择树 + 多 Bug 排序算法**
 
-> 根据Bug类型和严重程度，自动推荐最优修复策略：
+> **3A. 单 Bug 严重程度分级**（用于分类，不影响排序优先级）：
 
 ```
 Bug 严重程度判断：
-├── 🔴 阻塞性（Blocker）：核心流程不可用 → 优先修复
-├── 🟠 严重（Critical）：重要功能异常 → 本轮必须修复
-├── 🟡 一般（Major）：次要功能异常 → 本轮修复
-└── 🟢 轻微（Minor）：边界场景/美化 → 可延后修复
-
-修复顺序：Blocker → Critical → Major → Minor
+├── 🔴 P0 阻塞性（Blocker）：核心流程不可用 / 数据丢失风险 / 安全漏洞
+├── 🟠 P1 严重（Critical）：重要功能异常 / 主路径中断
+├── 🟡 P2 一般（Major）：次要功能异常 / 边界条件错误
+└── 🟢 P3 轻微（Minor）：UI 美化 / 提示文案 / 非关键路径
 ```
 
-**Step 4: 执行修复**
+> **3B. 多 Bug 并发修复排序算法（🔴 核心新增）**
 
-- 修改出错的代码
-- 确保修复不引入新问题
-- 对每个修复记录修复策略选择理由
+当 Test 阶段返回多个失败用例（bugs ≥ 2）时，按以下算法确定修复顺序和并行策略：
+
+**排序优先级矩阵（从高到低）**：
+
+| 优先级 | 排序维度 | 权重 | 说明 |
+|--------|----------|------|------|
+| 1 | **安全等级** | 最高 | 安全漏洞(CVE/注入/越权) > 所有其他 Bug，无条件最高优先 |
+| 2 | **阻断度** | 高 | Blocker(核心流程不可用) > Critical > Major > Minor |
+| 3 | **影响面** | 中高 | affected_files 数量多 > 少（影响面大的先修，减少回归范围）|
+| 4 | **依赖关系** | 高 | 被其他 Bug 依赖的先修（见下文依赖分析）|
+| 5 | **修复置信度** | 中 | 根因明确的 > 根因模糊的（快速胜利先拿，建立修复动量）|
+| 6 | **同类聚合** | 低 | 同一文件的 Bug 聚合修复（减少文件切换开销）|
+
+**完整排序伪代码**：
+
+```
+INPUT: bugs[] (从 verification-trace-report.yaml 的 failures 列表)
+OUTPUT: sorted_bugs[], parallel_groups[]
+
+Step B1: 安全筛选
+  security_bugs = bugs.filter(b => b.category in ["安全漏洞", "CVE", "注入", "越权"])
+  if security_bugs non-empty:
+    sorted_bugs.addAll(security_bugs)   // 安全 Bug 无条件排在最前
+
+Step B2: 构建依赖图
+  FOR each bug_i IN bugs:
+    FOR each bug_j IN bugs WHERE i != j:
+      IF bug_i.affected_files ∩ bug_j.affected_files ≠ ∅:
+        ADD edge bug_i → bug_j  // 共享文件 → 可能存在依赖
+      IF bug_i 的修复可能引入 bug_j 的回归:
+        ADD dependency bug_j depends_on bug_i
+
+Step B3: 拓扑排序（处理依赖）
+  dependent_bugs = RUN topological_sort(dependency_graph)
+  // 有依赖关系的 Bug 必须串行：被依赖的先修
+
+Step B4: 分组（无依赖的可并行）
+  independent_bugs = bugs - dependent_bugs
+  // 按 [阻断度 → 影响面 → 置信度] 排序 independent_bugs
+  SORT independent_bugs BY:
+    PRIMARY:   severity_rank(P0=1, P1=2, P2=3, P3=4)
+    SECONDARY: DESC(len(affected_files))     // 影响面大的先修
+    TERTIARY:  DESC(confidence_score)        // 根因明确的高置信度先修
+    QUATERNARY: file_cluster                // 同文件聚合
+
+Step B5: 构建并行组
+  parallel_groups = []
+  current_group = []
+  FOR each bug IN (security_bugs + dependent_bugs_sorted + independent_bugs_sorted):
+    IF bug HAS unmet_dependencies:
+      // 必须等待前置 Bug 修复完成 → 放入下一组
+      parallel_groups.ADD(current_group)
+      current_group = [bug]
+    ELSE IF current_group 与 bug 无共享文件:
+      current_group.ADD(bug)               // 可并行
+    ELSE:
+      parallel_groups.ADD(current_group)     // 共享文件 → 下一组
+      current_group = [bug]
+  parallel_groups.ADD(current_group)
+
+RETURN sorted_bugs (线性顺序), parallel_groups (并行批次)
+```
+
+**并行执行约束**：
+
+| 约束 | 规则 | 原因 |
+|------|------|------|
+| 共享文件互斥 | 同一文件的两个 Bug **禁止并行** | 避免合并冲突 |
+| 依赖串行 | 有依赖关系的 Bug **必须串行** | 后续 Bug 依赖前置修复的结果 |
+| 安全最前 | 安全类 Bug **必须在第一批单独执行** | 最小化暴露窗口 |
+| Codex 并发上限 | 每批并行数 ≤ Codex 最大并发数（默认 6） | 平台限制 |
+| 回归检测批间必做 | 每批修复完成后**必须执行回归测试**后再启动下一批 | 防止错误传播 |
+
+**排序示例**：
+
+```
+输入 5 个 Bug:
+  BUG-001: P0 NullPointerException UserService.java (根因明确)
+  BUG-002: P1 Feign超时 OrderService.java (根因需排查)
+  BUG-003: P2 分页错误 UserService.java (与 BUG-001 共享文件)
+  BUG-004: P1 SQL语法错误 ProductMapper.xml (独立)
+  BUG-005: P0 SQL注入 UserMapper.xml (安全漏洞)
+
+排序结果:
+  Batch 1 (并行): [BUG-005(安全)]                    ← 安全最前，单独一批
+  Batch 2 (并行): [BUG-001(P0,UserService)]           ← 阻塞性最高
+  Batch 3 (并行): [BUG-004(P1,ProductMapper)]         ← 与Batch2无共享文件，可并行
+  Batch 4 (串行): [BUG-003(P2,UserService)]           ← 依赖 BUG-001 修复后的 UserService
+  Batch 5 (串行): [BUG-002(P1,OrderService)]          ← 最后处理根因模糊的
+```
+
+**Step 4: 按并行组分批执行修复**
+
+> **⚠️ 当仅有 1 个 Bug 时**：直接执行修复，走原有的单 Bug 流程。
+> **当有多个 Bug 时（≥2）**：严格按 Step 3B 的 parallel_groups 分批执行。
+
+**每批执行流程**：
+
+```
+FOR EACH batch IN parallel_groups (按顺序):
+
+  ┌─ Step 4.1: 创建本批修复 subagent
+  │     为 batch 中的每个 Bug 创建 fix-expert subagent
+  │     同一批内的 subagent **并行执行**（Codex ≤ 6 并发）
+  │     传入上下文：该 Bug 的 root_cause + affected_files + 设计契约相关片段
+  │
+  ├─ Step 4.2: 等待本批所有 subagent 完成
+  │     ├── 全部成功 → 进入 Step 4.3
+  │     ├── 部分失败 → 对失败的 subagent 执行三级失败处理协议（见 .claude/references/protocol.md）
+  │     └── 全部失败 → 升级到 Level 3 人工介入
+  │
+  ├─ Step 4.3: 本批编译验证
+  │     mvn compile / npm run build (或项目对应编译命令)
+  │     ├── 编译通过 → 进入 Step 4.4
+  │     └── 编译失败 → 标记编译错误 Bug，加入下一轮修复队列（最多 3 轮）
+  │
+  └─ Step 4.4: 本批回归测试（🔴 批间必须执行）
+        仅运行受影响的测试用例（非全量）：
+        - Java: mvn test -pl {affected_module} -Dtest={affected_test} -q
+        - 前端: npx jest --testPathPattern="{affected_test}" --passWithNoTests
+        ├── 回归通过 → 进入下一 batch
+        └── 发现新回归 → 记录回归 Bug，追加到修复队列末尾（不阻塞后续 batch 但最终需清零）
+
+END FOR (所有 batch 执行完毕)
+```
+
+**跨批状态维护**：
+
+```yaml
+# Fix 阶段跨批状态（主 Agent 在内存中维护，最终写入 fix-contract.yaml）
+fix_session:
+  current_batch: 1
+  total_batches: N
+  bugs_status:
+    - id: "BUG-001"
+      batch_assigned: 1
+      status: "fixed"       # fixed / pending / failed / regression
+      verification: "passed"
+    - id: "BUG-003"
+      batch_assigned: 4      # 因共享文件依赖被安排到第 4 批
+      status: "pending"
+      depends_on: ["BUG-001"] # 依赖 BUG-001 先修复
+  regression_log: []          # 每批回归发现的新问题
+  compilation_errors: 0       # 累计编译错误次数
+  max_rounds: 3               # 含回归的总修复轮次上限
+```
 
 **Step 5: 回归测试（🔴 必须执行）**
 
