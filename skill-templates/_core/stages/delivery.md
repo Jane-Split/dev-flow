@@ -1,4 +1,4 @@
----
+﻿---
 stage: Delivery
 type: stage-instruction
 ---
@@ -19,6 +19,10 @@ type: stage-instruction
 
 ### 触发条件
 - Test 阶段通过后
+> **项目类型适配（v3.7.0）**：交付报告章节按 `project_type` 自动选择：
+> `frontend` → 无数据库表/Feign 章节；`backend` → 无前端组件章节；
+> `java-microservice` → 含 Feign Client + 数据库表；`fullstack`/`java-fullstack` → 完整全部章节。
+
 - 用户输入 `/dev-flow -delivery`
 
 ### 🔴🔴 主 Agent 零编辑约束（本阶段入口铁律）

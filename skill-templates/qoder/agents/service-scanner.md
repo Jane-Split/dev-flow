@@ -1,9 +1,10 @@
----
+﻿---
 name: service-scanner
 description: dev-flow 当前服务扫描专家。负责扫描当前服务的 Entity、Service、Controller、Mapper、Config。
 tools: Read, Grep, Glob
 model: inherit
 readonly: true
+project_types: [java-microservice, java-fullstack, backend, fullstack]
 ---
 
 # Service Scanner (当前服务扫描专家)

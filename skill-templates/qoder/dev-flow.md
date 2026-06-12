@@ -1,4 +1,4 @@
----
+﻿---
 name: dev-flow
 description: AI开发全流程编排技能 - 在AI编程工具对话框中结构化执行完整开发流程
 ---
@@ -224,6 +224,62 @@ sessions:
 - 标准模式（默认）：主 Agent 串行创建单个 subagent，一个完成后再创建下一个；Task Split 后通过动态重评估决定是否升级并行
 - 企业级模式（-subagent）：主 Agent 按 DAG 批次并行创建多个 subagent（大批次自动拆分为子批次，滑动窗口调度，max_concurrent 受限）
 - 无论何种模式，主 Agent **永远不直接编辑文件**
+
+---
+
+## 项目类型自动适配（v3.7.0）
+
+> **系统在 Research 阶段自动检测项目类型**，写入 `.dev-flow/memory/_index/file-index.yaml` → `project_metadata.project_type`。
+> **后续所有阶段读取此值，按以下策略自动调整行为。用户无需手动指定任何参数。**
+
+### 五种项目类型
+
+| project_type | 说明 | 后端语言 | 有前端 | 有微服务 |
+|---|---|---|---|---|
+| `frontend` | 纯前端项目（React/Vue/Angular等） | 无 | ✅ | ❌ |
+| `backend` | 纯后端（通用：Go/Python/Node） | go/python/typescript | ❌ | ❌ |
+| `java-microservice` | Java 微服务后端 | java | ❌ | ✅ |
+| `fullstack` | 前端 + 非Java后端全栈 | go/python/typescript | ✅ | ❌ |
+| `java-fullstack` | 前端 + Java微服务全栈 | java | ✅ | ✅ |
+
+### 各阶段行为差异速查表
+
+| 阶段 | frontend | backend | java-microservice | fullstack | java-fullstack |
+|---|---|---|---|---|---|
+| Research | 扫 src/components/,src/pages/ | 扫 handler/,service/,model/ | 扫 Entity/DTO/Mapper/Service/Controller/Feign + 子服务 | 扫全部 | 扫全部 |
+| Clarify | 侧重UI交互、组件复用 | 侧重API、数据模型 | 侧重Entity/Service复用、跨服务调用 | 全部维度 | 全部维度 |
+| Analyze | PRD无后端字段 | PRD无前端字段 | PRD含Feign/跨服务调用链 | PRD完整 | PRD完整 |
+| Design | 组件interface + API设计 | Entity/Service/API | Entity/DTO/Mapper/Service/Controller/Feign | 前端 + 后端 | 前端 + Java全分层 |
+| Task Split | 按组件维度拆分 | 按代码层拆分 | 按代码层或功能维度 | 按功能维度 | 按功能维度（含跨服务） |
+| Develop | npm run build | 按语言编译 | mvn compile + bytecode | 前端+后端分别编译 | 前端+后端分别编译 |
+| Test | 组件单测+E2E-UI | 单测+API+DB | 单测(JUnit5)+API+DB | 全部类型 | 全部类型 |
+| Fix | 含前端运行时Bug分类 | 含运行时+逻辑Bug | 含编译+运行时+逻辑+集成Bug | 全部分类 | 全部分类 |
+| Delivery | 无数据库表/Feign章节 | 无前端组件章节 | 含Feign Client + 数据库表 | 完整章节 | 完整章节 |
+
+### Agent 可用性
+
+| Agent | frontend | backend | java-microservice | fullstack | java-fullstack |
+|---|---|---|---|---|---|
+| service-scanner | ❌ | ✅ | ✅ | ✅ | ✅ |
+| service-orchestrator | ❌ | ✅ | ✅ | ✅ | ✅ |
+| db-verifier | ❌ | ✅ | ✅ | ✅ | ✅ |
+| bytecode-analyzer | ❌ | ❌ | ✅ | ❌ | ✅ |
+| e2e-ui-tester | ✅ | ❌ | ❌ | ✅ | ✅ |
+| dependency-scanner | ❌ | ✅ | ✅ | ✅ | ✅ |
+| runtime-state-manager | ❌ | ✅ | ✅ | ✅ | ✅ |
+| 其余17个Agent | ✅ | ✅ | ✅ | ✅ | ✅ |
+
+### 编译/构建命令
+
+| project_type | 编译命令 |
+|---|---|
+| frontend | `npm run build` 或 `npm run typecheck` |
+| backend (Go) | `go build ./...` |
+| backend (Python) | `python -m compileall .` |
+| backend (Node) | `npm run build` |
+| java-microservice | `mvn compile -q`（每个子服务） |
+| fullstack | 前端 `npm run build` + 后端按语言编译 |
+| java-fullstack | 前端 `npm run build` + 后端 `mvn compile -q` |
 
 ---
 

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * dev-flow subagent 上下文注入脚本
  *
  * 在派发 subagent 前，自动将任务所需的所有上下文文件合并为 task-brief.md，
@@ -27,6 +27,11 @@ const STAGES_DIR = path.join(ROOT, 'skill-templates', '_core', 'stages');
 // ============================================================
 
 const MAX_BRIEF_SIZE = 120 * 1024; // 120KB - 给 subagent 留足够空间
+
+// v3.7.0: 上下文注入按项目类型过滤
+// - db-verifier: 仅 backend/java-microservice/fullstack/java-fullstack
+// - e2e-ui-tester: 仅 frontend/fullstack/java-fullstack
+// - service-orchestrator: 仅 java-microservice/java-fullstack
 const MAX_FILE_READ = 30 * 1024;   // 单个依赖文件最大 30KB
 
 // 支持的 agent 类型

@@ -1,4 +1,4 @@
----
+﻿---
 stage: Analyze
 type: stage-instruction
 ---
@@ -19,6 +19,9 @@ type: stage-instruction
 
 ### 触发条件
 - 全流程模式（Research 确认后，或 Clarify 确认后）
+> **项目类型适配（v3.7.0）**：本阶段从 `.dev-flow/memory/_index/file-index.yaml` 读取 `project_metadata.project_type`。
+> 分析策略按类型自动调整：`frontend` 仅分析前端模块影响；`java-microservice` 包含跨服务调用链；`fullstack`/`java-fullstack` 分析全栈影响。
+
 - 用户输入 `/dev-flow -analyze <需求>`
 
 ### 🔴🔴 主 Agent 零编辑约束（本阶段入口铁律）
@@ -108,7 +111,11 @@ Step 0.5.3: 传递给 Step 1 继续现有流程
 - 识别需求类型：新功能 / 功能增强 / Bug 修复 / 重构 / 性能优化
 - 识别优先级：P0(紧急) / P1(高) / P2(中) / P3(低)
 - 提取核心功能点列表
-- **如果是 Java 微服务（多服务模式）：**
+- **按 project_type 读取适用记忆**：
+  - `java-microservice` / `java-fullstack`：读取 `service-registry.md`、`dependency-graph.md`，评估跨服务 Feign 调用链影响
+  - `backend`：读取 `modules.md`、`apis.md`，评估单服务模块影响
+  - `frontend`：读取 `modules.md`（组件列表）、`apis.md`（API调用层），评估组件和路由影响
+  - `fullstack` / `java-fullstack`：读取全部记忆文件
   - 读取 `.dev-flow/memory/service-registry.md`，识别需求可能涉及的服务
   - 读取 `.dev-flow/memory/dependency-graph.md`，分析跨服务依赖影响
   - 评估跨服务影响范围：哪些服务会被直接影响，哪些会被间接影响（通过 Feign 调用链）

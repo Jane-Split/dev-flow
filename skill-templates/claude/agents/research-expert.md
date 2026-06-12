@@ -1,10 +1,11 @@
----
+﻿---
 name: research-expert
 description: dev-flow 项目研究专家，负责扫描项目结构、识别技术栈、分析架构模式。Use when starting a new project or when project context needs to be refreshed.
 tools: Read, Grep, Glob, Bash
 model: inherit
 readonly: false
 is_background: false
+project_types: [all]
 ---
 
 # Research Expert (项目研究专家)

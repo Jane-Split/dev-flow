@@ -1,4 +1,4 @@
----
+﻿---
 stage: Clarify
 type: stage-instruction
 ---
@@ -19,6 +19,10 @@ type: stage-instruction
 
 ### 触发条件
 - 全流程模式（Research 确认后自动触发）
+> **项目类型适配（v3.7.0）**：澄清维度按 `project_type` 自动选择：
+> `frontend` → 侧重UI交互、组件复用（2个维度）；`backend` → 侧重API、数据模型（5个维度）；
+> `java-microservice` → 全10个维度（含Entity/Service复用、跨服务调用）；`fullstack`/`java-fullstack` → 全10个维度。
+
 - 用户输入 `/dev-flow -clarify <需求>`
 - 用户输入 `/dev-flow -clarify @requirement.md`
 

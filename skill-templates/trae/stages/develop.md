@@ -1,4 +1,4 @@
----
+﻿---
 stage: Develop
 type: stage-instruction
 ---
@@ -26,6 +26,9 @@ type: stage-instruction
 
 ### 触发条件
 - 全流程模式（Task Split 确认后）
+> **项目类型适配（v3.7.0）**：编译验证和文件数检测按 `project_type` 自动选择。
+> 编译命令见 SKILL.md "编译/构建命令" 表；文件数检测阈值：`frontend` ≤5 标准，`java-microservice` ≤5 标准，`fullstack`/`java-fullstack` ≤8 标准。
+
 - 用户输入 `/dev-flow -develop <需求>`（直接开发，跳过设计和拆分）
 
 ### ⚠️ 文件数检测（执行前必须检查）

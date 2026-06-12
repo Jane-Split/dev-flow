@@ -1,4 +1,11 @@
-# dev-flow 记忆系统
+﻿# dev-flow 记忆系统
+
+
+> **v3.7.0 项目类型适配**：
+> - `service-registry.md`、`dependency-graph.md`、`common-modules.md`：仅 `java-microservice`、`java-fullstack`、`fullstack` 填充
+> - `modules.md`、`apis.md`：所有类型填充（前端为组件/API调用层，后端为模块/端点）
+> - `models.md`：有后端的类型填充 Entity/DTO，前端填充 TS interface/type
+> - `architecture.md`：所有类型填充架构概览
 
 > 本文档从 Router 中外置，详细描述记忆系统的目录结构、使用规则和文件格式。
 > 读取时机：Research 完成后、Design/Analyze/Develop 阶段前。

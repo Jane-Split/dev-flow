@@ -1,4 +1,4 @@
----
+﻿---
 stage: Research
 type: stage-instruction
 ---
@@ -135,19 +135,113 @@ type: stage-instruction
 
 **pre-scanner 执行步骤**：
 
-#### Step P1: 检测项目类型和架构
+#### Step P1: 检测项目类型和架构（增强版 - 5种复合类型）
 
-- [ ] 读取项目根目录文件列表
-- [ ] 检测项目类型（Java / 前端 / Node.js / Python / Go / Rust）
-- [ ] 如果是 Java 项目，进一步检测是否为微服务：
-  - 根目录有父 `pom.xml`（`<packaging>pom</packaging>`）且含 `<modules>` → **微服务**
-  - 当前目录有 `src/main/java` → **单服务模式**
+> **目的**：自动识别项目的完整类型，写入 `project_metadata`，后续所有阶段以此为决策依据。
+
+**检测流程**：
+
+```
+Step P1.1: 扫描根目录特征文件
+  ├── 检查 pom.xml / build.gradle / build.gradle.kts → has_java = true
+  ├── 检查 go.mod → has_go = true
+  ├── 检查 pyproject.toml / requirements.txt / setup.py → has_python = true
+  └── 检查 package.json → 读取 dependencies/devDependencies
+
+Step P1.2: 判断前端存在性（package.json 分析）
+  ├── 含 react / vue / @angular/core / next / nuxt / svelte → has_frontend = true
+  └── 不含前端框架 → has_frontend = false, has_node_backend = true
+
+Step P1.3: 判断后端语言
+  ├── has_java → backend_language = "java"
+  ├── has_go → backend_language = "go"
+  ├── has_python → backend_language = "python"
+  └── has_node_backend → backend_language = "typescript"
+
+Step P1.4: 判断是否微服务（仅 Java 项目）
+  ├── 根目录有父 pom.xml（<packaging>pom</packaging>）且含 <modules>
+  │   → has_microservices = true, build_tool = "maven"
+  ├── 仅单个 pom.xml 或 build.gradle 含 src/main/java
+  │   → has_microservices = false
+  └── 多级目录含多个独立 pom.xml → has_microservices = true
+
+Step P1.5: 组合判定 project_type
+  ├── has_frontend && backend_language = "java" → java-fullstack
+  ├── has_frontend && has_backend → fullstack
+  ├── has_frontend && !has_backend → frontend
+  ├── !has_frontend && backend_language = "java" → java-microservice
+  ├── !has_frontend && has_backend → backend
+  └── 以上均不匹配 → fullstack（安全默认值）
+
+Step P1.6: 填写 project_metadata（将写入 file-index.yaml）
+  project_type: "{判定结果}"
+  languages: ["{后端语言}", "{前端语言}"]
+  has_frontend: {true/false}
+  has_backend: {true/false}
+  backend_language: "{java/python/go/typescript/null}"
+  frontend_framework: "{react/vue/angular/next/nuxt/svelte/null}"
+  backend_framework: "{spring-boot/null}"
+  has_microservices: {true/false}
+  build_tool: "{maven/gradle/npm/null}"
+```
+
 - [ ] 如果是微服务：读取父 `pom.xml` 的 `<modules>`，列出所有子服务
 - [ ] 对每个子服务读取其 `pom.xml`（仅 `<groupId>`/`<artifactId>`/依赖列表），识别角色和依赖
-
 #### Step P2: 全局 Quick Scan（文件路径索引）
 
-**对每个服务/模块，扫描以下模式**：
+> **按 project_type 选择扫描策略**：pre-scanner 根据 Step P1 判定的类型，从下表选择对应的扫描模式。
+
+**Java 微服务/后端扫描模式**（java-microservice, java-fullstack）：
+
+| 扫描类别 | Glob 模式 | 记录内容 |
+|----------|-----------|----------|
+| Entity | `**/entity/*.java`、`**/*Entity*.java` | 路径、类名（从文件名推断） |
+| DTO | `**/dto/*.java`、`**/model/dto/*.java` | 路径、类名 |
+| Enum | `**/enums/*.java`、`**/*Enum.java` | 路径、类名 |
+| Controller | `**/controller/*.java`、`**/*Controller.java` | 路径、类名 |
+| Service | `**/service/*.java`、`**/*Service.java`、`**/*ServiceImpl.java` | 路径、类名 |
+| Mapper | `**/mapper/*.java`、`**/*Mapper.java` | 路径、类名 |
+| Util | `**/util/*.java`、`**/utils/*.java` | 路径、类名 |
+| Config | `**/config/*.java`、`**/*Config.java` | 路径、类名 |
+| Feign Client | `**/*Client.java`、`**/*Api.java`（含 `@FeignClient` 的） | 路径、类名 |
+| 配置文件 | `**/application*.yml`、`**/bootstrap*.yml`、`**/pom.xml` | 路径 |
+| 中间件/框架 | pom.xml 中的依赖：PowerJob/XXL-Job/RabbitMQ/Kafka/Redis/ES/MinIO | 依赖名 |
+
+**前端扫描模式**（frontend, fullstack, java-fullstack）：
+
+| 扫描类别 | Glob 模式 | 记录内容 |
+|----------|-----------|----------|
+| 页面组件 | `src/pages/**/*.{tsx,vue,jsx}`、`src/views/**/*.{tsx,vue}` | 路径、组件名 |
+| 通用组件 | `src/components/**/*.{tsx,vue,jsx}` | 路径、组件名 |
+| 路由配置 | `src/router/**/*.{ts,js}`、`src/routes/**/*.{ts,js}` | 路径 |
+| 状态管理 | `src/store/**/*.{ts,js}`、`src/stores/**/*.{ts,js}` | 路径 |
+| API 调用层 | `src/api/**/*.{ts,js}`、`src/services/**/*.{ts,js}` | 路径、函数名 |
+| 类型定义 | `src/types/**/*.{ts,d.ts}`、`src/**/*.d.ts` | 路径、类型名 |
+| Hooks/Composables | `src/hooks/**/*.{ts,js}`、`src/composables/**/*.{ts,js}` | 路径 |
+| 样式文件 | `src/**/*.{scss,less,css}`（排除 node_modules） | 路径 |
+| 配置文件 | `tsconfig.json`、`vite.config.*`、`next.config.*`、`nuxt.config.*`、`package.json` | 路径 |
+
+**Go 后端扫描模式**（backend, fullstack，backend_language=go）：
+
+| 扫描类别 | Glob 模式 | 记录内容 |
+|----------|-----------|----------|
+| Handler | `**/handler/**/*.go`、`**/controller/**/*.go` | 路径、函数名 |
+| Service | `**/service/**/*.go`、`**/usecase/**/*.go` | 路径 |
+| Repository | `**/repository/**/*.go`、`**/dao/**/*.go` | 路径 |
+| Model/Entity | `**/model/**/*.go`、`**/entity/**/*.go`、`**/domain/**/*.go` | 路径、结构体名 |
+| 路由 | `**/router/**/*.go`、`**/routes/**/*.go` | 路径 |
+| 配置 | `**/config/**/*.go`、`**/*.yaml`（非 node_modules） | 路径 |
+| 中间件 | `**/middleware/**/*.go` | 路径 |
+
+**Python 后端扫描模式**（backend, fullstack，backend_language=python）：
+
+| 扫描类别 | Glob 模式 | 记录内容 |
+|----------|-----------|----------|
+| Views/Routes | `**/views/**/*.py`、`**/routes/**/*.py`、`**/api/**/*.py` | 路径 |
+| Models | `**/models/**/*.py`、`**/schemas/**/*.py` | 路径、类名 |
+| Services | `**/services/**/*.py`、`**/usecases/**/*.py` | 路径 |
+| Config | `**/config/**/*.py`、`**/settings/**/*.py`、`**/.env*` | 路径 |
+| Utils | `**/utils/**/*.py`、`**/helpers/**/*.py` | 路径 |
 
 | 扫描类别 | Glob 模式 | 记录内容 |
 |----------|-----------|----------|
@@ -176,7 +270,19 @@ type: stage-instruction
 ```yaml
 # file-index.yaml — 由 pre-scanner 输出，供所有文件级子代理使用
 project_root: "."
-project_type: "java-microservice"
+project_type: "java-microservice"  # 由 Step P1 自动判定的五种类型之一
+
+# ⬇️ v3.7.0 新增：项目元数据，供后续所有阶段引用
+project_metadata:
+  project_type: "java-fullstack"   # frontend | backend | java-microservice | fullstack | java-fullstack
+  languages: ["java", "typescript"]
+  has_frontend: true
+  has_backend: true
+  backend_language: "java"       # java | python | go | typescript | null
+  frontend_framework: "react"    # react | vue | angular | next | nuxt | svelte | null
+  backend_framework: "spring-boot"
+  has_microservices: true
+  build_tool: "maven"           # maven | gradle | npm | yarn | pnpm | go | pip | poetry
 
 services:
   - name: "qms-quality-management"

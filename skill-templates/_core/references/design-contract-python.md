@@ -1,9 +1,11 @@
----
+﻿---
 type: reference
 name: design-contract-python
 description: Python/FastAPI Design Contract 格式定义
 language: python
 ---
+applicable_types: [backend, fullstack]
+
 
 # Design Contract（Python / FastAPI）
 

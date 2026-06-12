@@ -1,4 +1,4 @@
----
+﻿---
 stage: Design
 type: stage-instruction
 ---
@@ -19,6 +19,10 @@ type: stage-instruction
 
 ### 触发条件
 - 全流程模式（Analyze 确认后）
+> **项目类型适配（v3.7.0）**：从 `project_metadata.project_type` 读取项目类型，自动选择设计规范：
+> `frontend` → 仅组件 interface + API 设计；`java-microservice` → Entity/DTO/Mapper/Service/Controller/Feign 全分层；
+> `fullstack`/`java-fullstack` → 前端 + 后端完整设计。
+
 - 用户输入 `/dev-flow -design <需求>`
 
 ### 🔴🔴 主 Agent 零编辑约束（本阶段入口铁律）

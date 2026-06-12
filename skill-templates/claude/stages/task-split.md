@@ -1,4 +1,4 @@
----
+﻿---
 stage: Task Split
 type: stage-instruction
 ---
@@ -19,6 +19,10 @@ type: stage-instruction
 
 ### 触发条件
 - 全流程模式（Design 确认后）
+> **项目类型适配（v3.7.0）**：拆分维度按 `project_type` 自动选择：
+> `frontend` → 按组件/页面拆分；`backend` → 按代码层拆分；`java-microservice` → 简单需求按层、复杂需求按功能；
+> `fullstack`/`java-fullstack` → 按功能维度（前后端成对）。
+
 - 用户输入 `/dev-flow -split`
 
 ### 🔴🔴 主 Agent 零编辑约束（本阶段入口铁律）

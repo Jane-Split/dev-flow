@@ -1,4 +1,4 @@
-/**
+﻿/**
  * dev-flow 平台调度引擎 (v3.2)
  *
  * 从 task-dag.yaml 读取任务依赖图，根据当前平台选择最优调度策略，
@@ -27,6 +27,15 @@ const DOCS_DIR = path.join(ROOT, '.dev-flow', 'docs');
 
 // 平台并发上限（防止大批次同时启动过多 subagent 导致系统卡顿）
 const MAX_CONCURRENT = {
+
+// v3.7.0: 按项目类型调整并发数（Java编译较重，适当降低）
+const TYPE_CONCURRENT_ADJUST = {
+  frontend: 0,
+  backend: 0,
+  'java-microservice': -1,
+  fullstack: 0,
+  'java-fullstack': -1,
+};
   cursor: 3,
   trae: 5,
   claude: 4,

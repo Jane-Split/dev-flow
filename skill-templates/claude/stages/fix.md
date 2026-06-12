@@ -1,4 +1,4 @@
----
+﻿---
 stage: Fix
 type: stage-instruction
 ---
@@ -19,6 +19,10 @@ type: stage-instruction
 
 ### 触发条件
 - Test 阶段发现失败用例
+> **项目类型适配（v3.7.0）**：Bug 分类按 `project_type` 扩展：
+> `frontend` 增加前端运行时错误类别（组件渲染异常、浏览器控制台报错）；
+> `java-microservice` 包含 bytecode 验证失败类别。
+
 - 用户输入 `/dev-flow -fix`
 
 ### 🔴🔴 主 Agent 零编辑约束（本阶段入口铁律）

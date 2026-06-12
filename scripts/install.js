@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+﻿#!/usr/bin/env node
 
 import { appendFileSync, cpSync, existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
@@ -362,6 +362,7 @@ function install(target) {
     installReferences(target);
   }
   createMemoryTemplate();
+  detectProjectType();
   console.log('\n✅ dev-flow skill 安装完成！');
   console.log('   在 AI 编程工具中输入 /dev-flow <需求> 开始使用');
   console.log('   输入 /dev-flow -subagent <需求> 使用 subagent 并行模式\n');
@@ -559,6 +560,68 @@ function createMemoryTemplate() {
   }
 
   console.log(`✅ 记忆目录: .dev-flow/memory/ (长期) + .dev-flow/memory/session/ (会话)`);
+}
+
+// ============================================================
+// 项目类型自动检测（安装时轻量预检，仅输出提示）
+// ============================================================
+
+function detectProjectType() {
+  const checks = {
+    hasJava: existsSync(resolve(PROJECT_ROOT, 'pom.xml')) ||
+              existsSync(resolve(PROJECT_ROOT, 'build.gradle')) ||
+              existsSync(resolve(PROJECT_ROOT, 'build.gradle.kts')),
+    hasGo: existsSync(resolve(PROJECT_ROOT, 'go.mod')),
+    hasPython: existsSync(resolve(PROJECT_ROOT, 'pyproject.toml')) ||
+               existsSync(resolve(PROJECT_ROOT, 'requirements.txt')) ||
+               existsSync(resolve(PROJECT_ROOT, 'setup.py')) ||
+               existsSync(resolve(PROJECT_ROOT, 'setup.cfg')),
+  };
+
+  let hasFrontend = false;
+  let hasBackend = false;
+  let backendLanguage = null;
+  let frontendFramework = null;
+
+  const pkgPath = resolve(PROJECT_ROOT, 'package.json');
+  if (existsSync(pkgPath)) {
+    try {
+      const pkg = JSON.parse(readFileSync(pkgPath, 'utf-8'));
+      const deps = { ...pkg.dependencies, ...pkg.devDependencies };
+      for (const fw of ['react', 'vue', '@angular/core', 'next', 'nuxt', 'svelte']) {
+        if (deps[fw]) { hasFrontend = true; frontendFramework = fw; break; }
+      }
+    } catch {}
+  }
+
+  const hasNodeBackend = existsSync(pkgPath) && !hasFrontend;
+  if (hasNodeBackend) { hasBackend = true; backendLanguage = 'typescript'; }
+  if (checks.hasJava) { hasBackend = true; backendLanguage = 'java'; }
+  else if (checks.hasGo) { hasBackend = true; backendLanguage = 'go'; }
+  else if (checks.hasPython) { hasBackend = true; backendLanguage = 'python'; }
+
+  let projectType, hint;
+  if (hasFrontend && backendLanguage === 'java') {
+    projectType = 'java-fullstack'; hint = '检测到 Java + 前端全栈项目';
+  } else if (hasFrontend && hasBackend) {
+    projectType = 'fullstack'; hint = '检测到前端 + 后端全栈项目';
+  } else if (hasFrontend) {
+    projectType = 'frontend'; hint = '检测到纯前端项目';
+  } else if (backendLanguage === 'java') {
+    projectType = 'java-microservice'; hint = '检测到 Java 微服务项目';
+  } else if (hasBackend) {
+    projectType = 'backend'; hint = '检测到后端项目';
+  } else {
+    projectType = 'fullstack'; hint = '未检测到明确特征，默认使用全栈模式';
+  }
+
+  console.log('\n[dev-flow] 项目类型: ' + projectType);
+  console.log('  ' + hint);
+  const langInfo = [];
+  if (backendLanguage) langInfo.push(backendLanguage);
+  if (hasFrontend) langInfo.push('typescript');
+  if (langInfo.length > 0) console.log('  语言: ' + langInfo.join(', '));
+  console.log('  AI 将在 /dev-flow 运行时自动适配工作流');
 }
 
 // CLI 解析

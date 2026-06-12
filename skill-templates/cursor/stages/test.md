@@ -1,4 +1,4 @@
----
+﻿---
 stage: Test
 type: stage-instruction
 ---
@@ -19,6 +19,10 @@ type: stage-instruction
 
 ### 触发条件
 - Develop 阶段确认后
+> **项目类型适配（v3.7.0）**：测试策略按 `project_type` 自动选择：
+> `frontend` → 组件单测 + E2E-UI；`backend` → 单测 + API + DB；
+> `java-microservice` → JUnit5 单测 + API + DB + 跨服务集成；`fullstack`/`java-fullstack` → 全部测试类型。
+
 - 用户输入 `/dev-flow -test`
 
 ### 🔴🔴 主 Agent 零编辑约束（本阶段入口铁律）

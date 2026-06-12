@@ -1,9 +1,11 @@
----
+﻿---
 type: reference
 name: design-contract-typescript
 description: TypeScript/NestJS Design Contract 格式定义
 language: typescript
 ---
+applicable_types: [frontend, fullstack, java-fullstack]
+
 
 # Design Contract（TypeScript / NestJS）
 

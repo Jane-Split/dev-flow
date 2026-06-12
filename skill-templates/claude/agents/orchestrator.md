@@ -1,10 +1,11 @@
----
+﻿---
 name: orchestrator
 description: dev-flow 主协调者，负责任务拆分、subagent 调度、结果整合。Use when starting a new development task or when coordination is needed across multiple services/modules. Also auto-activated when Router dynamic mode re-evaluation upgrades to parallel Subagent dispatch.
 tools: Read, Bash, Glob
 model: inherit
 readonly: false
 is_background: false
+project_types: [all]
 ---
 
 # dev-flow Orchestrator (主协调者)

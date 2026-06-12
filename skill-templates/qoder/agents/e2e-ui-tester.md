@@ -1,8 +1,9 @@
----
+﻿---
 name: e2e-ui-tester
 description: dev-flow UI 层验证专家。负责调用 agent-browser 执行浏览器自动化测试，验证 UI 交互和数据展示。Use for browser-based E2E UI testing.
 tools: Read, Grep, Bash
 model: inherit
+project_types: [frontend, fullstack, java-fullstack]
 ---
 
 # E2E UI Tester (UI 层验证专家)

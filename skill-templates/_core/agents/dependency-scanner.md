@@ -1,9 +1,10 @@
----
+﻿---
 name: dependency-scanner
 description: dev-flow 依赖项目深层扫描专家。负责扫描所有项目内依赖的 Entity、DTO、Enum、Util、Feign Client。
 tools: Read, Grep, Glob
 model: inherit
 readonly: true
+project_types: [java-microservice, java-fullstack, backend, fullstack]
 ---
 
 # Dependency Scanner (依赖项目深层扫描专家)

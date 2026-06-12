@@ -1,4 +1,4 @@
----
+﻿---
 type: reference
 name: runtime-protocol
 description: 运行时验证协议 - 服务编排、健康检查、DB 验证、UI 验证、追溯矩阵回写
@@ -6,6 +6,12 @@ description: 运行时验证协议 - 服务编排、健康检查、DB 验证、U
 
 # 运行时验证协议（Runtime Protocol）
 
+> **v3.7.0 项目类型适配**：
+> - `frontend`：启动 `npm run dev`，健康检查 HTTP GET /
+> - `backend (Go)`：启动 `go run ./cmd/...`，健康检查 HTTP GET /health
+> - `backend (Python)`：启动 `uvicorn main:app` 或 `flask run`，健康检查 HTTP GET /health
+> - `java-microservice`：启动 `mvn spring-boot:run`，健康检查 HTTP GET /actuator/health
+> - `fullstack`/`java-fullstack`：分别启动前端和后端，分别健康检查
 > **本文件定义运行时验证闭环的共享协议**，包括服务编排、健康检查、DB 数据核对、UI 层验证和追溯矩阵回写。
 > 由 Test 阶段、service-orchestrator、db-verifier、e2e-ui-tester 共同引用。
 

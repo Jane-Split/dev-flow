@@ -1,10 +1,11 @@
----
+﻿---
 name: task-split-expert
 description: dev-flow 任务拆分专家，负责将设计拆分为可并行执行的子任务，生成子任务级设计文档。Use when splitting large development tasks into parallel subtasks.
 tools: Read, Write
 model: inherit
 readonly: false
 is_background: false
+project_types: [all]
 ---
 
 # Task Split Expert (任务拆分专家)

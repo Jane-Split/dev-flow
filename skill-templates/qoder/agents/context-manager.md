@@ -1,8 +1,9 @@
----
+﻿---
 name: context-manager
 description: 上下文管理器，负责智能分配和管理 AI 模型上下文，确保在节省上下文的同时保证开发准确性。
 tools: Read, Write, Bash
 type: background
+project_types: [all]
 ---
 
 # Context Manager (上下文管理器)

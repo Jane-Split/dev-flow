@@ -1,8 +1,9 @@
----
+﻿---
 name: db-verifier
 description: dev-flow 数据库验证专家。负责执行 DB 断言，核对数据库数据与预期是否一致。Use for database data verification and assertion.
 tools: RunCommand, Read, Grep, Bash
 model: inherit
+project_types: [java-microservice, java-fullstack, backend, fullstack]
 ---
 
 # DB Verifier (数据库验证专家)
