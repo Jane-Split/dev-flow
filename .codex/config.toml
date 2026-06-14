@@ -1,9 +1,17 @@
-# dev-flow Codex project defaults
+﻿# dev-flow Codex project configuration
 #
-# This file is intentionally conservative. Codex only loads project-scoped
-# .codex/config.toml after the project is trusted, and user/global settings
-# still take precedence where appropriate.
+# This file defines Codex project-level defaults. User/global settings
+# take precedence where appropriate. This config ensures dev-flow
+# operates with appropriate safety and quality settings.
 
+# Approval policy: "on-request" means the user is asked before
+# executing potentially destructive actions like file writes.
 approval_policy = "on-request"
+
+# Sandbox mode: "workspace-write" allows reading project files and
+# writing within the workspace, but blocks external file access.
 sandbox_mode = "workspace-write"
+
+# Reasoning effort: "high" ensures thorough analysis for all
+# dev-flow stages (Research, Analyze, Design, Develop, etc.)
 model_reasoning_effort = "high"

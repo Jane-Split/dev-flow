@@ -1,4 +1,4 @@
-# dev-flow for Codex
+﻿# dev-flow for Codex
 
 <!-- dev-flow:start -->
 
@@ -15,6 +15,159 @@
 - 不要生成 TODO 占位代码、空壳实现或无效测试。
 
 更多细节见 `.agents/skills/dev-flow/SKILL.md`。
+
+## 完整流程编排
+
+当用户输入 `/dev-flow <需求>` 时，按以下阶段顺序执行：
+
+```
+Step 1: Research（项目调研）→ 多子代理分批扫描架构
+Step 2: Clarify（需求澄清，可选）→ 迭代问答消除歧义
+Step 3: Analyze（需求分析）→ 分析影响范围和约束
+Step 4: Design（详细设计）→ 生成实现计划和数据模型
+Step 5: Task Split（任务拆分）→ 拆分为可并行执行的子任务
+Step 6: Develop（开发执行）→ 按批次实现子任务
+Step 7: Test（统一测试）→ 单元+冒烟+E2E+集成测试
+Step 8: Fix（按需修复）→ 仅测试未通过时执行
+Step 9: Delivery（交付报告）→ 生成交付物和总结
+```
+
+**关键规则**：
+- 每个阶段都由专门的 subagent 执行
+- 每个阶段完成后必须暂停，等待用户确认
+- Task Split 确认后自动执行模式动态重评估
+
+## 使用方式
+
+| 命令 | 说明 |
+|------|------|
+| `/dev-flow <需求描述>` | 全流程：Research → Clarify → Analyze → Design → Task Split → Develop → Test → Fix(按需) → Delivery |
+| `/dev-flow -subagent <需求描述>` | 企业级模式：并行 Subagent 调度，适合复杂需求 |
+| `/dev-flow -research` | 仅执行项目调研 |
+| `/dev-flow -clarify <需求>` | 仅执行需求澄清（迭代问答） |
+| `/dev-flow -analyze <需求>` | 仅执行需求分析 |
+| `/dev-flow -design <需求>` | 仅执行详细设计 |
+| `/dev-flow -split <需求>` | 仅执行任务拆分 |
+| `/dev-flow -develop <需求>` | 直接开发（跳过设计和拆分） |
+| `/dev-flow -test` | 执行统一测试（单元+冒烟+E2E+集成） |
+| `/dev-flow -delivery` | 生成交付报告 |
+| `/dev-flow -fix` | 分析并修复 Bug |
+| `/dev-flow -hotfix <错误信息>` | 紧急修复线上错误 |
+| `/dev-flow --resume` | 从上次中断处继续 |
+| `/dev-flow -cleanup` | 清理会话记忆，保留长期记忆 |
+| `/dev-flow -cleanup --all` | 清理全部记忆（重置） |
+
+## Codex 子代理使用
+
+### 可用的 Codex Agent 类型
+
+| Agent | 用途 | Reasoning |
+|-------|------|-----------|
+| `orchestrator` | 任务分解、依赖管理、结果汇总 | high |
+| `research-expert` | 项目扫描、记忆构建 | high |
+| `analyze-expert` | 需求分析、影响评估 | high |
+| `design-expert` | 设计文档、实现计划 | high |
+| `develop-expert` | 代码实现（后端+前端） | high |
+| `verify-expert` | 代码审查、测试、质量检查 | high |
+| `smoke-test` | 冒烟测试、核心功能验证 | high |
+| `integration-test` | 集成测试、跨服务验证 | high |
+| `delivery` | 交付报告生成 | high |
+| `dependency-scanner` | 内部依赖扫描 | medium |
+| `service-scanner` | 服务源码扫描 | medium |
+| `structure-analyzer` | 项目结构分析 | medium |
+| `config-analyzer` | 配置、约定、模式分析 | medium |
+| `task-protocol` | 任务格式定义 | medium |
+
+### Agent 能力映射（Claude/Cursor → Codex）
+
+以下是从 `.claude/` 的完整 agent 集合到 Codex 14 个内置 agent 类型的映射关系。所有能力均通过 Codex 现有 agent 覆盖，无能力削弱：
+
+| Claude/Cursor Agent | Codex 等价实现 | 说明 |
+|---------------------|----------------|------|
+| `backend-develop-expert` | `develop-expert`（附后端专用指令） | 通过 stage 指令区分前后端 |
+| `frontend-develop-expert` | `develop-expert`（附前端专用指令） | 通过 stage 指令区分前后端 |
+| `clarify-expert` | `analyze-expert`（附澄清指令） | 需求澄清通过 Analyze 阶段覆盖 |
+| `task-split-expert` | `orchestrator` + `task-protocol` | 任务拆分由 orchestrator 调用 task-protocol 完成 |
+| `context-manager` | 主 Agent 内置 | 上下文管理策略内置于 AGENTS.md |
+| `bytecode-analyzer` | `analyze-expert` | 字节码分析归入分析能力 |
+| `contract-validator` | `verify-expert` | 合约验证归入验证能力 |
+| `db-verifier` | `verify-expert` + `smoke-test` | 数据库验证归入验证/冒烟测试 |
+| `design-contract-validator` | `verify-expert` | 设计合约验证归入验证 |
+| `e2e-ui-tester` | `smoke-test` + Browser 插件 | E2E UI 测试通过冒烟测试+Browser 覆盖 |
+| `error-pattern-learner` | `verify-expert` + `delivery` | 错误模式学习归入验证和交付阶段 |
+| `on-demand-loader` | 按需加载策略（内置） | 按需加载策略内置于 AGENTS.md |
+| `runtime-state-manager` | `.dev-flow/runtime/` + 检查点机制 | 运行时状态通过文件和检查点管理 |
+| `service-orchestrator` | `orchestrator` | 服务编排归入 orchestrator |
+| `step-enforcer` | `verify-expert` + 阶段确认机制 | 步骤执行由验证+确认机制保障 |
+
+### Subagent 调用策略
+
+| 场景 | 是否使用 Subagent | 原因 |
+|------|-------------------|------|
+| 简单 CRUD（<5 文件） | 否 | 单 agent 可完成 |
+| 中等需求（5-10 文件） | 可选 | 根据上下文使用情况决定 |
+| 复杂需求（>10 文件） | 是 | 必须，避免上下文溢出 |
+| 多服务项目 | 是 | 必须，并行开发 |
+| 大型扫描（>200 文件） | 是 | 必须，分层扫描 |
+
+### Subagent 上下文隔离
+
+```
+每个 subagent 独立上下文：
+
+1. 主 agent 只传递必要的输入文件
+2. Subagent 执行完成后返回摘要
+3. 详细结果写入文件，不返回给主 agent
+4. 主 agent 只保留：任务状态 + 结果文件路径
+```
+
+## 目录结构
+
+```
+.codex/
+├── config.toml              # Codex 项目配置
+├── agents/                  # Agent 定义（.toml 格式）
+│   ├── orchestrator.toml
+│   ├── research-expert.toml
+│   ├── analyze-expert.toml
+│   ├── design-expert.toml
+│   ├── develop-expert.toml
+│   ├── verify-expert.toml
+│   ├── smoke-test.toml
+│   ├── integration-test.toml
+│   ├── delivery.toml
+│   ├── dependency-scanner.toml
+│   ├── service-scanner.toml
+│   ├── structure-analyzer.toml
+│   ├── config-analyzer.toml
+│   └── task-protocol.toml
+├── commands/                # 命令定义
+│   └── dev-flow.md
+├── references/              # 参考文档（11 个文件）
+│   ├── protocol.md          # 公共协议（零编辑铁律、门禁检查等）
+│   ├── memory-system.md     # 记忆系统
+│   ├── learning-system.md   # 学习系统
+│   ├── runtime-protocol.md  # 运行时协议
+│   ├── degradation-matrix.md # 故障降级矩阵
+│   ├── design-contract-go.md
+│   ├── design-contract-python.md
+│   ├── design-contract-typescript.md
+│   ├── error-pattern-db.md
+│   ├── model-context-config.md
+│   └── on-demand-loader.md
+└── stages/                  # 阶段定义（11 个文件）
+    ├── research.md          # 项目调研阶段
+    ├── clarify.md           # 需求澄清阶段
+    ├── analyze.md           # 需求分析阶段
+    ├── design.md            # 详细设计阶段
+    ├── task-split.md        # 任务拆分阶段
+    ├── develop.md           # 开发执行阶段
+    ├── test.md              # 统一测试阶段
+    ├── fix.md               # 修复阶段
+    ├── hotfix.md            # 紧急修复阶段
+    ├── delivery.md          # 交付阶段
+    └── code-reference.md    # 代码参考
+```
 
 ## ⚠️ Codex 上下文管理（关键！）
 
@@ -78,29 +231,6 @@ Develop 阶段：
 - 代码文件 → 直接写入磁盘
 - 测试报告 → test-report.md
 - 上下文只保留：文件路径 + 关键类名/方法名
-```
-
-### Subagent 调用策略
-
-#### 何时使用 Subagent
-
-| 场景 | 是否使用 Subagent | 原因 |
-|------|-------------------|------|
-| 简单 CRUD（<5 文件） | 否 | 单 agent 可完成 |
-| 中等需求（5-10 文件） | 可选 | 根据上下文使用情况决定 |
-| 复杂需求（>10 文件） | 是 | 必须，避免上下文溢出 |
-| 多服务项目 | 是 | 必须，并行开发 |
-| 大型扫描（>200 文件） | 是 | 必须，分层扫描 |
-
-#### Subagent 上下文隔离
-
-```
-每个 subagent 独立上下文：
-
-1. 主 agent 只传递必要的输入文件
-2. Subagent 执行完成后返回摘要
-3. 详细结果写入文件，不返回给主 agent
-4. 主 agent 只保留：任务状态 + 结果文件路径
 ```
 
 ### 会话持久化
