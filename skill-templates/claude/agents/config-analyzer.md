@@ -1,4 +1,4 @@
-﻿---
+---
 name: config-analyzer
 description: dev-flow 配置与编码规范分析专家。负责分析中间件配置、编码规范、代码模式和架构决策。
 tools: Read, Grep, Glob

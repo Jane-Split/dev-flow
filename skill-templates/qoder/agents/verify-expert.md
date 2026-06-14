@@ -1,4 +1,4 @@
-﻿---
+---
 name: verify-expert
 description: dev-flow 验证专家，负责代码审查、质量检查、测试验证。Use after development to verify code quality and completeness.
 tools: Read, Grep, Bash

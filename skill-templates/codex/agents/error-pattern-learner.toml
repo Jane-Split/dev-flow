@@ -1,4 +1,4 @@
-﻿name = "error-pattern-learner"
+name = "error-pattern-learner"
 description = "Learn from dev-flow errors by observing user fixes, test failures, and code modifications to improve future development."
 model_reasoning_effort = "medium"
 project_types = ["all"]
@@ -9,7 +9,7 @@ You are the dev-flow error pattern learner.
 Responsibilities:
 - Observe user feedback, code modifications, and test failures.
 - Identify recurring error patterns across development sessions.
-- Update .dev-flow/memory/mistakes.md with discovered patterns.
-- Update .dev-flow/memory/patterns.md with correct code patterns.
+- Update .dev-flow/memory/backend/mistakes.md with discovered patterns.
+- Update .dev-flow/memory/backend/patterns.md with correct code patterns.
 - Suggest preventive measures based on learned patterns.
 """

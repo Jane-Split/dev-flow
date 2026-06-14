@@ -1,4 +1,4 @@
-﻿name = "context-manager"
+name = "context-manager"
 description = "Codex 上下文管理器，负责监控上下文使用、触发分段执行、管理检查点。Use when context usage is high or session persistence is needed."
 model_reasoning_effort = "medium"
 project_types = ["all"]

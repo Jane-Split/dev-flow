@@ -1,4 +1,4 @@
-﻿---
+---
 stage: Clarify
 type: stage-instruction
 ---
@@ -87,12 +87,12 @@ Step 0.3: 传递给 Step 1 继续流程
 ```
 必读：
   - .dev-flow/memory/project-overview.md    → 技术栈、架构
-  - .dev-flow/memory/service-registry.md    → 服务列表（多服务模式）
-  - .dev-flow/memory/dependency-graph.md    → 服务间依赖
-  - .dev-flow/memory/common-modules.md      → 可复用公共类
-  - .dev-flow/memory/conventions.md         → 编码规范
-  - .dev-flow/memory/session/models.md      → 数据模型
-  - .dev-flow/memory/session/apis.md        → API 端点
+  - .dev-flow/memory/backend/service-registry.md    → 服务列表（多服务模式）
+  - .dev-flow/memory/backend/dependency-graph.md    → 服务间依赖
+  - .dev-flow/memory/backend/common-modules.md      → 可复用公共类
+  - .dev-flow/memory/{当前端}/conventions.md         → 编码规范
+  - .dev-flow/memory/backend/session/models.md      → 数据模型
+  - .dev-flow/memory/backend/session/apis.md        → API 端点
 
 按需读取（根据需求关键词匹配）：
   - 需求涉及"用户"→ 读取 user-service 相关 Entity/Service/Controller

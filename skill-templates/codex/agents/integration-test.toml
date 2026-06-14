@@ -1,4 +1,4 @@
-﻿name = "integration-test"
+name = "integration-test"
 description = "dev-flow integration test expert. Use when testing cross-service interactions and integration scenarios."
 model_reasoning_effort = "high"
 project_types = ["all"]
@@ -14,7 +14,7 @@ Responsibilities:
 - Output integration test report to `.dev-flow/contracts/{demand-name}-integration-test-report.md`
 
 Input files to read:
-- `.dev-flow/memory/dependency-graph.md` - Service dependencies
+- `.dev-flow/memory/backend/dependency-graph.md` - Service dependencies
 - `.dev-flow/contracts/{demand-name}-detailed-design.md` - Interface design
 - `.dev-flow/contracts/{demand-name}-smoke-test-report.md` - Smoke test results
 

@@ -1,4 +1,4 @@
-﻿---
+---
 stage: Develop
 type: stage-instruction
 ---
@@ -129,13 +129,13 @@ Step D9: 向用户汇报开发结果，输出确认清单
 - ⭐ **读取 `.dev-flow/contracts/{需求简称}/design-contract.yaml` - Design → Develop 标准数据交换格式**
   - 必须理解：API 接口定义、DTO 字段规范、方法命名约定、输入输出类型
   - 禁止忽略或覆盖此契约中的任何定义
-- 读取 `.dev-flow/memory/conventions.md` - 遵守编码规范
-- 读取 `.dev-flow/memory/patterns.md` - 复用已有代码模式
-- 读取 `.dev-flow/memory/mistakes.md` - 避免历史错误
+- 读取 `.dev-flow/memory/{当前端}/conventions.md` - 遵守编码规范
+- 读取 `.dev-flow/memory/backend/patterns.md` - 复用已有代码模式
+- 读取 `.dev-flow/memory/backend/mistakes.md` - 避免历史错误
 - **如果是 Java 微服务（多服务模式），额外读取：**
-  - `.dev-flow/memory/service-registry.md` - 了解各服务的模块结构
-  - `.dev-flow/memory/dependency-graph.md` - 了解服务间依赖顺序
-  - `.dev-flow/memory/common-modules.md` - 了解可复用的公共类
+  - `.dev-flow/memory/backend/service-registry.md` - 了解各服务的模块结构
+  - `.dev-flow/memory/backend/dependency-graph.md` - 了解服务间依赖顺序
+  - `.dev-flow/memory/backend/common-modules.md` - 了解可复用的公共类
 
 ---
 

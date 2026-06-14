@@ -1,4 +1,4 @@
-﻿name = "on-demand-loader"
+name = "on-demand-loader"
 description = "Load only the files needed for the current task, minimizing context usage for dev-flow."
 model_reasoning_effort = "medium"
 project_types = ["all"]

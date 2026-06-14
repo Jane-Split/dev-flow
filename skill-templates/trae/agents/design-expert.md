@@ -1,4 +1,4 @@
-﻿---
+---
 name: design-expert
 description: dev-flow 设计专家，负责详细设计、接口定义、数据模型设计。Use when detailed technical design is needed before implementation.
 tools: Read, Write

@@ -1,4 +1,4 @@
-﻿---
+---
 stage: Analyze
 type: stage-instruction
 ---

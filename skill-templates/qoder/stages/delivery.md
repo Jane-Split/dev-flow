@@ -1,4 +1,4 @@
-﻿---
+---
 stage: Delivery
 type: stage-instruction
 ---

@@ -1,4 +1,4 @@
-﻿---
+---
 stage: Analyze
 type: stage-instruction
 ---
@@ -116,8 +116,8 @@ Step 0.5.3: 传递给 Step 1 继续现有流程
   - `backend`：读取 `modules.md`、`apis.md`，评估单服务模块影响
   - `frontend`：读取 `modules.md`（组件列表）、`apis.md`（API调用层），评估组件和路由影响
   - `fullstack` / `java-fullstack`：读取全部记忆文件
-  - 读取 `.dev-flow/memory/service-registry.md`，识别需求可能涉及的服务
-  - 读取 `.dev-flow/memory/dependency-graph.md`，分析跨服务依赖影响
+  - 读取 `.dev-flow/memory/backend/service-registry.md`，识别需求可能涉及的服务
+  - 读取 `.dev-flow/memory/backend/dependency-graph.md`，分析跨服务依赖影响
   - 评估跨服务影响范围：哪些服务会被直接影响，哪些会被间接影响（通过 Feign 调用链）
 
 **Step 2: 上下文关联**
@@ -125,11 +125,11 @@ Step 0.5.3: 传递给 Step 1 继续现有流程
 - **根据项目类型，识别与需求相关的已有代码：**
 
 **如果是 Java 微服务（多服务模式）：**
-- 读取 `.dev-flow/memory/service-registry.md` - 识别受影响的服务及其模块结构
-- 读取 `.dev-flow/memory/dependency-graph.md` - 理解跨服务依赖关系和 Feign 调用链
-- 读取 `.dev-flow/memory/common-modules.md` - 识别可复用的公共类（Entity/DTO/Enum/Util）
+- 读取 `.dev-flow/memory/backend/service-registry.md` - 识别受影响的服务及其模块结构
+- 读取 `.dev-flow/memory/backend/dependency-graph.md` - 理解跨服务依赖关系和 Feign 调用链
+- 读取 `.dev-flow/memory/backend/common-modules.md` - 识别可复用的公共类（Entity/DTO/Enum/Util）
 - 对每个受影响的服务：
-  - 读取该服务的 `.dev-flow/memory/modules.md`（如有）或从 service-registry.md 获取模块信息
+  - 读取该服务的 `.dev-flow/memory/backend/session/modules.md`（如有）或从 service-registry.md 获取模块信息
   - 识别相关的 Service、Mapper、Controller、Entity、DTO、Enum
   - 识别该服务中哪些具体模块需要变更
 - 评估跨服务变更需求：

@@ -1,4 +1,4 @@
-﻿---
+---
 type: reference
 name: design-contract-python
 description: Python/FastAPI Design Contract 格式定义

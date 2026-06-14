@@ -1,4 +1,4 @@
-﻿---
+---
 name: test-expert
 description: dev-flow 统一测试专家。负责执行单元测试、冒烟测试、E2E测试（API+UI+DB）和集成测试，生成测试报告并回写追溯矩阵。Use for unified testing including unit, smoke, E2E, and integration tests.
 tools: Read, Grep, Glob, Bash, RunCommand
@@ -42,8 +42,8 @@ project_types: [all]
 ## 执行流程
 
 ### Step 1: 读取项目记忆和契约
-- 读取 `.dev-flow/memory/conventions.md` — 测试风格和规范
-- 读取 `.dev-flow/memory/mistakes.md` — 历史常见错误，重点测试
+- 读取 `.dev-flow/memory/backend/conventions.md` — 测试风格和规范
+- 读取 `.dev-flow/memory/backend/mistakes.md` — 历史常见错误，重点测试
 - 读取所有契约文件（test-case-contract、runtime-contract、prd-contract、design-contract）
 
 ### Step 2: 单元测试

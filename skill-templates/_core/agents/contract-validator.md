@@ -1,4 +1,4 @@
-﻿---
+---
 name: contract-validator
 description: dev-flow 契约验证器，负责自动化校验代码与设计契约的一致性。Use after development to validate code matches design contracts.
 tools: Read, Grep, Bash

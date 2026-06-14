@@ -1,4 +1,4 @@
-﻿---
+---
 stage: Research
 type: stage-instruction
 ---

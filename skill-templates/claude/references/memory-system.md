@@ -1,4 +1,4 @@
-﻿# dev-flow 记忆系统
+# dev-flow 记忆系统
 
 > **v3.7.0 项目类型适配**：
 > - `service-registry.md`、`dependency-graph.md`、`common-modules.md`：仅 `java-microservice`、`java-fullstack`、`fullstack` 填充

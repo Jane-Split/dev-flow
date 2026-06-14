@@ -1,4 +1,4 @@
-﻿name = "task-protocol"
+name = "task-protocol"
 description = "Define dev-flow task assignment and result formats for coordinated multi-agent work."
 model_reasoning_effort = "medium"
 project_types = ["all"]

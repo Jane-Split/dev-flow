@@ -1,4 +1,4 @@
-﻿---
+---
 name: test-expert
 description: dev-flow 统一测试专家。负责执行单元测试、冒烟测试、E2E测试（API+UI+DB）和集成测试，生成测试报告并回写追溯矩阵。Use for unified testing including unit, smoke, E2E, and integration tests.
 tools: Read, Grep, Glob, Bash, RunCommand

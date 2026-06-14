@@ -1,4 +1,4 @@
-﻿---
+---
 name: design-contract-validator
 description: Design-Develop 契约验证器，验证设计文档中的 call action 定义完整性，并对比实际代码实现，防止日志占位。
 tools: Read, Write, Grep, Glob

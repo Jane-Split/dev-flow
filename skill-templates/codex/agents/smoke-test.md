@@ -1,4 +1,4 @@
-﻿---
+---
 name: smoke-test
 description: dev-flow 冒烟测试专家，负责快速验证核心业务流程可运行。Use when verifying that core functionality works after development.
 tools: Read, Bash, Grep

@@ -1,4 +1,4 @@
-﻿name = "step-enforcer"
+name = "step-enforcer"
 description = "Enforce critical dev-flow steps and verify that no required steps are skipped during development."
 model_reasoning_effort = "medium"
 project_types = ["all"]

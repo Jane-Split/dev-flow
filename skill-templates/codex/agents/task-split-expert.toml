@@ -1,4 +1,4 @@
-﻿name = "task-split-expert"
+name = "task-split-expert"
 description = "Split dev-flow design into executable tasks, generate DAG dependency graphs, and plan parallel execution strategy."
 model_reasoning_effort = "high"
 project_types = ["all"]

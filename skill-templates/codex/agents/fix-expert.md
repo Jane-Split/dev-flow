@@ -1,4 +1,4 @@
-﻿---
+---
 name: fix-expert
 description: dev-flow Bug 修复专家。负责自动分类 Bug、定位根因、执行修复和回归测试。Use for analyzing and fixing bugs found during testing or runtime.
 tools: Read, Grep, Glob, Bash, RunCommand, Edit
@@ -76,7 +76,7 @@ project_types: [all]
 |------|----------|------|
 | `.dev-flow/deliverables/{需求简称}/06-test-report.md` | Read 全文 | 获取失败用例和通过列表 |
 | `.dev-flow/runtime/pre-test-result.yaml` | Read 全文 | 回归测试基准 |
-| `.dev-flow/memory/mistakes.md` | Read 全文 | 参考历史修复方案 |
+| `.dev-flow/memory/backend/mistakes.md` | Read 全文 | 参考历史修复方案 |
 
 ### 按需读取
 - 失败文件源码 → 仅在定位根因时读取

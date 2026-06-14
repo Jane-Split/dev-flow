@@ -1,4 +1,4 @@
-﻿---
+---
 name: dev-flow
 description: AI开发全流程编排技能 - 在AI编程工具对话框中结构化执行完整开发流程
 ---

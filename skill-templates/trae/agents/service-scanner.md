@@ -1,4 +1,4 @@
-﻿---
+---
 name: service-scanner
 description: dev-flow 当前服务扫描专家。负责扫描当前服务的 Entity、Service、Controller、Mapper、Config。
 tools: Read, Grep, Glob

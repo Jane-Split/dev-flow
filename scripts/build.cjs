@@ -339,7 +339,8 @@ function generatePlatform(platform, config, targetLanguages) {
         const dst = path.join(agentsDir, agent);
         // 只复制 _core 中不存在的 agent（避免覆盖已提升的版本）
         if (!fs.existsSync(dst)) {
-          fs.copyFileSync(src, dst);
+          const _copyContent = fs.readFileSync(src, 'utf-8');
+          fs.writeFileSync(dst, _copyContent, 'utf-8');
           copied++;
         }
       }

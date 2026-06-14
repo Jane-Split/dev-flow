@@ -1,4 +1,4 @@
-﻿---
+---
 name: develop-expert
 description: dev-flow 开发专家，负责代码实现。Use when implementing code based on design documents. Can run in parallel for independent tasks.
 tools: Read, Write, Edit, Bash, Grep, Glob
@@ -246,7 +246,7 @@ test_status: passed|failed|not_tested
 |------|----------|------|
 | `.dev-flow/sessions/{session-id}/design-result.md` | Read 全文 | 详细设计方案 |
 | `.dev-flow/sessions/{session-id}/task-context.yaml` | Read 全文 | 本任务的具体要求 |
-| `.dev-flow/memory/conventions.md` | Read 全文 | 编码规范 |
+| `.dev-flow/memory/backend/conventions.md` | Read 全文 | 编码规范 |
 
 ### 按需读取（仅读取当前任务相关的代码）
 - 要修改的已有文件 → Read 全文

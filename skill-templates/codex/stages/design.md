@@ -1,4 +1,4 @@
-﻿---
+---
 stage: Design
 type: stage-instruction
 ---
@@ -342,12 +342,12 @@ interfaces:
 
 **Step 0: 读取项目记忆**
 - 读取 `.dev-flow/memory/project-overview.md` - 了解项目技术栈和架构
-- 读取 `.dev-flow/memory/architecture.md` - 了解架构决策和约束
-- 读取 `.dev-flow/memory/conventions.md` - 了解编码规范
+- 读取 `.dev-flow/memory/backend/session/architecture.md` - 了解架构决策和约束
+- 读取 `.dev-flow/memory/backend/conventions.md（后端）/ .dev-flow/memory/frontend/conventions.md（前端）` - 了解编码规范
 - **如果是 Java 微服务（多服务模式），额外读取：**
-  - `.dev-flow/memory/service-registry.md` - 了解所有服务的角色、端口、模块结构
-  - `.dev-flow/memory/dependency-graph.md` - 了解服务间依赖关系和 Feign 调用链
-  - `.dev-flow/memory/common-modules.md` - 了解可复用的公共类
+  - `.dev-flow/memory/backend/service-registry.md` - 了解所有服务的角色、端口、模块结构
+  - `.dev-flow/memory/backend/dependency-graph.md` - 了解服务间依赖关系和 Feign 调用链
+  - `.dev-flow/memory/backend/common-modules.md` - 了解可复用的公共类
 - 确保设计方案符合项目整体架构
 
 **Step 1: 数据层设计（按项目类型）**

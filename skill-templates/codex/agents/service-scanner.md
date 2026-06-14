@@ -1,4 +1,4 @@
-﻿---
+---
 name: service-scanner
 description: dev-flow 当前服务扫描专家。负责扫描当前服务的 Entity、Service、Controller、Mapper、Config。
 tools: Read, Grep, Glob
@@ -14,7 +14,7 @@ project_types: [java-microservice, java-fullstack, backend, fullstack]
 ## 输入
 
 - 当前服务路径（如 `src/main/java/`）
-- 输出文件：`.dev-flow/memory/models.md`、`.dev-flow/memory/apis.md`
+- 输出文件：`.dev-flow/memory/backend/session/models.md`、`.dev-flow/memory/backend/session/apis.md`
 
 ## 扫描方法
 

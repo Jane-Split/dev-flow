@@ -1,4 +1,4 @@
-﻿---
+---
 name: structure-analyzer
 description: dev-flow 项目结构分析专家。负责分析微服务架构、服务角色、模块结构、服务间依赖关系。
 tools: Read, Grep, Glob

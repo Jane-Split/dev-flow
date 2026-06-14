@@ -1,4 +1,4 @@
-﻿---
+---
 stage: Task Split
 type: stage-instruction
 ---

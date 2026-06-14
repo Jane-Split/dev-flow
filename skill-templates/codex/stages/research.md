@@ -1,4 +1,4 @@
-﻿---
+---
 stage: Research
 type: stage-instruction
 ---
@@ -11,7 +11,7 @@ type: stage-instruction
 ▶ Research（项目调研）
 ════════════════════════════════════
 目标：扫描项目结构，建立项目记忆
-输出：.dev-flow/memory/（13 个文件）
+输出：.dev-flow/memory/（按项目类型 9~22 个文件）
 架构：pre-scanner + 文件级子代理 × 11（4 批次）
 预计：2-4 分钟
 批次：4 批并行
@@ -39,13 +39,13 @@ type: stage-instruction
 主 Agent（纯调度器，零编辑）
   │
   ├── Phase 0: pre-scanner subagent × 1
-  │     └── 全局 Quick Scan + 模板文件初始化（mistakes.md/patterns.md）→ file-index.yaml
+  │     └── 全局 Quick Scan + 模板文件初始化（backend/ 和 frontend/ 下的 mistakes.md + patterns.md）→ file-index.yaml
   │
   └── Phase 1: 文件级子代理 × 11（4 批次并行 + 串行）
-        ├── Batch 1 (基础层, 3): project-overview, service-registry, architecture
-        ├── Batch 2 (数据层, 3): common-modules, models, config
-        ├── Batch 3 (行为层, 3): apis, utils, conventions
-        └── Batch 4 (横切层, 2): dependency-graph, decisions
+        ├── Batch 1 (基础层): project-overview + service-registry + architecture (后端) + pages/components/store/router (前端)
+        ├── Batch 2 (数据层): common-modules + models + config (后端) + types + styles (前端)
+        ├── Batch 3 (行为层): apis + utils + conventions (后端) + apis + hooks (前端)
+        ├── Batch 4 (横切层): dependency-graph + decisions (后端)
 ```
 
 **核心原理**：
@@ -53,7 +53,7 @@ type: stage-instruction
 - **每个文件子代理获得 file-index.yaml**，精确知道要读哪些源文件
 - **每个子代理拥有独立上下文**（~25-40KB），Smart Sampling 可从容执行甚至全量读取
 - **无需聚合器**——每个子代理直接写入目标 memory 文件，互不依赖
-- **模板文件（mistakes.md/patterns.md）由 pre-scanner 创建初始模板，后续在 Fix/Develop 阶段持续积累**
+- **模板文件（backend/ 和 frontend/ 下的 mistakes.md + patterns.md）由 pre-scanner 创建初始模板，后续在 Fix/Develop 阶段持续积累**
 
 ---
 
@@ -359,12 +359,13 @@ timestamp: "2026-06-05T23:30:00"
 
 #### Step P3.5: 初始化模板文件
 
-> pre-scanner 在完成 file-index.yaml 后，顺便创建 mistakes.md 和 patterns.md 的初始模板。
+> pre-scanner 在完成 file-index.yaml 后，顺便创建 backend/ 和 frontend/ 下 mistakes.md 和 patterns.md 的初始模板（按项目类型）。
 
 ```
 pre-scanner 同时创建两个模板文件：
 
-文件: .dev-flow/memory/mistakes.md
+文件: .dev-flow/memory/backend/mistakes.md（如有后端）
+  文件: .dev-flow/memory/frontend/mistakes.md（如有前端）
 内容:
   # 错误模式记录
   <!-- last-updated: {timestamp} -->
@@ -373,7 +374,8 @@ pre-scanner 同时创建两个模板文件：
   ## 已识别的错误模式
   暂无记录，在 Fix 阶段和开发过程中持续积累。
 
-文件: .dev-flow/memory/patterns.md
+文件: .dev-flow/memory/backend/patterns.md（如有后端）
+  文件: .dev-flow/memory/frontend/patterns.md（如有前端）
 内容:
   # 代码模式记录
   <!-- last-updated: {timestamp} -->
@@ -443,7 +445,7 @@ completeness: 基于 file-index 全局统计 → 通常为 A
 
 ##### 1b: service-registry-subagent
 ```
-目标文件: .dev-flow/memory/service-registry.md
+目标文件: .dev-flow/memory/backend/service-registry.md
 输入: file-index.yaml 的 services 列表 + 各服务 pom
 需读源码: 每个服务的 pom.xml + application.yml（仅端口/服务名）
 产出内容:
@@ -454,7 +456,7 @@ completeness: 所有服务已注册 → 通常为 A
 
 ##### 1c: architecture-subagent
 ```
-目标文件: .dev-flow/memory/session/architecture.md
+目标文件: .dev-flow/memory/backend/session/architecture.md
 输入: file-index.yaml 的 services + common_modules
 需读源码: 每个服务的 pom.xml（父 POM） + application.yml
 产出内容:
@@ -473,7 +475,7 @@ completeness: 架构信息完整 → 通常为 A
 
 ##### 2a: common-modules-subagent
 ```
-目标文件: .dev-flow/memory/common-modules.md
+目标文件: .dev-flow/memory/backend/common-modules.md
 输入: file-index.yaml 的 common_modules 部分
 需读源码:
   - 所有 common_modules 的 Entity（is_core: true → 全量读取）
@@ -488,7 +490,7 @@ completeness: 公共模块强制全量 → A
 
 ##### 2b: models-subagent
 ```
-目标文件: .dev-flow/memory/session/models.md
+目标文件: .dev-flow/memory/backend/session/models.md
 输入: file-index.yaml 的所有 services.entities + services.dtos
 需读源码:
   - 所有服务的 Entity 类（core 标记全量，普通类采样 ≤80%）
@@ -502,7 +504,7 @@ completeness: 服务级采样 → A（文件少时）或 B
 
 ##### 2c: config-subagent
 ```
-目标文件: .dev-flow/memory/session/config.md
+目标文件: .dev-flow/memory/backend/session/config.md
 输入: file-index.yaml 的 services.configs + 中间件依赖
 需读源码:
   - 所有 application*.yml / bootstrap*.yml
@@ -523,7 +525,7 @@ completeness: 配置文件全量读取 → A
 
 ##### 3a: apis-subagent
 ```
-目标文件: .dev-flow/memory/session/apis.md
+目标文件: .dev-flow/memory/backend/session/apis.md
 输入: file-index.yaml 的 services.controllers + services.feign_clients
 需读源码:
   - 所有服务的 Controller 类（提取 @RequestMapping 路径和方法签名）
@@ -536,7 +538,7 @@ completeness: 全部读取 → A
 
 ##### 3b: utils-subagent
 ```
-目标文件: .dev-flow/memory/session/utils.md
+目标文件: .dev-flow/memory/backend/session/utils.md
 输入: file-index.yaml 的 services.utils + common_modules 的 utils
 需读源码:
   - 所有 utils 类（提取类名、方法签名）
@@ -549,7 +551,7 @@ completeness: Util 全量 → A
 
 ##### 3c: conventions-subagent
 ```
-目标文件: .dev-flow/memory/conventions.md
+目标文件: .dev-flow/memory/backend/conventions.md
 输入: file-index.yaml 所有类的注解特征（从路径推断）+ 公共模块核心类
 需读源码:
   - common_modules 的核心类（BaseEntity/ResultDTO 等）→ 推断命名风格/注解/Lombok
@@ -572,7 +574,7 @@ completeness: 基于采样推断 → B（因非全量）
 
 ##### 4a: dependency-graph-subagent
 ```
-目标文件: .dev-flow/memory/dependency-graph.md
+目标文件: .dev-flow/memory/backend/dependency-graph.md
 输入: file-index.yaml 的所有 services + services.dependencies
 需读源码:
   - 每个服务的 feign_clients 列表 → 提取 @FeignClient 目标服务
@@ -586,7 +588,7 @@ completeness: 全部依赖记录 → A
 
 ##### 4b: decisions-subagent
 ```
-目标文件: .dev-flow/memory/decisions.md
+目标文件: .dev-flow/memory/backend/decisions.md
 输入: file-index.yaml + 已产出的 architecture.md（可从 memory 读取）
 需读源码: 无（基于架构和配置推断）
 产出内容:
@@ -602,22 +604,22 @@ completeness: 初始化 → 默认为 B（待后续积累）
 > **主 Agent 按以下批次顺序调度**，每批次内并行启动所有子代理。
 
 ```
-Batch 1 (基础层): 并行启动 3 个子代理 → 等待全部完成
+Batch 1 (基础层): 并行启动子代理（后端3 + 前端按类型） → 等待全部完成
   ├── project-overview-subagent
   ├── service-registry-subagent
   └── architecture-subagent
 
-Batch 2 (数据层): 并行启动 3 个子代理 → 等待全部完成
+Batch 2 (数据层): 并行启动子代理（后端3 + 前端按类型） → 等待全部完成
   ├── common-modules-subagent
   ├── models-subagent
   └── config-subagent
 
-Batch 3 (行为层): 并行启动 3 个子代理 → 等待全部完成
+Batch 3 (行为层): 并行启动子代理（后端3 + 前端按类型） → 等待全部完成
   ├── apis-subagent
   ├── utils-subagent
   └── conventions-subagent
 
-Batch 4 (横切层): 并行启动 2 个子代理 → 等待全部完成
+Batch 4 (横切层): 并行启动子代理（后端2） → 等待全部完成
   ├── dependency-graph-subagent
   └── decisions-subagent
 ```
@@ -667,7 +669,7 @@ Batch 4 (横切层): 并行启动 2 个子代理 → 等待全部完成
 
 > **主 Agent 执行**：汇总检查所有 13 个文件的状态。
 
-- [ ] 所有 13 个 memory 文件都已创建？（含 2 个由 pre-scanner 创建的模板文件）
+- [ ] 所有 memory 文件都已创建？（含 2 个由 pre-scanner 创建的模板文件）
 - [ ] 每个文件大小 > 50 字节？（非空检查）
 - [ ] `common-modules.md` 包含依赖项目的类？（不能只有标题没有数据）
 - [ ] `dependency-graph.md` 包含 Maven 依赖 + Feign 调用？
@@ -675,7 +677,7 @@ Batch 4 (横切层): 并行启动 2 个子代理 → 等待全部完成
 - [ ] `utils.md` 包含依赖项目的工具类？
 - [ ] `apis.md` 包含 Feign Client API？
 - [ ] `config.md` 包含数据库/Redis/中间件配置？
-- [ ] `decisions.md` 和 `mistakes.md` 和 `patterns.md` 至少有"暂无"文字？
+- [ ] backend/ 和 frontend/ 下的 decisions.md、mistakes.md、patterns.md 至少有"暂无"文字？
 - [ ] 🔴 **每个 memory 文件的 completeness_level 均为 A 或 B？（公共模块必须为 A）**
 - [ ] 🔴 **无 completeness_level = D 的文件？（D = 不完整，必须重新调度对应子代理）**
 
@@ -755,7 +757,7 @@ Batch 4 (横切层): 并行启动 2 个子代理 → 等待全部完成
 | 0 | **执行者审计**：本阶段由 pre-scanner + 11 文件子代理执行，主 Agent 未直接编辑任何文件 | ⬜ 待确认 |
 | 1 | 项目类型和架构已正确识别 | ⬜ 待确认 |
 | 2 | pre-scanner 已生成 file-index.yaml | ⬜ 待确认 |
-| 3 | 所有 13 个 memory 文件已创建且非空 | ⬜ 待确认 |
+| 3 | 所有 memory 文件已创建且非空 | ⬜ 待确认 |
 | 4 | 依赖项目的 Entity/DTO/Enum/Util 已完整记录 | ⬜ 待确认 |
 | 5 | 编码规范（命名/注解/统一响应/异常处理）已识别 | ⬜ 待确认 |
 | 6 | 跨服务依赖关系和 Feign 调用链已完整记录（多服务模式） | ⬜ 待确认 |

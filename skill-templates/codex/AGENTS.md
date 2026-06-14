@@ -1,4 +1,4 @@
-﻿﻿# dev-flow for Codex
+# dev-flow for Codex
 
 <!-- dev-flow:start -->
 
@@ -147,8 +147,8 @@ phase_results:
   Research:
     status: "completed"
     output_files:
-      - ".dev-flow/memory/project-overview.md"
-      - ".dev-flow/memory/conventions.md"
+      - ".dev-flow/memory/project-overview.md（共享）"
+      - ".dev-flow/memory/{type}/conventions.md"
     summary: "Java微服务项目，5个服务，200+文件"
     
   Analyze:

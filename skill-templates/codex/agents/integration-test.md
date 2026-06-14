@@ -1,4 +1,4 @@
-﻿---
+---
 name: integration-test
 description: dev-flow 集成测试专家，负责验证多模块/多服务联调。Use when testing cross-service interactions and integration scenarios.
 tools: Read, Bash, Grep
@@ -21,7 +21,7 @@ project_types: [all]
 
 ## 输入
 
-- `.dev-flow/memory/dependency-graph.md` - 服务依赖关系
+- `.dev-flow/memory/backend/dependency-graph.md` - 服务依赖关系
 - `.dev-flow/contracts/{需求简称}/详细设计.md` - 接口设计
 - `.dev-flow/contracts/{需求简称}/冒烟测试报告.md` - 冒烟测试结果
 
@@ -33,7 +33,7 @@ project_types: [all]
 
 ### Step 1: 识别集成点
 
-- 读取 `.dev-flow/memory/dependency-graph.md`
+- 读取 `.dev-flow/memory/backend/dependency-graph.md`
 - 识别当前服务调用的其他服务（Feign Client）
 - 识别被其他服务调用的接口（Controller）
 

@@ -1,4 +1,4 @@
-﻿---
+---
 name: service-orchestrator
 description: dev-flow 服务编排专家。负责按 runtime-contract.yaml 启动/停止服务，执行健康检查。Use for service startup orchestration and health checks.
 tools: RunCommand, Read, Grep, Bash

@@ -1,4 +1,4 @@
-﻿name = "design-contract-validator"
+name = "design-contract-validator"
 description = "Validate that the dev-flow design contract is complete, consistent with project architecture, and ready for Task Split."
 model_reasoning_effort = "high"
 project_types = ["all"]

@@ -1,4 +1,4 @@
-﻿---
+---
 name: verify-expert
 description: dev-flow 验证专家，负责代码审查、质量检查、测试验证。Use after development to verify code quality and completeness.
 tools: Read, Grep, Bash
@@ -145,7 +145,7 @@ recommendations:
 |------|----------|------|
 | `.dev-flow/sessions/{session-id}/design-result.md` | Read 全文 | 设计文档（对比验证） |
 | `.dev-flow/sessions/{session-id}/develop-result.yaml` | Read 全文 | 开发结果清单 |
-| `.dev-flow/memory/conventions.md` | Read 全文 | 编码规范（对比验证） |
+| `.dev-flow/memory/backend/conventions.md` | Read 全文 | 编码规范（对比验证） |
 
 ### 按需读取（只验证生成的文件）
 - 新生成的代码文件 → Read 全文（验证质量）

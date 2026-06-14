@@ -1,4 +1,4 @@
-﻿﻿name = "design-expert"
+name = "design-expert"
 description = "Create dev-flow design artifacts for confirmed requirements, including data, API, business logic, and test strategy."
 model_reasoning_effort = "high"
 sandbox_mode = "workspace-write"

@@ -1,4 +1,4 @@
-﻿name = "structure-analyzer"
+name = "structure-analyzer"
 description = "Analyze project structure, service layout, module boundaries, and dependency relationships for dev-flow Research."
 model_reasoning_effort = "medium"
 project_types = ["all"]

@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env node
+#!/usr/bin/env node
 
 import { appendFileSync, cpSync, existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
@@ -107,32 +107,59 @@ const TOOL_ALIASES = {
   codex: 'codex',
 };
 
-// 长期记忆文件（跨会话保留）
-const LONG_TERM_MEMORY_FILES = [
+// ============================================================
+// 记忆文件定义（v4.0 — 前后端分离）
+// 共享文件：project-overview.md（根目录唯一共享）
+// 后端文件：全部在 backend/ 子目录下
+// 前端文件：全部在 frontend/ 子目录下
+// ============================================================
+
+// 根目录共享记忆（所有项目类型）
+const SHARED_MEMORY_FILES = [
   'project-overview.md',
+];
+
+// 后端记忆 — 全部放入 backend/ 子目录
+const BACKEND_MEMORY_FILES = [
   'conventions.md',
   'patterns.md',
   'mistakes.md',
-  'preferences.md',
   'decisions.md',
-  // 微服务模式额外长期记忆
+  'preferences.md',
   'service-registry.md',
   'dependency-graph.md',
   'common-modules.md',
 ];
 
-// 会话记忆文件（每次 Research 重建）
-const SESSION_MEMORY_FILES = [
-  'modules.md',
-  'apis.md',
-  'models.md',
-  'utils.md',
-  'config.md',
+// 后端会话记忆 — 放入 backend/session/
+const BACKEND_SESSION_FILES = [
   'architecture.md',
+  'models.md',
+  'apis.md',
+  'config.md',
+  'utils.md',
 ];
 
-// 兼容旧版：MEMORY_FILES = 长期 + 会话
-const MEMORY_FILES = [...LONG_TERM_MEMORY_FILES, ...SESSION_MEMORY_FILES];
+// 前端记忆 — 全部放入 frontend/ 子目录
+const FRONTEND_MEMORY_FILES = [
+  'conventions.md',
+  'patterns.md',
+  'mistakes.md',
+  'decisions.md',
+  'preferences.md',
+  'pages.md',
+  'components.md',
+  'store.md',
+  'router.md',
+];
+
+// 前端会话记忆 — 放入 frontend/session/
+const FRONTEND_SESSION_FILES = [
+  'apis.md',
+  'types.md',
+  'hooks.md',
+  'styles.md',
+];
 
 const MEMORY_TEMPLATES = {
   'project-overview.md': `# 项目概览
@@ -154,19 +181,7 @@ const MEMORY_TEMPLATES = {
 
 > 由 dev-flow Research 阶段自动填充
 
-## 命名规范
-- 类名：PascalCase
-- 方法名/变量名：camelCase
-- 常量：UPPER_SNAKE_CASE
-
-## 代码风格
-- 缩进：4 空格
-- 最大行宽：120
-- 导入组织：按包分组
-
-## 注释规范
-- 类注释：Javadoc 格式
-- 方法注释：参数、返回值、异常说明
+<!-- project_type 决定填充前端或后端规范 -->
 `,
   'modules.md': `# 已有模块
 
@@ -368,7 +383,7 @@ function install(target) {
     installReferences(target);
   }
   createMemoryTemplate();
-  detectProjectType();
+  // detectProjectTypeInfo() is now called inside createMemoryTemplate()
   console.log('\n✅ dev-flow skill 安装完成！');
   console.log('   在 AI 编程工具中输入 /dev-flow <需求> 开始使用');
   console.log('   输入 /dev-flow -subagent <需求> 使用 subagent 并行模式\n');
@@ -533,30 +548,51 @@ function normalizeTarget(target) {
 }
 
 function createMemoryTemplate() {
+  // 先检测项目类型
+  const info = detectProjectTypeInfo();
+  const hasBackend = info.hasBackend;
+  const hasFrontend = info.hasFrontend;
+
   const memoryDir = resolve(PROJECT_ROOT, '.dev-flow/memory');
-  const sessionDir = resolve(PROJECT_ROOT, '.dev-flow/memory/session');
+  const indexDir = resolve(memoryDir, '_index');
+  const backendDir = resolve(memoryDir, 'backend');
+  const backendSessionDir = resolve(backendDir, 'session');
+  const frontendDir = resolve(memoryDir, 'frontend');
+  const frontendSessionDir = resolve(frontendDir, 'session');
   const sessionsDir = resolve(PROJECT_ROOT, '.dev-flow/sessions');
 
-  mkdirSync(memoryDir, { recursive: true });
-  mkdirSync(sessionDir, { recursive: true });
-  mkdirSync(sessionsDir, { recursive: true });
+  // 创建所有需要的目录
+  const dirs = [memoryDir, indexDir, sessionsDir];
+  if (hasBackend) { dirs.push(backendDir, backendSessionDir); }
+  if (hasFrontend) { dirs.push(frontendDir, frontendSessionDir); }
+  dirs.forEach(d => mkdirSync(d, { recursive: true }));
 
-  // 创建长期记忆模板（不覆盖已有内容）
-  for (const file of LONG_TERM_MEMORY_FILES) {
-    const filePath = resolve(memoryDir, file);
+  // 辅助函数：写入模板文件
+  const writeTemplate = (dir, file) => {
+    const filePath = resolve(dir, file);
     if (!existsSync(filePath)) {
-      const content = MEMORY_TEMPLATES[file] || `# ${file.replace('.md', '').replace(/-/g, ' ')}\n\n> 由 dev-flow Research 阶段自动填充\n\n`;
+      const content = MEMORY_TEMPLATES[file] || `# ${file.replace('.md', '').replace(/-/g, ' ')}
+
+> 由 dev-flow Research 阶段自动填充
+
+`;
       writeFileSync(filePath, content, 'utf-8');
     }
+  };
+
+  // 共享文件 → memory/ 根目录
+  SHARED_MEMORY_FILES.forEach(f => writeTemplate(memoryDir, f));
+
+  // 后端文件 → memory/backend/
+  if (hasBackend) {
+    BACKEND_MEMORY_FILES.forEach(f => writeTemplate(backendDir, f));
+    BACKEND_SESSION_FILES.forEach(f => writeTemplate(backendSessionDir, f));
   }
 
-  // 创建会话记忆模板（存放在 session/ 子目录）
-  for (const file of SESSION_MEMORY_FILES) {
-    const filePath = resolve(sessionDir, file);
-    if (!existsSync(filePath)) {
-      const content = MEMORY_TEMPLATES[file] || `# ${file.replace('.md', '').replace(/-/g, ' ')}\n\n> 由 dev-flow Research 阶段自动填充\n\n`;
-      writeFileSync(filePath, content, 'utf-8');
-    }
+  // 前端文件 → memory/frontend/
+  if (hasFrontend) {
+    FRONTEND_MEMORY_FILES.forEach(f => writeTemplate(frontendDir, f));
+    FRONTEND_SESSION_FILES.forEach(f => writeTemplate(frontendSessionDir, f));
   }
 
   // 创建 .gitkeep 防止空目录被 git 忽略
@@ -565,14 +601,17 @@ function createMemoryTemplate() {
     writeFileSync(gitkeep, '', 'utf-8');
   }
 
-  console.log(`✅ 记忆目录: .dev-flow/memory/ (长期) + .dev-flow/memory/session/ (会话)`);
+  const parts = ['.dev-flow/memory/ (共享)'];
+  if (hasBackend) parts.push('.dev-flow/memory/backend/ (后端)');
+  if (hasFrontend) parts.push('.dev-flow/memory/frontend/ (前端)');
+  console.log(`✅ 记忆目录: ${parts.join(' + ')}`);
 }
 
 // ============================================================
 // 项目类型自动检测（安装时轻量预检，仅输出提示）
 // ============================================================
 
-function detectProjectType() {
+function detectProjectTypeInfo() {
   const checks = {
     hasJava: existsSync(resolve(PROJECT_ROOT, 'pom.xml')) ||
               existsSync(resolve(PROJECT_ROOT, 'build.gradle')) ||
@@ -628,6 +667,7 @@ function detectProjectType() {
   if (hasFrontend) langInfo.push('typescript');
   if (langInfo.length > 0) console.log('  语言: ' + langInfo.join(', '));
   console.log('  AI 将在 /dev-flow 运行时自动适配工作流');
+  return { projectType, hasFrontend, hasBackend, backendLanguage, frontendFramework };
 }
 
 // CLI 解析

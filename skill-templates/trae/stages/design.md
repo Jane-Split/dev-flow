@@ -1,4 +1,4 @@
-﻿---
+---
 stage: Design
 type: stage-instruction
 ---

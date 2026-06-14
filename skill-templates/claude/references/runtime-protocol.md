@@ -1,4 +1,4 @@
-﻿---
+---
 type: reference
 name: runtime-protocol
 description: 运行时验证协议 - 服务编排、健康检查、DB 验证、UI 验证、追溯矩阵回写

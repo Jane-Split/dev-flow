@@ -1,4 +1,4 @@
-﻿---
+---
 name: design-expert
 description: dev-flow 设计专家，负责详细设计、接口定义、数据模型设计。Use when detailed technical design is needed before implementation.
 tools: Read, Write
@@ -171,9 +171,9 @@ exceptions:   # 异常类定义（类名、错误码、使用场景）
 |------|----------|------|
 | `.dev-flow/contracts/{需求简称}/prd-contract.yaml` | Read 全文 | PRD 契约（需求分析、验收标准、追溯矩阵） |
 | `.dev-flow/sessions/{session-id}/task-breakdown.yaml` | Read 全文 | 任务拆分清单 |
-| `.dev-flow/memory/conventions.md` | Read 全文 | 编码规范 |
-| `.dev-flow/memory/service-registry.md` | Read 全文 | 服务信息（多服务模式） |
-| `.dev-flow/memory/common-modules.md` | Read 全文 | 可复用公共类 |
+| `.dev-flow/memory/backend/conventions.md` | Read 全文 | 编码规范 |
+| `.dev-flow/memory/backend/service-registry.md` | Read 全文 | 服务信息（多服务模式） |
+| `.dev-flow/memory/backend/common-modules.md` | Read 全文 | 可复用公共类 |
 
 ### 按需读取（参考已有设计模式）
 - Read 1-2 个同类型的已有 Service 接口作为参考

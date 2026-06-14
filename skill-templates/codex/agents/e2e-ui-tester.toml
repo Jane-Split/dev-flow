@@ -1,4 +1,4 @@
-﻿name = "e2e-ui-tester"
+name = "e2e-ui-tester"
 description = "dev-flow UI 层验证专家。负责调用浏览器执行自动化测试，验证 UI 交互和数据展示。"
 model_reasoning_effort = "medium"
 project_types = ["frontend", "fullstack", "java-fullstack"]

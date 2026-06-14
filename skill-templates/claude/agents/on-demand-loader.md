@@ -1,4 +1,4 @@
-﻿---
+---
 name: on-demand-loader
 description: dev-flow 按需加载专家。在 Develop 阶段发现需要未扫描的类时，触发增量扫描，只读取需要的类。
 tools: Read, Grep, Glob

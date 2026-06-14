@@ -1,4 +1,4 @@
-﻿﻿name = "fix-expert"
+name = "fix-expert"
 description = "dev-flow Bug 修复专家。负责自动分类 Bug、定位根因、执行修复和回归测试。"
 model_reasoning_effort = "high"
 sandbox_mode = "workspace-write"

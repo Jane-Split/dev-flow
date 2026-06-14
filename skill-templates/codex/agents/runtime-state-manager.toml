@@ -1,4 +1,4 @@
-﻿name = "runtime-state-manager"
+name = "runtime-state-manager"
 description = "Manage runtime state for dev-flow services including startup, health checks, and state tracking."
 model_reasoning_effort = "medium"
 project_types = ["java-microservice", "java-fullstack", "backend", "fullstack"]

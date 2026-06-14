@@ -1,4 +1,4 @@
-﻿---
+---
 name: fix-expert
 description: dev-flow Bug 修复专家。负责自动分类 Bug、定位根因、执行修复和回归测试。Use for analyzing and fixing bugs found during testing or runtime.
 tools: Read, Grep, Glob, Bash, RunCommand, Edit

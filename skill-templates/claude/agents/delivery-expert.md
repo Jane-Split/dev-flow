@@ -1,4 +1,4 @@
-﻿---
+---
 name: delivery-expert
 description: dev-flow 交付报告专家。负责汇总全流程成果，生成最终交付清单和签收报告。Use for generating delivery reports summarizing all stage outputs.
 tools: Read, Grep, Glob

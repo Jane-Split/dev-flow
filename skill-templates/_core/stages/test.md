@@ -1,4 +1,4 @@
-﻿---
+---
 stage: Test
 type: stage-instruction
 ---

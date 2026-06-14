@@ -1,4 +1,4 @@
-﻿name = "contract-validator"
+name = "contract-validator"
 description = "Validate dev-flow design contracts for consistency, completeness, and rule compliance (R1-R5)."
 model_reasoning_effort = "high"
 project_types = ["all"]

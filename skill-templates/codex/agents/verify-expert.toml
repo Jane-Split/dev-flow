@@ -1,4 +1,4 @@
-﻿name = "verify-expert"
+name = "verify-expert"
 description = "Verify dev-flow changes through review, tests, risk checks, and regression-focused feedback."
 model_reasoning_effort = "high"
 project_types = ["all"]

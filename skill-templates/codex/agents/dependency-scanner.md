@@ -1,4 +1,4 @@
-﻿---
+---
 name: dependency-scanner
 description: dev-flow 依赖项目深层扫描专家。负责扫描所有项目内依赖的 Entity、DTO、Enum、Util、Feign Client。
 tools: Read, Grep, Glob
@@ -15,7 +15,7 @@ project_types: [java-microservice, java-fullstack, backend, fullstack]
 
 从 research-expert 接收：
 - 依赖项目路径列表
-- 输出文件路径：`.dev-flow/memory/common-modules.md`、`.dev-flow/memory/utils.md`
+- 输出文件路径：`.dev-flow/memory/backend/common-modules.md`、`.dev-flow/memory/backend/session/utils.md`
 
 ## 扫描方法
 

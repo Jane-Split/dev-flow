@@ -1,4 +1,4 @@
-﻿# dev-flow Codex project defaults
+# dev-flow Codex project defaults
 #
 # Installed directory layout (by `npx dev-flow install`):
 #   AGENTS.md                        → project root (router)

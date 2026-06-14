@@ -1,4 +1,4 @@
-﻿---
+---
 stage: Test
 type: stage-instruction
 ---
@@ -40,9 +40,9 @@ type: stage-instruction
 
 ### Step 1: 读取项目记忆
 
-- 读取 `.dev-flow/memory/conventions.md` - 了解项目测试风格和规范
-- 读取 `.dev-flow/memory/modules.md` - 了解模块接口以便编写测试（Java: Service/Mapper/Controller）
-- 读取 `.dev-flow/memory/mistakes.md` - 参考历史常见错误，重点测试
+- 读取 `.dev-flow/memory/{当前端}/conventions.md` - 了解项目测试风格和规范
+- 读取 `.dev-flow/memory/backend/session/modules.md` - 了解模块接口以便编写测试（Java: Service/Mapper/Controller）
+- 读取 `.dev-flow/memory/backend/mistakes.md（不存在时回退到 .dev-flow/memory/mistakes.md）` - 参考历史常见错误，重点测试
 - 读取 `.dev-flow/contracts/{需求简称}/test-case-contract.yaml` — 测试用例契约（新增）
 - 读取 `.dev-flow/contracts/{需求简称}/runtime-contract.yaml` — 运行时环境契约（新增）
 - 读取 `.dev-flow/contracts/{需求简称}/prd-contract.yaml` — PRD 契约（追溯用，新增）
@@ -569,7 +569,7 @@ void testCreateUser() throws Exception {
 **目的**：验证多模块/多服务联调，验证接口契约，验证数据一致性。
 
 **5.1: 识别集成点**
-- 读取 `.dev-flow/memory/dependency-graph.md`
+- 读取 `.dev-flow/memory/backend/dependency-graph.md`
 - 识别当前服务调用的其他服务（Feign Client）
 - 识别被其他服务调用的接口（Controller）
 

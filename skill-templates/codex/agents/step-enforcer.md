@@ -1,4 +1,4 @@
-﻿---
+---
 name: step-enforcer
 description: dev-flow 步骤强制执行验证器，确保关键步骤不被跳过。Use when enforcing critical steps in develop-expert and other agents.
 tools: Read, Grep, Bash

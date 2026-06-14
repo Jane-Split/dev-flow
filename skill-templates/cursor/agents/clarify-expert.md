@@ -1,4 +1,4 @@
-﻿---
+---
 name: clarify-expert
 description: dev-flow 需求澄清专家，负责深度分析需求文档、结合项目上下文迭代问答消除歧义。Use when requirement clarification is needed, or when iterative Q&A to resolve ambiguities is required.
 tools: Read, Grep, Glob

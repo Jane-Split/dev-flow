@@ -1,4 +1,4 @@
-﻿---
+---
 name: dev-flow
 description: Use when the user asks to run dev-flow, a staged development workflow, project research, requirement analysis, design, implementation, testing, bug fixing, memory updates, or coordinated subagent development.
 ---
@@ -257,9 +257,9 @@ Read the following files before implementation:
 2. ⭐ **Read `.dev-flow/contracts/{requirement-name}-design-contract.yaml`** - Design → Develop standard data exchange format
    - Must understand: API interface definitions, DTO field specifications, method naming conventions, input/output types
    - **Forbidden**: Ignore or override any definition in this contract
-3. Read `.dev-flow/memory/conventions.md` - Follow coding standards
-4. Read `.dev-flow/memory/patterns.md` - Reuse existing code patterns
-5. Read `.dev-flow/memory/mistakes.md` - Avoid historical mistakes
+3. Read `.dev-flow/memory/{type}/conventions.md` - Follow coding standards
+4. Read `.dev-flow/memory/backend/patterns.md（或 frontend/patterns.md）` - Reuse existing code patterns
+5. Read `.dev-flow/memory/backend/mistakes.md（或 frontend/mistakes.md）` - Avoid historical mistakes
 
 ### 🔴 Step 2.5: Mandatory Read Verification (Must Execute)
 
@@ -352,7 +352,7 @@ After editing:
 
 - run the smallest useful verification first,
 - broaden tests when shared behavior changed,
-- update `.dev-flow/memory/patterns.md`, `mistakes.md`, or `preferences.md` only when a durable lesson was learned.
+- update `.dev-flow/memory/backend/patterns.md（或 frontend/patterns.md）`, `mistakes.md`, or `preferences.md` only when a durable lesson was learned.
 
 ## Test And Fix
 
@@ -362,7 +362,7 @@ Generate or run tests that cover normal, error, and boundary cases. If tests fai
 2. Locate the root cause.
 3. Apply a focused fix.
 4. Re-run relevant tests.
-5. Record repeated mistakes in `.dev-flow/memory/mistakes.md`.
+5. Record repeated mistakes in `.dev-flow/memory/backend/mistakes.md（或 frontend/mistakes.md）`.
 
 ## Subagent Guidance
 

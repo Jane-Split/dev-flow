@@ -1,4 +1,4 @@
-﻿---
+---
 stage: Fix
 type: stage-instruction
 ---

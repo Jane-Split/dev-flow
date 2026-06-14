@@ -1,4 +1,4 @@
-﻿---
+---
 name: error-pattern-learner
 description: dev-flow 错误模式学习专家，负责从历史错误中学习，预防同类错误再次发生。Use when analyzing compilation errors, test failures, or consistency violations to extract patterns and generate prevention strategies.
 tools: Read, Write, Grep, Glob

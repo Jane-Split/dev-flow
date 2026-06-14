@@ -1,4 +1,4 @@
-﻿name = "delivery"
+name = "delivery"
 description = "dev-flow delivery expert. Use when generating final delivery report after all tests pass."
 model_reasoning_effort = "high"
 project_types = ["all"]

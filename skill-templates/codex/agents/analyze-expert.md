@@ -1,4 +1,4 @@
-﻿---
+---
 name: analyze-expert
 description: dev-flow 需求分析专家，负责分析需求、评估影响、识别风险。Use when a new requirement needs to be analyzed or when impact assessment is required.
 tools: Read, Grep, Glob
@@ -181,10 +181,10 @@ tasks:
 | 文件 | 读取方式 | 用途 |
 |------|----------|------|
 | `.dev-flow/memory/project-overview.md` | Read 全文 | 技术栈、架构概览 |
-| `.dev-flow/memory/service-registry.md` | Read 全文 | 服务列表、跨服务调用（多服务模式） |
-| `.dev-flow/memory/dependency-graph.md` | Read 全文 | 服务间依赖关系 |
-| `.dev-flow/memory/common-modules.md` | Read 全文 | 可复用的公共类 |
-| `.dev-flow/memory/conventions.md` | Read 全文 | 编码规范 |
+| `.dev-flow/memory/backend/service-registry.md` | Read 全文 | 服务列表、跨服务调用（多服务模式） |
+| `.dev-flow/memory/backend/dependency-graph.md` | Read 全文 | 服务间依赖关系 |
+| `.dev-flow/memory/backend/common-modules.md` | Read 全文 | 可复用的公共类 |
+| `.dev-flow/memory/backend/conventions.md` | Read 全文 | 编码规范 |
 
 ### 按需读取（根据需求关键词匹配）
 - 需求涉及"用户"→ Read `user-service` 相关 memory

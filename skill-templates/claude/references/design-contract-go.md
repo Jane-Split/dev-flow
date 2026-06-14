@@ -1,4 +1,4 @@
-﻿---
+---
 type: reference
 name: design-contract-go
 description: Go/Gin Design Contract 格式定义

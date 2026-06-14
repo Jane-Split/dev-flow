@@ -1,4 +1,4 @@
-﻿---
+---
 type: reference
 name: design-contract-typescript
 description: TypeScript/NestJS Design Contract 格式定义

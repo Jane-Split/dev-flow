@@ -1,4 +1,4 @@
-﻿name = "clarify-expert"
+name = "clarify-expert"
 description = "dev-flow 需求澄清专家。负责深度分析需求文档、结合项目上下文迭代问答消除歧义。"
 model_reasoning_effort = "high"
 project_types = ["all"]

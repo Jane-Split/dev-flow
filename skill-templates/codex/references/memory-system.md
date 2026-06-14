@@ -1,4 +1,4 @@
-﻿# dev-flow 记忆系统
+# dev-flow 记忆系统
 
 > **v3.7.0 项目类型适配**：
 > - `service-registry.md`、`dependency-graph.md`、`common-modules.md`：仅 `java-microservice`、`java-fullstack`、`fullstack` 填充
@@ -116,7 +116,7 @@ service-b/.dev-flow/memory/                # 服务 B 专属记忆
   - Analyze 前：必须读取 service-registry.md、dependency-graph.md、common-modules.md
   - Design 前：必须读取 service-registry.md、dependency-graph.md、common-modules.md
   - Develop 前：必须读取 service-registry.md、dependency-graph.md、common-modules.md
-  - 开发某服务时：读取该服务的 `.dev-flow/memory/modules.md`（如有）
+  - 开发某服务时：读取该服务的 `.dev-flow/memory/backend/session/modules.md`（如有）
 
 **更新时机**：
 - Research 完成后：创建/更新所有记忆文件

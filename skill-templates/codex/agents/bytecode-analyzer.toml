@@ -1,4 +1,4 @@
-﻿name = "bytecode-analyzer"
+name = "bytecode-analyzer"
 description = "Analyze Java bytecode for dev-flow to verify compilation, detect issues, and validate class structure."
 model_reasoning_effort = "high"
 project_types = ["java-microservice", "java-fullstack"]

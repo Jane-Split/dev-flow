@@ -1,4 +1,4 @@
-﻿---
+---
 stage: Clarify
 type: stage-instruction
 ---
