@@ -1,17 +1,75 @@
-﻿# dev-flow Codex project configuration
-#
-# This file defines Codex project-level defaults. User/global settings
-# take precedence where appropriate. This config ensures dev-flow
-# operates with appropriate safety and quality settings.
+# ============================================================
+# dev-flow 项目级 Codex 配置（项目根 .codex/config.toml）
+# ============================================================
+# ⚠️ 重要：以下键在项目级 .codex/config.toml 中将被 Codex 忽略，
+#    请改放入用户级 ~/.codex/config.toml：
+#    - profile, profiles
+#    - openai_base_url, chatgpt_base_url
+#    - model_provider, model_providers
+#    - notify
+#    - experimental_realtime_ws_base_url
+#    - otel
+# ============================================================
 
-# Approval policy: "on-request" means the user is asked before
-# executing potentially destructive actions like file writes.
+# === 基础 ===
 approval_policy = "on-request"
-
-# Sandbox mode: "workspace-write" allows reading project files and
-# writing within the workspace, but blocks external file access.
 sandbox_mode = "workspace-write"
-
-# Reasoning effort: "high" ensures thorough analysis for all
-# dev-flow stages (Research, Analyze, Design, Develop, etc.)
 model_reasoning_effort = "high"
+web_search = "cached"
+
+# === AGENTS.md 加载 ===
+project_doc_max_bytes = 65536
+project_doc_fallback_filenames = ["TEAM_GUIDE.md"]
+
+# === Subagent 全局调度（[agents] 表：调度配置）===
+[agents]
+max_threads = 3                  # dev-flow 推荐并发上限（覆盖默认 6）
+max_depth = 1                    # 防递归委派（覆盖默认 1）
+job_max_runtime_seconds = 1800   # spawn_agents_on_csv worker 超时
+
+# === Features（[features] 表：功能开关）===
+[features]
+multi_agent = true               # 多智能体协作（默认开启）
+memories = true                  # 启用 Codex 长期记忆
+hooks = true                     # 启用生命周期钩子
+personality = "pragmatic"        # 主 agent 风格务实
+
+# === Windows 沙箱 ===
+[windows]
+sandbox = "elevated"             # Windows 原生沙箱推荐
+
+# === Memories（dot-notation 风格，与官方 config-reference 一致）===
+memories.generate_memories = true
+memories.use_memories = true
+memories.min_rate_limit_remaining_percent = 20
+memories.disable_on_external_context = false
+
+# === MCP Servers（项目级可用）===
+[mcp_servers.openaiDeveloperDocs]
+url = "https://developers.openai.ac.cn/mcp"
+description = "OpenAI Docs MCP - 用于 research 阶段查询 Codex 文档"
+
+# === Network Proxy（按需启用, O-16）===
+# 启用后可控制 Codex 访问外部网络的目标域名
+# 默认 sandbox 仍为 workspace-write + 关闭网络, 启用后允许特定域
+# [features.network_proxy]
+# enabled = true
+# domains = { "*.openai.com" = "allow", "api.github.com" = "allow", "registry.npmjs.org" = "allow" }
+
+# === Skills 精细化控制（O-17）===
+# 禁用无关 skill, 防止污染 dev-flow 流程
+# 当前无需要禁用的 skill; 保留模板以备后续
+# [[skills.config]]
+# path = "/path/to/unrelated-skill/SKILL.md"
+# enabled = false
+
+# === TUI 自定义快捷键 ===
+[tui.keymap.global]
+open_transcript = "ctrl-t"
+show_status = "ctrl-s"
+
+[tui.keymap.composer]
+submit = ["enter", "ctrl-m"]
+
+# === 日志目录 ===
+log_dir = "./.codex-log"

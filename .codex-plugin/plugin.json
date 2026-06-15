@@ -1,0 +1,29 @@
+{
+  "name": "dev-flow",
+  "version": "1.0.0",
+  "description": "AI 开发全流程编排器（9 阶段 + 30 subagent + lifecycle hooks）",
+  "author": "dev-flow team",
+  "license": "MIT",
+  "homepage": "https://github.com/your-org/dev-flow",
+  "keywords": ["codex", "development-workflow", "orchestrator", "subagent", "hooks"],
+  "skills": [
+    "../.agents/skills/dev-flow"
+  ],
+  "agents": [
+    "../.codex/agents"
+  ],
+  "hooks": "../.codex/hooks.json",
+  "config": "../.codex/config.toml",
+  "interface": {
+    "displayName": "dev-flow",
+    "shortDescription": "AI 全流程开发编排器",
+    "iconSmall": "./assets/icon-small.svg",
+    "iconLarge": "./assets/icon-large.png",
+    "brandColor": "#3B82F6",
+    "category": "Development"
+  },
+  "requirements": {
+    "codex": ">=0.1.0",
+    "platforms": ["macos", "linux", "windows"]
+  }
+}

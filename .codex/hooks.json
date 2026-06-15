@@ -1,0 +1,78 @@
+{
+  "$schema": "https://json.schemastore.org/codex-hooks.json",
+  "_comment": "dev-flow Codex lifecycle hooks. 6 critical events out of 9 supported by Codex are wired here. Hook script: .codex/scripts/dev-flow-hook.cjs",
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|resume",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node .codex/scripts/dev-flow-hook.cjs session-start",
+            "statusMessage": "Initializing dev-flow session"
+          }
+        ]
+      }
+    ],
+    "SubagentStart": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node .codex/scripts/dev-flow-hook.cjs subagent-start ${agent_name}",
+            "statusMessage": "Recording subagent spawn"
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node .codex/scripts/dev-flow-hook.cjs subagent-stop ${agent_name} ${exit_code}",
+            "statusMessage": "Recording subagent completion"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node .codex/scripts/dev-flow-hook.cjs pre-write ${file_path}",
+            "statusMessage": "Enforcing main-agent zero-edit rule"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node .codex/scripts/dev-flow-hook.cjs post-write ${file_path}",
+            "statusMessage": "Validating deliverable"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node .codex/scripts/dev-flow-hook.cjs stage-stop",
+            "statusMessage": "Writing .confirmed marker"
+          }
+        ]
+      }
+    ]
+  }
+}

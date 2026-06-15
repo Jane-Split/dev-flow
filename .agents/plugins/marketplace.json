@@ -1,0 +1,17 @@
+{
+  "name": "dev-flow-marketplace",
+  "version": "1.0.0",
+  "description": "dev-flow 本地插件市场",
+  "plugins": [
+    {
+      "name": "dev-flow",
+      "source": {
+        "source": "local",
+        "path": "./.codex-plugin"
+      },
+      "interface": {
+        "displayName": "dev-flow"
+      }
+    }
+  ]
+}

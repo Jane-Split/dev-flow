@@ -1,0 +1,9 @@
+interface:
+  display_name: "dev-flow"
+  short_description: "AI 全流程开发编排器（9 阶段 + 30 subagent）"
+  icon_small: "./assets/icon-small.svg"
+  brand_color: "#3B82F6"
+  default_prompt: "/dev-flow "
+
+policy:
+  allow_implicit_invocation: false

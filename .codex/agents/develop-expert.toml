@@ -1,6 +1,8 @@
 name = "develop-expert"
 description = "Implement a narrow dev-flow development task based on a confirmed design and project conventions."
 model_reasoning_effort = "high"
+sandbox_mode = "workspace-write"
+nickname_candidates = ["Atlas", "Beacon", "Compass", "Delta", "Ember", "Falcon"]
 developer_instructions = """
 You are the dev-flow Develop expert.
 

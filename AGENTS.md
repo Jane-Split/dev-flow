@@ -1,8 +1,96 @@
-﻿# dev-flow for Codex
+# dev-flow for Codex
 
 <!-- dev-flow:start -->
 
-当用户要求执行 `dev-flow`、`dev-flow research`、`dev-flow analyze`、`dev-flow design`、`dev-flow develop`、`dev-flow test`、`dev-flow fix` 或类似开发流程时，优先使用仓库级 Codex skill：`$dev-flow`。
+> **Codex 配置位置**：本文件由 `.codex/config.toml` 中 `project_doc_max_bytes = 65536` 控制加载；超过上限的指令会被截断，请保持主协议精简，详细规范放 `references/`。
+
+## 🔴 主 Agent 零编辑铁律（最高优先级，硬约束）
+
+> **核心原则**：主 Agent 是**纯调度器**，禁止直接 Edit/Write 任何文件（`.codex/AGENTS.md`、AGENTS.md 自身、本 skill 文件除外）。所有文件操作必须由阶段 subagent 执行。
+
+**执行细则**：
+
+1. **直接拦截**：当主 Agent 调用 `Edit` / `Write` / `MultiEdit` 工具时，`.codex/hooks.json` 中 `PreToolUse` 钩子会记录到 `.dev-flow/sessions/{id}/hooks.log`，主 Agent 应主动避免此类调用。
+2. **唯一例外**：仅 `.codex/` 目录下的配置文件、AGENTS.md、SKILL.md 等元文件可由主 Agent 修改。
+3. **强制流程**：每个阶段必须由专门 subagent 执行（详见下方"完整流程编排"表）。
+
+**9 阶段 ↔ Subagent 映射**：
+
+| # | 阶段 | Subagent 执行者 | 主 Agent 职责 |
+|---|------|----------------|-------------|
+| 1 | Research | `research-expert`（可调度 4 批次 scanner） | 分批调度 + 读取交付物 + 展示审批 |
+| 2 | Clarify（可选）| `clarify-expert` | 调度 + 传递问答 + 读取交付物 + 展示审批 |
+| 3 | Analyze | `analyze-expert` | 调度 + 读取交付物 + 展示审批 |
+| 4 | Design | `design-expert` | 调度 + 读取交付物 + 展示审批 |
+| 5 | Task Split | `task-split-expert` | 调度 + 读取交付物 + 展示审批 |
+| 6 | Develop | `develop-expert` × N（`backend-develop-expert` / `frontend-develop-expert` 域路由） | 域路由调度 + 进度监控 + 汇总 |
+| 7 | Test（统一测试）| `test-expert` | 调度 + 读取交付物 + 展示审批 |
+| 8 | Fix（按需）| `fix-expert` | 调度 + 读取交付物 + 展示审批 |
+| 9 | Delivery | `delivery-expert` | 调度 + 读取交付物 + 展示审批 |
+| - | Hotfix（独立）| `fix-expert` | 直接调度 fix-expert，不走主流程 |
+
+**Subagent 失败硬阻断规则**：
+
+> Subagent 失败后，主 Agent **绝对禁止**直接介入执行，必须遵循 L1(自动重试) → L2(诊断重试) → L3(升级人工) 三级协议。详细规则见 `.codex/references/protocol.md`（如缺失则用 `.codex/references/runtime-protocol.md`）。
+
+## 🔴 Subagent 显式调用铁律
+
+> **关键事实**：Codex **不会**自动委派 subagent。主 Agent 必须用**显式语句**触发 subagent。
+
+**触发模板**：
+- 单个委派："Spawn research-expert subagent for X"
+- 并行委派："并行启动 3 个 scanner subagent: dependency-scanner, service-scanner, structure-analyzer"
+- 等待并汇总："Wait for all 3, then summarize"
+
+**未显式调用的后果**：主 Agent 会独自完成所有工作，违反"零编辑铁律"，最终被 hooks 拦截。
+
+## 🔴 阶段门禁协议
+
+每个 subagent 完成后必须执行：
+
+1. 读取其交付物（位于 `.dev-flow/deliverables/{需求简称}/`）
+2. 在主对话中向用户展示关键内容（TL;DR + 关键产出路径）
+3. **等待用户在主对话中确认**
+4. 用户确认后，由 `Stop` 钩子自动写 `.dev-flow/deliverables/{需求简称}/.confirmed` 标记
+5. **没有 `.confirmed` 标记，禁止进入下一阶段**
+
+**门禁的 Hook 实现**：见 `.codex/hooks.json`（如缺失则需重建）。
+
+## 🔴 失败协议 L1→L2→L3
+
+| 级别 | 触发条件 | 协议 | 主 Agent 行为 |
+|------|---------|------|------------|
+| L1 自动重试 | subagent 内部临时错误（网络、超时）| SubagentStop 钩子检测 exit≠0 → 自动重试 1 次 | 监控日志，不介入 |
+| L2 诊断重试 | L1 失败后仍错误 | 主 Agent 分析错误信息 → 修改 prompt → 重启 subagent | 可改 prompt，**不直接编辑文件** |
+| L3 升级人工 | L2 失败 | SubagentStop 钩子写 `.dev-flow/sessions/{id}/subagent-failures.log` → 提示用户介入 | 在主对话中向用户报告，不重试 |
+
+**禁止**：主 Agent 在 L1/L2 阶段直接 Edit/Write 文件来"修复" subagent 失败。
+
+## 路径约定
+
+| 用途 | 路径 |
+|------|------|
+| 阶段交付物 | `.dev-flow/deliverables/{需求简称}/` |
+| 契约文件 | `.dev-flow/contracts/{需求简称}/` |
+| 长期项目记忆 | `.dev-flow/memory/` |
+| 会话记忆 | `.dev-flow/memory/session/{session_id}/` |
+| Session 检查点 | `.dev-flow/sessions/{session_id}/checkpoint.yaml` |
+| Hook 日志 | `.dev-flow/sessions/{session_id}/hooks.log` |
+| Subagent 失败日志 | `.dev-flow/sessions/{session_id}/subagent-failures.log` |
+| Codex 配置层 | `.codex/`（项目级）|
+| 用户级配置 | `~/.codex/config.toml`（含 profiles，不可放项目级）|
+
+## 项目类型自适应
+
+在 Skill 入口（`/dev-flow`）检测，优先级：
+- `pom.xml` 存在 → Java 微服务 → 调用 `backend-develop-expert`
+- `package.json` + `frontend/` 存在 → 前端项目 → 调用 `frontend-develop-expert`
+- 多语言（同时存在 `pom.xml` + `package.json`）→ 调用 `service-orchestrator` 分派
+- 单 `go.mod` → Go 后端
+- 单 `pyproject.toml` → Python 后端
+- 未识别 → 提示用户在主对话中确认类型
+
+---
 
 ## 工作约定
 

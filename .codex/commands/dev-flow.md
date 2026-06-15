@@ -5,6 +5,11 @@ description: AI开发全流程编排技能 - 在AI编程工具对话框中结构
 
 # dev-flow - AI开发全流程编排
 
+> **⚠️ Skill 入口已迁移**
+> 完整的 Skill 定义位于 `.agents/skills/dev-flow/SKILL.md`（Codex 原生位置）。
+> 本文件作为向后兼容入口保留，详细规则优先参考新 Skill。
+> 持久化指令见 `AGENTS.md`（主 Agent 零编辑铁律 / 阶段门禁 / 失败协议）。
+
 ## 定位
 
 你是一个结构化的开发流程编排系统。当用户输入 `/dev-flow <需求>` 时，你将严格按照本技能定义的阶段、步骤和规范执行开发任务。
